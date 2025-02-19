@@ -34,15 +34,15 @@ def main():
             
     # Init player tank
     speed = 1
-    player_tank = Tank((500,500), (0,0), speed, tank_img)
+    firerate = 10
+    player_tank = Tank((500,500), (0,0), speed, firerate, tank_img)
     test_rect = Obstacle([(50,50),(500,50),(100,100),(50,100)])
     
     while True:
         display.fill("white")
 
         screen.blit(tank_img,(100,100))
-        
-                
+               
       # EVENTS
         for e in pg.event.get():
             match e.type:
@@ -95,13 +95,15 @@ def main():
         
 
 class Tank:
-    def __init__(self, startpos: tuple, direction: tuple, speed: int, image):
+    def __init__(self, startpos: tuple, direction: tuple, speed: float, firerate: float, image):
         self.pos = list(startpos)
         self.direction = direction
         self.degrees = 0
         self.speed = speed
         self.image = image
         self.current_speed = [0,0]
+        self.firerate = firerate
+        self.cannon_cooldown = 0
         
         
     def move(self, direction: str):
@@ -121,6 +123,10 @@ class Tank:
         rotated_image = pg.transform.rotate(self.image, -self.degrees+tank_correct_orient)
         rect = rotated_image.get_rect(center=self.pos)
         surface.blit(rotated_image, rect.topleft)
+        
+        # Decrease cooldown each new draw
+        if self.cannon_cooldown > 0:
+            self.cannon_cooldown -= 1
 
     def rotate(self, deg: int):
         self.degrees += deg
@@ -133,9 +139,12 @@ class Tank:
         pass
     
     def shoot(self):
+        if self.cannon_cooldown == 0:
+            projectile = Projectile(self.pos[:], self.direction, speed=1.3)
+            projectiles.append(projectile)
         
-        projectile = Projectile(self.pos[:], self.direction, speed=1.3)
-        projectiles.append(projectile)
+        # Fireate is now just a cooldown amount
+        self.cannon_cooldown = self.firerate
     
     
 class Projectile:

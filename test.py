@@ -30,52 +30,65 @@ def line_intersection(p1, p2, p3, p4):
     return None  # The intersection is outside the segment
 
 def find_normal_vector(start_point, end_point):
-    """Normilized vector"""
+    """Returns two possible unit normal vectors to the line segment."""
     x1, y1 = start_point
     x2, y2 = end_point
     
+    # Compute direction vector
     dx = x2 - x1
     dy = y2 - y1
     
-    # Normilize len
-    v_len = np.sqrt(dx**2 + dy**2)
-    dx /= v_len
-    dy /= v_len
+    # Normalize to unit length
+    length = np.sqrt(dx**2 + dy**2)
+    if length == 0:
+        raise ValueError("Start and end points must be different")
     
-    return (-dy,dx),(dy,-dx)
+    dx /= length
+    dy /= length
+    
+    # Return two perpendicular unit normal vectors  
+    return (-dy, dx), (dy, -dx)
+
+# Example usage
+n1, n2 = find_normal_vector((0, 0), (4, 2))
+print("Possible Normal Vectors:", n1, "and", n2)
     
     
 def find_deflect_vector(normal_vector, vector_to_deflect):
-    """???"""
-    r = vector_to_deflect - 2 * (vector_to_deflect * normal_vector) * normal_vector
+    r = vector_to_deflect - 2 * (np.array(vector_to_deflect) @ np.array(normal_vector)) * np.array(normal_vector)
     return r
     
 # Example usage
 p1 = (0, 0)
 p2 = (10, 0)
-p3 = (3, -1)
-p4 = (20, 20)
+p3 = (10, 10)
+p4 = (5, -2)
 
-# Find 2 point of the normal vector
+# Find the 2 normal vectors
 nv_p1, nv_p2 = find_normal_vector(p1, p2)
 
 print(f"{nv_p1},{nv_p2}")
 
+projectile_vector = (p4[0] - p3[0], p4[1] - p3[1])
+
+deflect_v = find_deflect_vector(nv_p1, projectile_vector)
+
+print(f"Deflect v: {deflect_v}")
+
 intersection = line_intersection(p1, p2, p3, p4)
 print("Intersection:", intersection)
 
-# Move tangent vector to intersection:
-ix, iy = intersection
+if intersection != None:
+    # Move tangent vector to intersection:
+    ix, iy = intersection
 
-# Unpack the 2 normal vector points
-nv1_x, nv1_y  = nv_p1
-nv2_x, nv2_y  = nv_p2
+    # Unpack the 2 normal vector points
+    nv1_x, nv1_y  = nv_p1
+    nv2_x, nv2_y  = nv_p2
 
-# Add intersection amount to x and y
-nv_p1 = nv1_x + ix, nv1_y + iy
-nv_p2 = nv2_x + ix, nv2_y + iy
-
-
+    # Add intersection amount to x and y
+    nv_p1 = nv1_x + ix, nv1_y + iy
+    nv_p2 = nv2_x + ix, nv2_y + iy
 
 print(f"{nv_p1},{nv_p2}")
 
@@ -83,11 +96,15 @@ fig, ax = plt.subplots()
 ax.plot([p1[0],p2[0]],[p1[1],p2[1]], "red", label="Line 1")
 ax.plot([p3[0],p4[0]],[p3[1],p4[1]], "blue", label="Line 2")
 
-# Normal vektor:
-ax.plot([nv_p1[0],nv_p2[0]],[nv_p1[1],nv_p2[1]], "green", label="Normal vektor")
-#ax.plot([intersection[0],nv_p1[0]],[intersection[1],nv_p1[1]], "green", label="Normal vektor")
-
 if intersection != None:
+    # Normal vektor:
+    ax.plot([nv_p1[0],nv_p2[0]],[nv_p1[1],nv_p2[1]], "green", label="Normal vektor")
+
+    # Deflect vektor:
+    # adds deflect vector to the intercept point. 
+    ax.plot([ix, ix + deflect_v[0]],[iy, iy + deflect_v[1]], "purple", label="Deflect vektor")
+
+    # Intersect point:
     ax.plot([intersection[0]],[intersection[1]],"o",label="Intersect")
 
 ax.legend()

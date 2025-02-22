@@ -16,10 +16,10 @@ class TankGame:
         self.fps = 60
 
         # Window setup
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1000, 1000
-        self.SCALE = 20
+        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1920, 1080
+        self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
-        self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / self.SCALE), int(self.WINDOW_H / self.SCALE)
+        self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
         self.display = pg.Surface(self.WINDOW_DIM_SCALED)
 
         # Font
@@ -62,18 +62,20 @@ class TankGame:
         firerate = 2
         speed_projectile = 2
         speed_projectile *= speed
-        player_tank = Tank((100, 500), (0, 0), speed, firerate, speed_projectile, self.tank_img, self.tank_death_img)
+        spawn_point  = (500, 500)
+        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, self.tank_img, self.tank_death_img)
         self.units.append(player_tank)
 
-        k, j = 400, 200
-        self.obstacles.extend([
-            Obstacle([(100+k, 100+k), (400+k, 100+k), (400+k, 250+k), (100+k, 250+k)]),
-            Obstacle([(20+k, 20+k), (80+k, 20+k), (80+k, 50+k), (20+k, 50+k)]),
-            Obstacle([(0, 0), (0, 998), (998, 998), (998, 0)]),
-            Obstacle([(10+j, 0), (80+j, 20+j), (80+j, 50+j), (20+j, 50+j)])
-        ])
+        # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
+        map_name = r"map_files\map_test1.txt"
+        map_data = helper_functions.load_map_data(map_name)
+        
+        # Add bord
+        self.obstacles.extend([Obstacle(map_data[0])])
+                
+        for polygon_conrners in map_data[1]:
+            self.obstacles.extend([Obstacle(polygon_conrners)])
 
-        print(helper_functions.coord_to_coordlist([(20+k, 20+k), (80+k, 20+k), (80+k, 50+k), (20+k, 50+k)]))
 
     def handle_events(self):
         """Handle player inputs and game events."""

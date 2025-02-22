@@ -3,18 +3,18 @@ import pygame as pg
 import numpy as np
 import os
 import deflect as df
+import helper_functions
 
 # SETUP
 pg.init()
 clock = pg.time.Clock()
 fps = 144
 # WINDOW
-WH = W, H = 1000, 1000
+window_dimensions = window_width, window_height = 1000, 1000
 SCALE = 20
-screen = pg.display.set_mode(WH)
-DWH = DW, DH = int(W / SCALE), int(H / SCALE)
-display = pg.Surface(DWH)
-MID = MW, MH = [DW / 2, DH / 2]
+screen = pg.display.set_mode(window_dimensions)
+window_dimensions_scaled = window_width_scaled, window_height_scaled = int(window_width / SCALE), int(window_height / SCALE)
+display = pg.Surface(window_dimensions_scaled)
 
 # For text
 myfont = pg.font.SysFont("monospace", 16)
@@ -30,10 +30,10 @@ def main():
     
     try:
         tank_img = pg.image.load(path_tank).convert_alpha()  # Convert for performance
-        tank_img = pg.transform.scale(tank_img, (DW, DH))  # Scale image to match display
+        tank_img = pg.transform.scale(tank_img, window_dimensions_scaled)  # Scale image to match display
         
         tank_death_img = pg.image.load(path_tank_death).convert_alpha()  # Convert for performance
-        tank_death_img = pg.transform.scale(tank_death_img, (DW, DH))  # Scale image to match display
+        tank_death_img = pg.transform.scale(tank_death_img, window_dimensions_scaled)  # Scale image to match display
         
     except FileNotFoundError:
         print("Error: Image not found! Check your path.")
@@ -55,7 +55,7 @@ def main():
     obstacles.append(test_rect2)
     obstacles.append(test_rect3)
     
-    print(coord_to_coordlist([(20+k,20+k),(80+k,20+k),(80+k,50+k),(20+k,50+k)]))
+    print(helper_functions.coord_to_coordlist([(20+k,20+k),(80+k,20+k),(80+k,50+k),(20+k,50+k)]))
     
     while True:
         display.fill("white")
@@ -75,9 +75,7 @@ def main():
                     if e.key == pg.K_r:
                         print("RESPAWN")
                         player_tank.respawn()
-                            
-                
-                
+                               
         # HANDLE KEY HOLDS
         keys = pg.key.get_pressed()
         if keys[pg.K_q]:
@@ -94,7 +92,7 @@ def main():
         if keys[pg.K_SPACE]:
             player_tank.shoot() 
 
-        screen.blit(pg.transform.scale(display, WH), (0, 0))
+        screen.blit(pg.transform.scale(display, window_dimensions), (0, 0))
         
 
         # Update projectiles: for each projectile, check all obstacles before updating  -  Could be moved down to the other for loop with proj***
@@ -163,7 +161,6 @@ class Tank:
         self.dead = False
         
         
-        
     def init_hitbox(self):
         x = self.pos[0]
         y = self.pos[1]
@@ -214,7 +211,7 @@ class Tank:
         #Update hitbox:
         draw_hitbox = False 
         if draw_hitbox:
-            for corner_pair in coord_to_coordlist(self.hitbox):
+            for corner_pair in helper_functions.coord_to_coordlist(self.hitbox):
                 pg.draw.line(screen, "blue", corner_pair[0], corner_pair[1], 3)
 
     def rotate(self, deg: int):
@@ -250,7 +247,7 @@ class Tank:
         line_coord1, line_coord2 = line
         
         # Find coord where tank and line meet. Try all 4 side of tank
-        hit_box_lines = coord_to_coordlist(self.hitbox)
+        hit_box_lines = helper_functions.coord_to_coordlist(self.hitbox)
         
         # Check each line in hitbox if it itersect a line: surface/projectile/etc
         for i in range(len(hit_box_lines)):
@@ -307,7 +304,7 @@ class Tank:
             spawn_distance_from_middle = 25
             
             # Calculate magnitude scalar of units direction vector
-            magnitude_dir_vec = get_vector_magnitude(self.direction)
+            magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction)
             
             # Find unit vector for direction
             unit_diretion = (self.direction[0]/magnitude_dir_vec, self.direction[1]/magnitude_dir_vec)
@@ -321,8 +318,8 @@ class Tank:
 
         # Firerate is now just a cooldown amount
         self.cannon_cooldown = self.firerate
-    
 
+ 
 class Projectile:
     
     def __init__(self, startpos: tuple, direction: tuple, speed: int):
@@ -330,16 +327,13 @@ class Projectile:
         self.direction = direction
         self.degrees = 0
         self.speed = speed
-        self.lifespan = 50000
+        self.lifespan = 500
         self.alive = True
         self.projectile_path_scale = 10
         
     def update(self):
         self.pos[0] += self.direction[0]*self.speed
         self.pos[1] += self.direction[1]*self.speed
-        
-        #self.pos[0] = round(self.pos[0], 5)
-        #self.pos[1] = round(self.pos[1], 5)
         
         self.lifespan -= 1
         
@@ -416,27 +410,8 @@ class Obstacle:
         
     def get_corner_pairs(self):
         # Convert the polygon corners to pairs representing each line in the polygon
-        return coord_to_coordlist(self.corners)
+        return helper_functions.coord_to_coordlist(self.corners)
     
-    
-def coord_to_coordlist(coordinat_list: list) -> list:
-    """Takes a list of coordinates (polygon) and makes tuples representing each line"""
-    new_coordinat_list = []
-    length = len(coordinat_list)
-
-    # Connect polygon
-    for i in range(length-1):
-        new_coordinat_list.append((coordinat_list[i], coordinat_list[i+1]))
-    
-    # close the polygon
-    new_coordinat_list.append((coordinat_list[-1], coordinat_list[0]))
-    
-    #return [((420, 420), (480, 420)),((400,100),(600,100))] #------------------------------------------------------------!
-    return new_coordinat_list
-
-def get_vector_magnitude(vector: list) -> float:
-    return np.sqrt(vector[0] ** 2 + vector[1] ** 2)
-
 
 
 if __name__ == "__main__":

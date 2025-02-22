@@ -72,6 +72,11 @@ def main():
                     if e.key == pg.K_q:
                         pg.quit()
                         sys.exit()
+                    if e.key == pg.K_r:
+                        print("RESPAWN")
+                        player_tank.respawn()
+                            
+                
                 
         # HANDLE KEY HOLDS
         keys = pg.key.get_pressed()
@@ -150,11 +155,14 @@ class Tank:
         self.speed = speed
         self.image = image
         self.death_image = death_image
+        self.active_image = image
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
         self.hitbox = self.init_hitbox()
         self.dead = False
+        
+        
         
     def init_hitbox(self):
         x = self.pos[0]
@@ -187,13 +195,15 @@ class Tank:
             moved_x = x + dir * self.direction[0]
             moved_y = y + dir * self.direction[1]
             self.hitbox[i] = (moved_x, moved_y)
- 
+    
+    def respawn(self):
+        self.make_dead(False)
     
     def draw(self, surface):
         
         # TEMP: constant to make sure tank points right way
         tank_correct_orient = -90
-        rotated_image = pg.transform.rotate(self.image, -self.degrees+tank_correct_orient)
+        rotated_image = pg.transform.rotate(self.active_image, -self.degrees+tank_correct_orient)
         rect = rotated_image.get_rect(center=self.pos)
         surface.blit(rotated_image, rect.topleft)
         
@@ -272,15 +282,20 @@ class Tank:
                         self.hitbox[i] = (x + normal_scaled_x, y + normal_scaled_y)
                     
                 elif collision_type == "projectile":
-                    self.make_dead()
+                    self.make_dead(True)
                     return True
                 else:
                     print("Hitbox collision: type is unknown")
         
-    def make_dead(self):
-        print("Tank dead")
-        self.dead = True
-        self.image = self.death_image
+    def make_dead(self, active):
+        
+        if active:
+            print("Tank dead")
+            self.dead = True
+            self.active_image = self.death_image
+        else:
+            self.dead = False
+            self.active_image = self.image
         
         
     def shoot(self):
@@ -308,7 +323,6 @@ class Tank:
         self.cannon_cooldown = self.firerate
     
 
-
 class Projectile:
     
     def __init__(self, startpos: tuple, direction: tuple, speed: int):
@@ -316,7 +330,7 @@ class Projectile:
         self.direction = direction
         self.degrees = 0
         self.speed = speed
-        self.lifespan = 5000
+        self.lifespan = 50000
         self.alive = True
         self.projectile_path_scale = 10
         

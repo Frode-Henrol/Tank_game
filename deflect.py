@@ -65,8 +65,8 @@ def find_deflect_vector(normal_vector: tuple, vector_to_deflect: tuple) -> tuple
 if __name__ == "__main__":
         # Example usage
     p1 = (0, 0)
-    p2 = (10, 0)
-    p3 = (5, 10)
+    p2 = (15, 0)
+    p3 = (15, 10)
     p4 = (5, -2)
 
     # Find the 2 normal vectors

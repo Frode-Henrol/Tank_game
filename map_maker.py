@@ -33,8 +33,9 @@ class PolygonDrawer:
                 if event.key == pg.K_q:  # If 'Q' key is pressed
                     pg.quit()
                     exit()
-
-
+                if event.key == pg.K_r: # Remove last polygon when pressing r
+                    self.polygons.pop(-1)
+                
             if event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     mouse_pos = pg.mouse.get_pos()
@@ -51,7 +52,6 @@ class PolygonDrawer:
                     
                     else:
                         self.points.append(snapped_pos)  # Add snapped point to the list
-
 
     def snap_to_grid(self, value):
         """Snap a value to the nearest multiple of 50."""

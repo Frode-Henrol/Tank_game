@@ -5,6 +5,7 @@ import os
 import deflect as df
 import helper_functions
 import time
+import random
 
 
 class TankGame:
@@ -12,7 +13,7 @@ class TankGame:
         # Initialize Pygame
         pg.init()
         self.clock = pg.time.Clock()
-        self.fps = 30
+        self.fps = 60
 
         # Window setup
         self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1000, 1000
@@ -57,9 +58,11 @@ class TankGame:
 
     def init_game_objects(self):
         """Initialize tanks and obstacles."""
-        speed = 144 / 30
+        speed = 144 / self.fps        # 144 is just a const based on the speed i first tested game at
         firerate = 2
-        player_tank = Tank((100, 500), (0, 0), speed, firerate, self.tank_img, self.tank_death_img)
+        speed_projectile = 2
+        speed_projectile *= speed
+        player_tank = Tank((100, 500), (0, 0), speed, firerate, speed_projectile, self.tank_img, self.tank_death_img)
         self.units.append(player_tank)
 
         k, j = 400, 200
@@ -176,11 +179,12 @@ class TankGame:
             self.draw()
             
 class Tank:
-    def __init__(self, startpos: tuple, direction: tuple, speed: float, firerate: float, image, death_image):
+    def __init__(self, startpos: tuple, direction: tuple, speed: float, firerate: float, speed_projectile: float, image, death_image):
         self.pos = list(startpos)
         self.direction = direction
         self.degrees = 0
-        self.speed = speed
+        self.speed = speed  # Used to control speed so it wont be fps bound
+        self.speed_projectile = speed_projectile # Scale the tanks projectile speed
         self.image = image
         self.death_image = death_image
         self.active_image = image
@@ -302,10 +306,12 @@ class Tank:
                     # - We only use normalvector2 since all the left sides of the hitbox lines point outwards
                     
                     # Calculate magnitude scalar of units direction vector
-                    magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction) * 0.6
+                    magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction) 
                     
                     # Scale the normal vector with the previous magnitude scalar
                     normal_scaled_x, normal_scaled_y = normal_vector2[0] * magnitude_dir_vec, normal_vector2[1] * magnitude_dir_vec
+                    
+                    self.rotate(random.randint(-1,1)) #-----------------------------------------------------------------------------------------Crappy fix that makes tank wobble when hitting wall, making clipping harder DELETE THIS
                     
                     # Update unit postion
                     self.pos = [self.pos[0] + normal_scaled_x * self.speed, self.pos[1] + normal_scaled_y * self.speed]
@@ -314,7 +320,8 @@ class Tank:
                     for i in range(len(self.hitbox)):
                         x, y = self.hitbox[i]
                         self.hitbox[i] = (x + normal_scaled_x * self.speed, y + normal_scaled_y * self.speed)
-                    
+                        
+                        
                 elif collision_type == "projectile":
                     self.make_dead(True)
                     return True
@@ -348,7 +355,8 @@ class Tank:
             # Find position for spawn of projectile
             spawn_projectile_pos = [self.pos[0] + unit_diretion[0]*spawn_distance_from_middle, self.pos[1] + unit_diretion[1]*spawn_distance_from_middle]
         
-            projectile = Projectile(spawn_projectile_pos, self.direction, speed=2*self.speed)
+            #
+            projectile = Projectile(spawn_projectile_pos, self.direction, speed=self.speed_projectile)
             self.projectiles.append(projectile)                                                                      # --------------- Class should have own list of the projectiles, and main should go throug each units projectiles 
             print(projectile)
 
@@ -367,10 +375,10 @@ class Projectile:
         self.pos = startpos
         self.direction = direction
         self.degrees = 0
-        self.speed = speed
-        self.lifespan = 500
-        self.alive = True
-        self.projectile_path_scale = 10
+        self.speed = speed  # Speed is ju
+        self.alive = True  
+        self.lifespan = 500     # Projectile lifespan
+        self.projectile_path_scale = 10     # Scale of projectile len
         
     def update(self):
         self.pos[0] += self.direction[0]*self.speed
@@ -388,7 +396,7 @@ class Projectile:
         return self.direction
     
     def get_line(self):
-        return [(self.pos[0], self.pos[1]), (self.pos[0]+self.direction[0]*self.speed*self.projectile_path_scale, self.pos[1]+self.direction[1]*self.speed*self.projectile_path_scale)]
+        return [(self.pos[0], self.pos[1]), (self.pos[0]+self.direction[0]*self.projectile_path_scale, self.pos[1]+self.direction[1]*self.projectile_path_scale)]
         
     def draw(self, surface):
         #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
@@ -405,8 +413,8 @@ class Projectile:
         start_point = self.pos
         # End of projectile path in a given frame
         
-        end_point = (self.pos[0] + self.direction[0] * self.speed*self.projectile_path_scale,
-                    self.pos[1] + self.direction[1] * self.speed*self.projectile_path_scale)
+        end_point = (self.pos[0] + self.direction[0] * self.projectile_path_scale,
+                    self.pos[1] + self.direction[1] * self.projectile_path_scale)
         
         # Find coord where projectile and line meet
         intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point)

@@ -66,7 +66,7 @@ if __name__ == "__main__":
         # Example usage
     p1 = (0, 0)
     p2 = (10, 0)
-    p3 = (10, 10)
+    p3 = (5, 10)
     p4 = (5, -2)
 
     # Find the 2 normal vectors

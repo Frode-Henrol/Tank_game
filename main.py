@@ -356,11 +356,10 @@ class Tank:
             
             # Find position for spawn of projectile
             spawn_projectile_pos = [self.pos[0] + unit_diretion[0]*spawn_distance_from_middle, self.pos[1] + unit_diretion[1]*spawn_distance_from_middle]
-        
-            #
+
             projectile = Projectile(spawn_projectile_pos, self.direction, speed=self.speed_projectile)
             self.projectiles.append(projectile)                                                                      # --------------- Class should have own list of the projectiles, and main should go throug each units projectiles 
-            print(projectile)
+            print(self.direction)
 
         # Firerate is now just a cooldown amount
         self.cannon_cooldown = self.firerate
@@ -377,7 +376,7 @@ class Projectile:
         self.pos = startpos
         self.direction = direction
         self.degrees = 0
-        self.speed = speed  # Speed is ju
+        self.speed = speed  
         self.alive = True  
         self.lifespan = 500     # Projectile lifespan
         self.projectile_path_scale = 10     # Scale of projectile len
@@ -419,12 +418,11 @@ class Projectile:
                     self.pos[1] + self.direction[1] * self.projectile_path_scale)
         
         # Find coord where projectile and line meet
-        intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point)
- 
+        intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point, debug=False)
+        
         # If there is no intersection then just keep diretion vector the same
         if intersect_coord == None:
             return self.direction
-        
         print(f"Projectile hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
         print(f"Projectile has coord        : ({float(self.pos[0]):.1f},  {float(self.pos[1]):.1f})")
         

@@ -148,12 +148,14 @@ class PolygonDrawer:
         print(f"Map middle: {snapped_map_width=} {snapped_map_height}")
 
         # Calculate the map border coordinates snapped to the grid
-        corners =  [
-            (snap_to_grid(mid_x - snapped_map_width // 2) , snap_to_grid(mid_y - snapped_map_height // 2)),
-            (snap_to_grid(mid_x + snapped_map_width // 2) , snap_to_grid(mid_y - snapped_map_height // 2)),
+        corners =  [ 
+            (snap_to_grid(mid_x - snapped_map_width // 2) , snap_to_grid(mid_y + snapped_map_height // 2)),
             (snap_to_grid(mid_x + snapped_map_width // 2) , snap_to_grid(mid_y + snapped_map_height // 2)), 
-            (snap_to_grid(mid_x - snapped_map_width // 2) , snap_to_grid(mid_y + snapped_map_height // 2))
+            (snap_to_grid(mid_x + snapped_map_width // 2) , snap_to_grid(mid_y - snapped_map_height // 2)),
+            (snap_to_grid(mid_x - snapped_map_width // 2) , snap_to_grid(mid_y - snapped_map_height // 2))
         ]
+        
+        
         print(f"{corners=}")
         return corners
 

@@ -2,29 +2,24 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | None:
+def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple, debug = False) -> tuple | None:
     """Finds the intersection of two line segments if it exists."""
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
     x4, y4 = p4
     
-    x1, y1 = round(p1[0], 5), round(p1[1], 5)
-    x2, y2 = round(p2[0], 5), round(p2[1], 5)
-    x3, y3 = round(p3[0], 5), round(p3[1], 5)
-    x4, y4 = round(p4[0], 5), round(p4[1], 5)
-
-
     # Calculate determinants
     denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-    
+        
     # If denominator is zero, the lines are parallel or coincident
     if denominator == 0:
         return None  # No intersection
-
+    
     # Compute the intersection point using Cramer's Rule    
     px = ((x1*y2 - y1*x2) * (x3 - x4) - (x1 - x2) * (x3*y4 - y3*x4)) / denominator
     py = ((x1*y2 - y1*x2) * (y3 - y4) - (y1 - y2) * (x3*y4 - y3*x4)) / denominator
+
 
     # Check if the intersection point is within both line segments
     if (min(x1, x2) <= px <= max(x1, x2) and 
@@ -32,7 +27,10 @@ def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | Non
         min(x3, x4) <= px <= max(x3, x4) and
         min(y3, y4) <= py <= max(y3, y4)):
         return (px, py)  # Intersection point
-
+    
+    if debug:
+        print(f"{denominator=}")
+    
     return None  # The intersection is outside the segment
 
 def find_normal_vectors(start_point: tuple, end_point: tuple) -> tuple:
@@ -64,10 +62,10 @@ def find_deflect_vector(normal_vector: tuple, vector_to_deflect: tuple) -> tuple
 
 if __name__ == "__main__":
         # Example usage
-    p1 = (0, 0)
-    p2 = (15, 0)
-    p3 = (15, 10)
-    p4 = (5, -2)
+    p1 = (-100, 0)
+    p2 = (100, 0)
+    p3 = (14, 2)
+    p4 = (15, -2)
 
     # Find the 2 normal vectors
     nv_p1, nv_p2 = find_normal_vectors(p1, p2)
@@ -112,6 +110,9 @@ if __name__ == "__main__":
         # Intersect point:
         ax.plot([intersection[0]],[intersection[1]],"o",label="Intersect")
 
+    if intersection == None:
+        print("No intersect")
+        
     ax.legend()
 
     plt.show()

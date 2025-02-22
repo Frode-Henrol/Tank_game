@@ -4,177 +4,147 @@ import numpy as np
 import os
 import deflect as df
 import helper_functions
-import time
 
+# SETUP
+pg.init()
+clock = pg.time.Clock()
+fps = 144
+# WINDOW
+window_dimensions = window_width, window_height = 1000, 1000
+SCALE = 20
+screen = pg.display.set_mode(window_dimensions)
+window_dimensions_scaled = window_width_scaled, window_height_scaled = int(window_width / SCALE), int(window_height / SCALE)
+display = pg.Surface(window_dimensions_scaled)
 
-class TankGame:
-    def __init__(self):
-        # Initialize Pygame
-        pg.init()
-        self.clock = pg.time.Clock()
-        self.fps = 30
+# For text
+myfont = pg.font.SysFont("monospace", 16)
 
-        # Window setup
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1000, 1000
-        self.SCALE = 20
-        self.screen = pg.display.set_mode(self.WINDOW_DIM)
-        self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / self.SCALE), int(self.WINDOW_H / self.SCALE)
-        self.display = pg.Surface(self.WINDOW_DIM_SCALED)
+units = []
+projectiles = []
+obstacles = []
 
-        # Font
-        self.font = pg.font.SysFont("monospace", 16)
+# MAIN LOOP
+def main():
+    path_tank = os.path.join(os.getcwd(),"pictures","tank2.png")
+    path_tank_death = os.path.join(os.getcwd(),"pictures","tank_death.png")
+    
+    try:
+        tank_img = pg.image.load(path_tank).convert_alpha()  # Convert for performance
+        tank_img = pg.transform.scale(tank_img, window_dimensions_scaled)  # Scale image to match display
+        
+        tank_death_img = pg.image.load(path_tank_death).convert_alpha()  # Convert for performance
+        tank_death_img = pg.transform.scale(tank_death_img, window_dimensions_scaled)  # Scale image to match display
+        
+    except FileNotFoundError:
+        print("Error: Image not found! Check your path.")
+        sys.exit()
+            
+    # Init player tank
+    speed = 1
+    firerate = 2
+    player_tank = Tank((100,500), (0,0), speed, firerate, tank_img, tank_death_img)
+    units.append(player_tank)
+    k = 400
+    test_rect = Obstacle([(100+k,100+k),(400+k,100+k),(400+k,250+k),(100+k,250+k)])
+    test_rect2 = Obstacle([(20+k,20+k),(80+k,20+k),(80+k,50+k),(20+k,50+k)])
+    test_rect2 = Obstacle([(0,0),(0,998),(998,998),(998,0)])
+    j = 200
+    test_rect3 = Obstacle([(10+j,0),(80+j,20+j),(80+j,50+j),(20+j,50+j)])
+    
+    obstacles.append(test_rect)
+    obstacles.append(test_rect2)
+    obstacles.append(test_rect3)
+    
+    print(helper_functions.coord_to_coordlist([(20+k,20+k),(80+k,20+k),(80+k,50+k),(20+k,50+k)]))
+    
+    while True:
+        display.fill("white")
 
-        # Game objects
-        self.units: list[Tank] = []
-        self.projectiles: list[Projectile] = []
-        self.obstacles: list[Obstacle] = []
-
-        # Load assets
-        self.load_assets()
-
-        # Initialize game objects
-        self.init_game_objects()
-
-        # FPS tracking
-        self.last_time = time.time()
-        self.frame_count = 0
-        self.current_fps = self.fps
-
-    def load_assets(self):
-        """Load and scale game assets (e.g., images)."""
-        try:
-            path_tank = os.path.join(os.getcwd(), "pictures", "tank2.png")
-            path_tank_death = os.path.join(os.getcwd(), "pictures", "tank_death.png")
-
-            self.tank_img = pg.image.load(path_tank).convert_alpha()
-            self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
-
-            self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
-            self.tank_death_img = pg.transform.scale(self.tank_death_img, self.WINDOW_DIM_SCALED)
-        except FileNotFoundError:
-            print("Error: Image not found! Check your path.")
-            sys.exit()
-
-    def init_game_objects(self):
-        """Initialize tanks and obstacles."""
-        speed = 144 / 30
-        firerate = 2
-        player_tank = Tank((100, 500), (0, 0), speed, firerate, self.tank_img, self.tank_death_img)
-        self.units.append(player_tank)
-
-        k, j = 400, 200
-        self.obstacles.extend([
-            Obstacle([(100+k, 100+k), (400+k, 100+k), (400+k, 250+k), (100+k, 250+k)]),
-            Obstacle([(20+k, 20+k), (80+k, 20+k), (80+k, 50+k), (20+k, 50+k)]),
-            Obstacle([(0, 0), (0, 998), (998, 998), (998, 0)]),
-            Obstacle([(10+j, 0), (80+j, 20+j), (80+j, 50+j), (20+j, 50+j)])
-        ])
-
-        print(helper_functions.coord_to_coordlist([(20+k, 20+k), (80+k, 20+k), (80+k, 50+k), (20+k, 50+k)]))
-
-    def handle_events(self):
-        """Handle player inputs and game events."""
-        keys = pg.key.get_pressed()
-        if keys[pg.K_q]:
-            pg.quit()
-            sys.exit()
-        if keys[pg.K_a]:
-            self.units[0].rotate(-1)
-        if keys[pg.K_d]:
-            self.units[0].rotate(1)
-        if keys[pg.K_w]:
-            self.units[0].move("forward")
-        if keys[pg.K_s]:
-            self.units[0].move("backward")
-        if keys[pg.K_SPACE]:
-            self.units[0].shoot()
-
+        screen.blit(tank_img,(100,100))
+               
+      # EVENTS
         for e in pg.event.get():
             match e.type:
                 case pg.QUIT:
                     pg.quit()
                     sys.exit()
                 case pg.KEYDOWN:
+                    if e.key == pg.K_q:
+                        pg.quit()
+                        sys.exit()
                     if e.key == pg.K_r:
                         print("RESPAWN")
-                        self.units[0].respawn()
+                        player_tank.respawn()
+                               
+        # HANDLE KEY HOLDS
+        keys = pg.key.get_pressed()
+        if keys[pg.K_q]:
+            pg.quit()
+            sys.exit()
+        if keys[pg.K_a]:
+            player_tank.rotate(-1)
+        if keys[pg.K_d]:
+            player_tank.rotate(1)
+        if keys[pg.K_w]:
+            player_tank.move("forward")
+        if keys[pg.K_s]:
+            player_tank.move("backward")
+        if keys[pg.K_SPACE]:
+            player_tank.shoot() 
 
-    def update(self):
+        screen.blit(pg.transform.scale(display, window_dimensions), (0, 0))
         
-        # Temp list is created and all units projectiles are added to a single list
-        temp_projectiles= []
-        for unit in self.units:
-            # Add projectiles from this unit to the list
-            temp_projectiles.extend(unit.get_projectile_list())
+
+        # Update projectiles: for each projectile, check all obstacles before updating  -  Could be moved down to the other for loop with proj***
+        for i, proj in enumerate(projectiles):
+            for obstacle in obstacles:
+                corner_pairs = obstacle.get_corner_pairs()
+                for corner_pair in corner_pairs:
+                    proj.collision(corner_pair)
             
-        # The temp list is all active projetiles
-        self.projectiles = temp_projectiles
-        
-        """Update game state: projectiles, units, and collisions."""
-        # Update all projectiles from all tanks
-        for unit in self.units:
-            for i, proj in enumerate(unit.get_projectile_list()):
-                for obstacle in self.obstacles:
-                    for corner_pair in obstacle.get_corner_pairs():
-                        proj.collision(corner_pair)
-
-                projectile_line = proj.get_line()
-                for unit in self.units:
-                    if unit.collision(projectile_line, collision_type="projectile"):
-                        unit.projectiles.pop(i)
-
-                proj.update()
-
+            # Get projectile line
+            projectile_line = proj.get_line() 
+            
+            # Check if projetile hits any unit - remove projectile if it hits tank
+            for unit in units:
+                is_hit = unit.collision(projectile_line, collision_type="projectile")
+                if is_hit:
+                    projectiles.pop(i)
+                    
+            proj.update()
+                        
         # Remove dead projectiles
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-
-        # Check unit collisions
-        for unit in self.units:
-            for obstacle in self.obstacles:
-                for corner_pair in obstacle.get_corner_pairs():
+        projectiles[:] = [p for p in projectiles if p.alive]
+        
+        # Check for unit collision:
+        
+        # Draw entities
+        for unit in units:
+            for obstacle in obstacles:
+                corner_pairs = obstacle.get_corner_pairs()
+                for corner_pair in corner_pairs:
                     unit.collision(corner_pair, collision_type="surface")
-
-    def draw(self):
-        """Render all objects on the screen."""
-        self.display.fill("white")
-        self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
-
-        for unit in self.units:
-            unit.draw(self.screen)
         
-        for proj in self.projectiles:
-            proj.draw(self.screen)
-
-        for obstacle in self.obstacles:
-            # Debug: draw obstacle collision lines
-            for corner_pair in obstacle.get_corner_pairs():
-                pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
-
-        # UI text
-        self.screen.blit(self.font.render(f"Active projectiles {len(self.projectiles)}", 1, (0, 0, 0)), (5, 480))
-        
-        # Calculate and display FPS
-        current_time = time.time()
-        self.frame_count += 1
-        if current_time - self.last_time >= 1:  # Once every second
-            self.current_fps = self.frame_count
-            self.frame_count = 0
-            self.last_time = current_time
-            # Display FPS on screen
-        
-        self.screen.blit(self.font.render(f"FPS: {self.current_fps}", 1, (0, 0, 0)), (5, 580))
-
-
-        pg.display.update()
-        self.clock.tick(self.fps)
-
-    def run(self):
-        """Main game loop."""
-        while True:
-            self.handle_events()
-            self.update()
-            self.draw()
+            unit.draw(screen)
             
+        for proj in projectiles:
+            proj.draw(screen)
+            
+        for obstacle in obstacles:
+            #obstacle.draw(screen)  ------------------------------------------------------------------------!! Turned of so we only see wireframe
+            
+            # !!!!! THIS is just for debug, and makes the lines visible:
+            corner_pairs = obstacle.get_corner_pairs()
+            for corner_pair in corner_pairs:
+                pg.draw.line(screen, "red", corner_pair[0], corner_pair[1], 3)
+
+        screen.blit(myfont.render(f"Active projectiles {len(projectiles)}", 1, (0,0,0)), (5, 480))
+        screen.blit(myfont.render(f"FPS {fps}", 1, (0,0,0)), (5, 580))
+        
+        pg.display.update()
+        clock.tick(fps)
+        
+
 class Tank:
     def __init__(self, startpos: tuple, direction: tuple, speed: float, firerate: float, image, death_image):
         self.pos = list(startpos)
@@ -190,8 +160,6 @@ class Tank:
         self.hitbox = self.init_hitbox()
         self.dead = False
         
-        self.projectiles: list[Projectile] = []
-        
         
     def init_hitbox(self):
         x = self.pos[0]
@@ -203,6 +171,7 @@ class Tank:
                 (x+size_factor, y+size_factor),
                 (x-size_factor, y+size_factor)]
         
+        
     def move(self, direction: str):
         if self.dead:
             return
@@ -213,15 +182,15 @@ class Tank:
             dir = -1
         
         # Move tank image
-        self.pos[0] = self.pos[0] + dir * self.direction[0] * self.speed
-        self.pos[1] = self.pos[1] + dir * self.direction[1] * self.speed
+        self.pos[0] = self.pos[0] + dir * self.direction[0]*self.speed
+        self.pos[1] = self.pos[1] + dir * self.direction[1]*self.speed
         
         # Move hit box:
         for i in range(len(self.hitbox)):
             x, y = self.hitbox[i]  # Unpack the point
             
-            moved_x = x + dir * self.direction[0] * self.speed
-            moved_y = y + dir * self.direction[1] * self.speed
+            moved_x = x + dir * self.direction[0]
+            moved_y = y + dir * self.direction[1]
             self.hitbox[i] = (moved_x, moved_y)
     
     def respawn(self):
@@ -240,20 +209,14 @@ class Tank:
             self.cannon_cooldown -= 1
         
         #Update hitbox:
-        draw_hitbox = True 
+        draw_hitbox = False 
         if draw_hitbox:
             for corner_pair in helper_functions.coord_to_coordlist(self.hitbox):
-                pg.draw.line(surface, "blue", corner_pair[0], corner_pair[1], 3)
+                pg.draw.line(screen, "blue", corner_pair[0], corner_pair[1], 3)
 
-        # Remove dead projectiles
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-    
     def rotate(self, deg: int):
         if self.dead:
             return
-        
-        # Scale rotation to match speed
-        deg *= self.speed
         
         # Rotate tank image
         self.degrees += deg
@@ -302,18 +265,18 @@ class Tank:
                     # - We only use normalvector2 since all the left sides of the hitbox lines point outwards
                     
                     # Calculate magnitude scalar of units direction vector
-                    magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction) * 0.6
+                    magnitude_dir_vec = get_vector_magnitude(self.direction) * 1.1
                     
                     # Scale the normal vector with the previous magnitude scalar
                     normal_scaled_x, normal_scaled_y = normal_vector2[0] * magnitude_dir_vec, normal_vector2[1] * magnitude_dir_vec
                     
                     # Update unit postion
-                    self.pos = [self.pos[0] + normal_scaled_x * self.speed, self.pos[1] + normal_scaled_y * self.speed]
+                    self.pos = [self.pos[0]+normal_scaled_x, self.pos[1]+normal_scaled_y]
                     
                     # Update each corner position in hitbox
                     for i in range(len(self.hitbox)):
                         x, y = self.hitbox[i]
-                        self.hitbox[i] = (x + normal_scaled_x * self.speed, y + normal_scaled_y * self.speed)
+                        self.hitbox[i] = (x + normal_scaled_x, y + normal_scaled_y)
                     
                 elif collision_type == "projectile":
                     self.make_dead(True)
@@ -330,8 +293,9 @@ class Tank:
         else:
             self.dead = False
             self.active_image = self.image
-               
-    def shoot(self):
+        
+        
+    def shoot(self, ):
         if self.dead:
             return
         if self.cannon_cooldown == 0:
@@ -348,18 +312,13 @@ class Tank:
             # Find position for spawn of projectile
             spawn_projectile_pos = [self.pos[0] + unit_diretion[0]*spawn_distance_from_middle, self.pos[1] + unit_diretion[1]*spawn_distance_from_middle]
         
-            projectile = Projectile(spawn_projectile_pos, self.direction, speed=2*self.speed)
-            self.projectiles.append(projectile)                                                                      # --------------- Class should have own list of the projectiles, and main should go throug each units projectiles 
+            projectile = Projectile(spawn_projectile_pos, self.direction, speed=2)
+            projectiles.append(projectile)                                                                      # --------------- Class should have own list of the projectiles, and main should go throug each units projectiles 
             print(projectile)
 
         # Firerate is now just a cooldown amount
         self.cannon_cooldown = self.firerate
 
-    def get_projectile_list(self):
-        return self.projectiles
-    
-    def remove_projectile(self, index):
-        pass
  
 class Projectile:
     
@@ -456,5 +415,4 @@ class Obstacle:
 
 
 if __name__ == "__main__":
-    game = TankGame()
-    game.run()
+    main()

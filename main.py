@@ -440,6 +440,9 @@ class Projectile:
             chosen_normal = normal_vector1
         else:
             chosen_normal = normal_vector2
+            
+        # SKAL SLETTES: (bare test med tvungen normalvektor)
+        #chosen_normal =  normal_vector2
 
         print(f"dot1: {dot1:.1f} dot2: {dot2:.1f} Chosen: {dot1:.1f}")
         print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f}")

@@ -42,8 +42,22 @@ def get_connection_matrix(data):
             zero_matrix[i][connection-1] = 1
     
     return zero_matrix
+
+
+def get_homogen_coords(data):
+    homogen_zero_matrix = np.zeros((len(data[0]) + 1,len(data))) # Create zero matrix and set last row to pure 1's
+    homogen_zero_matrix[-1][:] = 1
+
+    # Add the data to the matrix
+    for i in range(len(data)):
+        homogen_zero_matrix[:3,i] = data[i]
+
+    return homogen_zero_matrix
         
         
-print(get_connection_matrix(data))
-        
-    
+
+test = np.array([0,0,0])
+print(test)
+
+test[:] = 1 ,2 ,3
+print(test)

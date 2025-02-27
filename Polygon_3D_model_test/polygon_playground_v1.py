@@ -9,24 +9,27 @@ data_connections_path = os.path.join(os.getcwd(),"Polygon_3D_model_test","data_c
 
 class Engine:
     def __init__(self):
-        # Initialize Pygame
         pg.init()
         self.clock = pg.time.Clock()
         self.fps = 60
-
-        # Window setup
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1920, 1080
+        self.WINDOW_DIM = (800, 800)
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
-        self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
-        self.display = pg.Surface(self.WINDOW_DIM_SCALED)
+        self.camera_coord = np.array([0.0,0])
         
-        # Load all coords and the connections between them
-        self.data_points = self.load_assets(data_points_path, type="float")
-        self.data_connections = self.load_assets(data_connections_path, type = "int")
+        self.camera_direction = np.array([float(0),float(0),float(0)])
+        self.camera_yaw_angle = 0
+        self.camera_pitch_angle = 0
+        self.camera_angle_amount = 1
+        
+        self.setup() 
+
+    def setup(self):
+        """Load assets and initialize properties."""
+        self.data_points = self.load_assets(data_points_path, dtype="float")
+        self.data_connections = self.load_assets(data_connections_path, dtype="int")
         self.data_connections_matrix = self.get_connection_matrix(self.data_connections)
-        
-        self.homogen_coords = self.get_homogen_coords()     # Create homogen matrix of zeros
+        self.homogen_coords = self.get_homogen_coords(self.data_points)
 
     def get_connection_matrix(self, data):
     
@@ -47,30 +50,32 @@ class Engine:
         
         return zero_matrix
         
-
-    def get_homogen_coords(self):
-        homogen_zero_matrix = np.zeros((len(self.polygon[0]) + 1,len(self.polygon)))[-1][:] = 1 # Create zero matrix and set last row to pure 1's
+    def get_homogen_coords(self, data):
         
+        homogen_zero_matrix = np.zeros((len(data[0]) + 1,len(data))) # Create zero matrix and set last row to pure 1's
+        homogen_zero_matrix[-1][:] = 1
         # Add the data to the matrix
-        for i in range(len(self.data)):
-            homogen_zero_matrix[:3,i] = self.data[i]
+        for i in range(len(data)):
+            homogen_zero_matrix[:3,i] = data[i]
         
+        print(f"{homogen_zero_matrix}")
         return homogen_zero_matrix
         
-    def load_assets(self, filename: str, type: str):
+    def load_assets(self, filename: str, dtype: str):
         
-        if type not in ["int","float"]:
+        if dtype not in ["int","float"]:
             raise ValueError("Input type must be either 'int' or 'float'")
         
         with open(filename, "r", encoding="utf-8") as file:
             
             reader = csv.reader(file)
             
-            if type == "float":
+            if dtype == "float":
                 data = [list(map(float, row)) for row in reader]
-            if type == "int":
+            if dtype == "int":
                 data = [list(map(int, row)) for row in reader]
             
+        print(f"{data=}")
         return data
         
     def rotate_model(self):
@@ -88,7 +93,48 @@ class Engine:
     def init_game_objects(self):
         
         self.polygon = np.array([[0,5,-5],[5,-5,-5]])
+    
+    # Camera transformations ---------------------------------    
+    def yaw_cam(self, dir):
+        if dir not in ["left","right"]:
+            raise ValueError("Must be 'right' or 'left' for 'dir'.")
         
+        if dir == "left":
+            self.camera_pitch_angle += self.camera_angle_amount
+        elif dir == "right":
+            self.camera_pitch_angle -= self.camera_angle_amount
+    
+    def pitch_cam(self, dir):
+        if dir not in ["up","down"]:
+            raise ValueError("Must be 'up' or 'down' for 'dir'.")
+        
+        if dir == "up":
+            self.camera_yaw_angle += self.camera_angle_amount
+            if self.camera_yaw_angle > 90:
+                print("Max pitch reached")
+                self.camera_yaw_angle = 90
+                return
+            
+        elif dir == "down":
+            self.camera_yaw_angle -= self.camera_angle_amount
+            if self.camera_yaw_angle < -90:
+                print("Min pitch reached")
+                self.camera_yaw_angle = -90
+                return
+
+    def update_cam(self):
+        
+        pitch_rad = np.radians(self.camera_pitch_angle)
+        yaw_rad = np.radians(self.camera_yaw_angle)
+        
+        x = np.cos(pitch_rad)*np.sin(yaw_rad)
+        y = np.sin(pitch_rad)
+        z = np.cos(pitch_rad) * np.cos(yaw_rad)
+        
+        
+        self.camera_direction[:] = x,y,z
+        print(self.camera_direction)
+        #print(self.camera_direction, self.camera_yaw_angle, self.camera_pitch_angle)
 
     def handle_events(self):
         """Handle player inputs and game events."""
@@ -96,25 +142,40 @@ class Engine:
         if keys[pg.K_q]:
             pg.quit()
             sys.exit()
+            
+        if keys[pg.K_i]:
+            # up
+            self.pitch_cam(dir="up")
+        if keys[pg.K_k]:
+            # down
+            self.pitch_cam(dir="down")
+        if keys[pg.K_j]:
+            # left
+            self.yaw_cam(dir="left")
+        if keys[pg.K_l]:
+            # right
+            self.yaw_cam(dir="right")
 
+        
         for e in pg.event.get():
             match e.type:
                 case pg.QUIT:
                     pg.quit()
                     sys.exit()
+                    
 
 
     def draw(self):
         """Render all objects on the screen."""
-        self.display.fill("white")
-        self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
-        
-        
+        self.screen.fill("white")
+        self.screen.blit(pg.transform.scale(self.screen, self.WINDOW_DIM), (0, 0))
 
+        self.update_cam()
+        
         pg.draw.line(self.screen, "red", (0,0), (100,100), 3)
-        
-
         pg.display.update()
+        
+        
         self.clock.tick(self.fps)
 
     def run(self):
@@ -123,16 +184,7 @@ class Engine:
             self.handle_events()
             self.draw()
 
-    
-
-
-
-
-    
-
-    
-
-
+   
 if __name__ == "__main__":
     game = Engine()
     game.run()

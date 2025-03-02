@@ -22,7 +22,7 @@ def load_assets(filename: str, type: str):
 
 data = load_assets(data_points_path, type="int")
 
-print(data)
+#print(data)
 
 def get_connection_matrix(data):
     
@@ -54,10 +54,14 @@ def get_homogen_coords(data):
 
     return homogen_zero_matrix
         
-        
+    
 
-test = np.array([0,0,0])
-print(test)
 
-test[:] = 1 ,2 ,3
-print(test)
+
+print(data)
+
+
+    
+    
+    
+    

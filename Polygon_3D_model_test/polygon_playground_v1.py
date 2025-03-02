@@ -4,8 +4,11 @@ import numpy as np
 import os
 import csv
 
+
 data_points_path = os.path.join(os.getcwd(),"Polygon_3D_model_test","data_points.txt")
 data_connections_path = os.path.join(os.getcwd(),"Polygon_3D_model_test","data_connections.txt")
+
+# Ctrl F for "SKAL RETTES" og se kommentarer
 
 class Engine:
     def __init__(self):
@@ -15,12 +18,29 @@ class Engine:
         self.WINDOW_DIM = (800, 800)
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
-        self.camera_coord = np.array([0.0,0])
         
+        self.camera_coord = np.array([0.0,0,1])
         self.camera_direction = np.array([float(0),float(0),float(0)])
+        self.camera_up_vector = np.array([float(0),float(0),float(1)])
         self.camera_yaw_angle = 0
         self.camera_pitch_angle = 0
         self.camera_angle_amount = 1
+        
+        self.world_up_vector = np.array([float(0),float(1),float(0)])
+        
+        # ===================== Everthing is in "units" ========================
+        # Frustum Boundaries 
+        self.left = -10
+        self.right = 10
+        self.top = 10
+        self.bottom = -10
+        
+        # Closest and furthest distance to render
+        self.near = 1
+        self.far = 100
+        
+        # The transformed 3D points on 2D plane
+        self.plane_coords = None
         
         self.setup() 
 
@@ -29,7 +49,7 @@ class Engine:
         self.data_points = self.load_assets(data_points_path, dtype="float")
         self.data_connections = self.load_assets(data_connections_path, dtype="int")
         self.data_connections_matrix = self.get_connection_matrix(self.data_connections)
-        self.homogen_coords = self.get_homogen_coords(self.data_points)
+        self.homogen_coords = self.get_homogen_coords(self.data_points) # Unsused at the moment
 
     def get_connection_matrix(self, data):
     
@@ -89,12 +109,13 @@ class Engine:
         
     def move_to_coord(self):
         pass
-        
+    
     def init_game_objects(self):
         
         self.polygon = np.array([[0,5,-5],[5,-5,-5]])
     
     # Camera transformations ---------------------------------    
+    # SKAL RETTES: Der er byttet rundt på pitch og yaw funktionaliteten........
     def yaw_cam(self, dir):
         if dir not in ["left","right"]:
             raise ValueError("Must be 'right' or 'left' for 'dir'.")
@@ -131,10 +152,80 @@ class Engine:
         y = np.sin(pitch_rad)
         z = np.cos(pitch_rad) * np.cos(yaw_rad)
         
-        
         self.camera_direction[:] = x,y,z
-        print(self.camera_direction)
+        
+        
+        view_matrix = self.view_matrix(self.camera_coord, self.camera_direction)
+        ort_proj_matrix = self.orthogonal_projection()
+        
+        
+        # Transform into viewspace
+        viewspace_coords = view_matrix @ self.homogen_coords
+        
+        # Map onto 2D plane
+        plane_coords = ort_proj_matrix @ viewspace_coords
+        
+        
+        self.plane_coords = plane_coords
+        
+        #print(plane_coords)
+        #print(self.camera_direction)
         #print(self.camera_direction, self.camera_yaw_angle, self.camera_pitch_angle)
+
+        
+    def view_matrix(self, camera_position, camera_direction):
+        # 1. Compute the target point the camera is looking at (camera_position + camera_direction)
+        target = camera_position + camera_direction
+        
+        # 2. Compute forward vector (negative for OpenGL)
+        forward = np.array(target - camera_position)
+        
+        # Ensure the forward vector is not a zero vector
+        norm = np.linalg.norm(forward)
+        if norm == 0:
+            print("Warning: camera position and target are the same!")
+            forward = np.array([0, 0, -1])  # Default forward vector, or handle as needed
+        else:
+            forward = forward / norm
+
+        # 3. Compute right vector
+        right = np.cross(self.world_up_vector, forward)
+        right = right / np.linalg.norm(right) if np.linalg.norm(right) != 0 else np.array([1, 0, 0])  # Ensure non-zero right vector
+
+        # 4. Compute up vector
+        up = np.cross(forward, right)
+        up = up / np.linalg.norm(up) if np.linalg.norm(up) != 0 else np.array([0, 1, 0])  # Ensure non-zero up vector
+
+        # 5. Construct View Matrix
+        view_matrix = np.array([
+            [right[0], up[0], forward[0], -np.dot(right, camera_position)],
+            [right[1], up[1], forward[1], -np.dot(up, camera_position)],
+            [right[2], up[2], forward[2], -np.dot(forward, camera_position)],
+            [0, 0, 0, 1]
+        ])
+
+        return view_matrix
+
+
+    def orthogonal_projection(self):
+        # Access the instance variables using self
+        left = self.left
+        right = self.right
+        bottom = self.bottom
+        top = self.top
+        near = self.near
+        far = self.far
+        
+        # Construct the orthogonal projection matrix
+        projection_matrix = np.array([
+            [2 / (right - left), 0, 0, -(right + left) / (right - left)],
+            [0, 2 / (top - bottom), 0, -(top + bottom) / (top - bottom)],
+            [0, 0, -2 / (far - near), -(far + near) / (far - near)],
+            [0, 0, 0, 1]
+        ])
+        
+        return projection_matrix
+
 
     def handle_events(self):
         """Handle player inputs and game events."""
@@ -164,19 +255,64 @@ class Engine:
                     sys.exit()
                     
 
-
     def draw(self):
         """Render all objects on the screen."""
         self.screen.fill("white")
-        self.screen.blit(pg.transform.scale(self.screen, self.WINDOW_DIM), (0, 0))
 
+        # Update camera and perform 3D to 2D projection
         self.update_cam()
         
-        pg.draw.line(self.screen, "red", (0,0), (100,100), 3)
+        print(f"====== Updated coords ======")
+        # Plane coords is scaled to fit the pygame window
+        plane_coords_scaled = []
+        if self.plane_coords is not None:
+            # Draw the projected points
+            print(f"{self.plane_coords}")
+            for point in range(self.plane_coords.shape[1]):
+                coord = self.plane_coords[:3, point]
+                print(coord)
+                
+                # SKAL RETTES: lige nu er der bare gange med 10 fordi det passer OK med at se model
+                # Dette skal ikke være hardcoded!
+                # Use x, y directly (assuming it's 3D projection without homogeneous coordinates)
+                x = coord[0]*10  # Use x-coordinate
+                y = coord[1]*10  # Use y-coordinate
+                
+                # Adjust the coordinates to fit the screen
+                # Here, scale by self.SCALE and offset by self.WINDOW_DIM[0]//2 and self.WINDOW_DIM[1]//2
+                screen_x = int(self.WINDOW_DIM[0] // 2 + x * self.SCALE)
+                screen_y = int(self.WINDOW_DIM[1] // 2 - y * self.SCALE)
+                
+                print(screen_x,screen_y)
+                
+                plane_coords_scaled.append((screen_x,screen_y))
+                
+                # Draw the point as a red circle
+                pg.draw.circle(self.screen, "red", (screen_x, screen_y), 5)
+                
+        line_elements = self.get_line_elements(plane_coords_scaled, self.data_connections)
+        
+        for line in line_elements:
+            pg.draw.line(self.screen, "red", line[0], line[1], 3)
+                    
+
         pg.display.update()
-        
-        
         self.clock.tick(self.fps)
+
+    def get_line_elements(self, plane_coords, data_connections):
+        """Takes a list of the transformed plane coords (points) and data_connections (connection data for each point)
+            and find each line element and save in list"""
+        line_elements = set()
+        
+        # Loop over each point
+        for i in range(len(plane_coords)):
+            # Loop over each connection to the point:
+            for connection in data_connections[i]:
+                # Add all the line elements
+                line_elements.add((plane_coords[i], plane_coords[connection-1]))
+
+        return line_elements
+
 
     def run(self):
         """Main game loop."""

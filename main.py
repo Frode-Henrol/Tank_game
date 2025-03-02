@@ -33,7 +33,7 @@ class TankGame:
         # Load assets
         self.load_assets()
 
-        # Initialize game objects
+        # Initialize game objectsd
         self.init_game_objects()
 
         # FPS tracking

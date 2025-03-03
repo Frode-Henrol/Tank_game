@@ -121,26 +121,26 @@ class Engine:
             raise ValueError("Must be 'right' or 'left' for 'dir'.")
         
         if dir == "left":
-            self.camera_pitch_angle += self.camera_angle_amount
+            self.camera_yaw_angle += self.camera_angle_amount
         elif dir == "right":
-            self.camera_pitch_angle -= self.camera_angle_amount
+            self.camera_yaw_angle -= self.camera_angle_amount
     
     def pitch_cam(self, dir):
         if dir not in ["up","down"]:
             raise ValueError("Must be 'up' or 'down' for 'dir'.")
         
         if dir == "up":
-            self.camera_yaw_angle += self.camera_angle_amount
-            if self.camera_yaw_angle > 90:
+            self.camera_pitch_angle += self.camera_angle_amount
+            if self.camera_pitch_angle > 90:
                 print("Max pitch reached")
-                self.camera_yaw_angle = 90
+                self.camera_pitch_angle = 90
                 return
             
         elif dir == "down":
-            self.camera_yaw_angle -= self.camera_angle_amount
-            if self.camera_yaw_angle < -90:
+            self.camera_pitch_angle -= self.camera_angle_amount
+            if self.camera_pitch_angle < -90:
                 print("Min pitch reached")
-                self.camera_yaw_angle = -90
+                self.camera_pitch_angle = -90
                 return
 
     def update_cam(self):

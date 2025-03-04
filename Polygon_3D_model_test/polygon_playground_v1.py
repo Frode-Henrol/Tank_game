@@ -16,9 +16,10 @@ class Engine:
         self.clock = pg.time.Clock()
         self.fps = 60
         self.WINDOW_DIM = (1200, 800)
-        self.SCALE = 30
+        self.SCALE = 40
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         
+
         
         # ===================== Mouse setup =====================================
         self.mouse_sensitivity = 0.1
@@ -48,6 +49,18 @@ class Engine:
         
         # The transformed 3D points on 2D plane
         self.plane_coords = None
+        
+        # ====================== DEBUG ==========================================
+        self.FOV = 90  # Default FOV in degrees
+
+        # Skal rettes, er pt bare her for at skifte mellem at der dynamisk scales
+        # Hold den til true pt, false mode virker ikke ordenligt
+        self.rotate_around_origin = True
+        if not self.rotate_around_origin:
+            self.SCALE = 1
+            self.camera_coord = np.array([0.0,0.0,0.0])
+
+        
         
         self.setup() 
 
@@ -161,14 +174,14 @@ class Engine:
 
 
     def translate_cam(self, dir):
-        if dir not in ["up","down","left","right","forward","backwards"]:
+        if dir not in ["up","down","left","right","forward","backward"]:
             raise ValueError("Direction must be one of 'up', 'down', 'left', 'right', 'forward', or 'backward'.")
         
         if dir == "up":
-            self.camera_coord[2]+=0.1
+            self.camera_coord[2]+=1
             
         elif dir == "down":
-            self.camera_coord[2]-=0.1
+            self.camera_coord[2]-=1
             
         # The command under should be relative to the camera forward vector: todo
         elif dir == "left":
@@ -176,9 +189,9 @@ class Engine:
         elif dir == "right":
             pass
         elif dir == "forward":
-            pass
+            self.camera_coord += self.camera_direction * 1 # Move forward
         elif dir == "backward":
-            pass
+            self.camera_coord -= self.camera_direction * 1  # Move backward
         
 
 
@@ -270,13 +283,18 @@ class Engine:
     
 
     def perspective_projection(self):
-        # Access instance variables
-        left = self.left
-        right = self.right
-        bottom = self.bottom
-        top = self.top
+        aspect_ratio = self.WINDOW_DIM[0] / self.WINDOW_DIM[1]
+        fov_rad = np.radians(self.FOV)  # Convert to radians
         near = self.near
         far = self.far
+
+        # Calculate new top and bottom based on FOV
+        top = np.tan(fov_rad / 2) * near
+        bottom = -top
+
+        # Calculate new left and right based on aspect ratio
+        right = top * aspect_ratio
+        left = -right
 
         # Construct the perspective projection matrix
         projection_matrix = np.array([
@@ -312,6 +330,18 @@ class Engine:
             
         if keys[pg.K_LSHIFT]:
             self.translate_cam("down")
+            
+        if keys[pg.K_w]:
+            self.translate_cam("forward")
+    
+        if keys[pg.K_s]:
+            self.translate_cam("backward")
+        
+        if keys[pg.K_PLUS] or keys[pg.K_EQUALS]:  # Increase FOV (Use '=' or '+')
+            self.FOV = min(self.FOV + 1, 150)  # Limit max FOV
+        
+        if keys[pg.K_MINUS]:  # Decrease FOV
+            self.FOV = max(self.FOV - 1, 30)  # Limit min FOV
         
         
         for event in pg.event.get():
@@ -345,30 +375,46 @@ class Engine:
         print(f"====== Updated coords ======")
         # Plane coords is scaled to fit the pygame window
         plane_coords_scaled = []
-        if self.plane_coords is not None:
-            # Draw the projected points
-            print(f"{self.plane_coords}")
-            for point in range(self.plane_coords.shape[1]):
-                coord = self.plane_coords[:3, point]
-                print(coord)
-                
-                # SKAL RETTES: lige nu er der bare gange med 10 fordi det passer OK med at se model
-                # Dette skal ikke være hardcoded!
+        if self.plane_coords is None:
+            return
+        
+        # SKAL RETTES: temp value for making model scale with distance:
+        
+        if not self.rotate_around_origin:
+            # Compute a dynamic scale factor based on depth
+            depths = [coord[2] for coord in self.plane_coords.T if coord[2] > 0]  # Consider only points in front of camera
+            if depths:
+                avg_depth = sum(depths) / len(depths)
+                self.SCALE = max(1, 1000 / (avg_depth + 1))  # Prevent division by zero
+            
+        # Draw the projected points
+        print(f"{self.plane_coords}")
+        for point in range(self.plane_coords.shape[1]):
+            coord = self.plane_coords[:3, point]
+            print(coord)
+            
+            # SKAL RETTES: lige nu er der bare gange med 10 fordi det passer OK med at se model
+            # Dette skal ikke være hardcoded!
+            
+            if not self.rotate_around_origin:
+                # Handling of scaling
                 # Use x, y directly (assuming it's 3D projection without homogeneous coordinates)
-                x = coord[0]*10  # Use x-coordinate
-                y = coord[1]*10  # Use y-coordinate
+                if coord[2] != 0:  # Avoid division by zero
+                    x = (coord[0] / abs(coord[2])) * self.SCALE  # Scale based on depth
+                    y = (coord[1] / abs(coord[2])) * self.SCALE  
+                else:
+                    x, y = coord[0], coord[1]  # Fallback
+            else:
+                x, y = coord[0], coord[1]
                 
-                # Adjust the coordinates to fit the screen
-                # Here, scale by self.SCALE and offset by self.WINDOW_DIM[0]//2 and self.WINDOW_DIM[1]//2
-                screen_x = int(self.WINDOW_DIM[0] // 2 + x * self.SCALE)
-                screen_y = int(self.WINDOW_DIM[1] // 2 - y * self.SCALE)
-                
-                print(screen_x,screen_y)
-                
-                plane_coords_scaled.append((screen_x,screen_y))
-                
-                # Draw the point as a red circle
-                pg.draw.circle(self.screen, "red", (screen_x, screen_y), 5)
+            # Adjust the coordinates to fit the screen
+            # Here, scale by self.SCALE and offset by self.WINDOW_DIM[0]//2 and self.WINDOW_DIM[1]//2
+            screen_x = int(self.WINDOW_DIM[0] // 2 + x * self.SCALE)
+            screen_y = int(self.WINDOW_DIM[1] // 2 - y * self.SCALE)
+            plane_coords_scaled.append((screen_x,screen_y))
+            
+            # Draw the point as a red circle
+            pg.draw.circle(self.screen, "red", (screen_x, screen_y), 5)
                 
         line_elements = self.get_line_elements(plane_coords_scaled, self.data_connections)
         
@@ -402,7 +448,9 @@ class Engine:
             f"Camera Y: {self.camera_coord[1]:.2f}",
             f"Camera Z: {self.camera_coord[2]:.2f}",
             f"Yaw: {self.camera_yaw_angle:.2f}",
-            f"Pitch: {self.camera_pitch_angle:.2f}"
+            f"Pitch: {self.camera_pitch_angle:.2f}",
+            f"Scale: {self.SCALE:.2f}",
+            f"FOV: {self.FOV:.2f}"
         ]
 
         # Start position for text

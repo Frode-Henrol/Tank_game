@@ -19,7 +19,14 @@ class Engine:
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         
-        self.camera_coord = np.array([0.0,0,1])
+        
+        # ===================== Mouse setup =====================================
+        self.mouse_sensitivity = 0.1
+        pg.mouse.set_visible(False)  # Hide cursor
+        pg.event.set_grab(True)  # Lock mouse inside the window
+        
+        # ===================== Camera setup ====================================
+        self.camera_coord = np.array([0.0,0.0,1.0])
         self.camera_direction = np.array([float(0),float(0),float(0)])
         self.camera_up_vector = np.array([float(0),float(0),float(1)])
         self.camera_yaw_angle = 0
@@ -28,7 +35,7 @@ class Engine:
         
         self.world_up_vector = np.array([float(0),float(1),float(0)])
         
-        # ===================== Everthing is in "units" ========================
+        # ===================== Everything is in "units" ========================
         # Frustum Boundaries 
         self.left = -10
         self.right = 10
@@ -143,6 +150,38 @@ class Engine:
                 self.camera_pitch_angle = -90
                 return
 
+    def yaw_cam_mouse(self, dx):
+        """Yaw the camera based on mouse movement (left/right)."""
+        self.camera_yaw_angle -= dx * self.mouse_sensitivity  # Invert if necessary
+
+    def pitch_cam_mouse(self, dy):
+        """Pitch the camera based on mouse movement (up/down)."""
+        self.camera_pitch_angle += dy * self.mouse_sensitivity
+        self.camera_pitch_angle = max(-90, min(90, self.camera_pitch_angle))  # Clamp to prevent flipping
+
+
+    def translate_cam(self, dir):
+        if dir not in ["up","down","left","right","forward","backwards"]:
+            raise ValueError("Direction must be one of 'up', 'down', 'left', 'right', 'forward', or 'backward'.")
+        
+        if dir == "up":
+            self.camera_coord[2]+=0.1
+            
+        elif dir == "down":
+            self.camera_coord[2]-=0.1
+            
+        # The command under should be relative to the camera forward vector: todo
+        elif dir == "left":
+            pass
+        elif dir == "right":
+            pass
+        elif dir == "forward":
+            pass
+        elif dir == "backward":
+            pass
+        
+
+
     def update_cam(self):
         
         pitch_rad = np.radians(self.camera_pitch_angle)
@@ -156,14 +195,17 @@ class Engine:
         
         
         view_matrix = self.view_matrix(self.camera_coord, self.camera_direction)
-        ort_proj_matrix = self.orthogonal_projection()
         
+        # Temp: mannually choose perspective or orthogonal projection matrix
+        
+        #proj_matrix = self.orthogonal_projection()
+        proj_matrix = self.perspective_projection()
         
         # Transform into viewspace
         viewspace_coords = view_matrix @ self.homogen_coords
         
         # Map onto 2D plane
-        plane_coords = ort_proj_matrix @ viewspace_coords
+        plane_coords = proj_matrix @ viewspace_coords
         
         
         self.plane_coords = plane_coords
@@ -225,6 +267,26 @@ class Engine:
         ])
         
         return projection_matrix
+    
+
+    def perspective_projection(self):
+        # Access instance variables
+        left = self.left
+        right = self.right
+        bottom = self.bottom
+        top = self.top
+        near = self.near
+        far = self.far
+
+        # Construct the perspective projection matrix
+        projection_matrix = np.array([
+            [2 * near / (right - left), 0, (right + left) / (right - left), 0],
+            [0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0],
+            [0, 0, -(far + near) / (far - near), -2 * far * near / (far - near)],
+            [0, 0, -1, 0]
+        ])
+
+        return projection_matrix
 
 
     def handle_events(self):
@@ -235,24 +297,32 @@ class Engine:
             sys.exit()
             
         if keys[pg.K_i]:
-            # up
             self.pitch_cam(dir="up")
         if keys[pg.K_k]:
-            # down
             self.pitch_cam(dir="down")
+            
         if keys[pg.K_j]:
-            # left
             self.yaw_cam(dir="left")
+            
         if keys[pg.K_l]:
-            # right
             self.yaw_cam(dir="right")
-
+            
+        if keys[pg.K_SPACE]:
+            self.translate_cam("up")
+            
+        if keys[pg.K_LSHIFT]:
+            self.translate_cam("down")
         
-        for e in pg.event.get():
-            match e.type:
-                case pg.QUIT:
-                    pg.quit()
-                    sys.exit()
+        
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                sys.exit()
+            
+            elif event.type == pg.MOUSEMOTION:
+                dx, dy = event.rel  # Get relative movement
+                self.yaw_cam_mouse(dx)
+                self.pitch_cam_mouse(dy)
                     
 
     def draw(self):

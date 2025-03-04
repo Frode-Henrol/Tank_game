@@ -15,7 +15,7 @@ class Engine:
         pg.init()
         self.clock = pg.time.Clock()
         self.fps = 60
-        self.WINDOW_DIM = (800, 800)
+        self.WINDOW_DIM = (1200, 800)
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         
@@ -332,6 +332,16 @@ class Engine:
         # Update camera and perform 3D to 2D projection
         self.update_cam()
         
+        
+        # Draw Debug Info Bar
+        debug_bar_width = 200
+        debug_bar_rect = pg.Rect(self.WINDOW_DIM[0] - debug_bar_width, 0, debug_bar_width, self.WINDOW_DIM[1])
+        pg.draw.rect(self.screen, (50, 50, 50), debug_bar_rect)  # Dark grey background
+
+        # Render debug info text
+        self.render_debug_info()
+        
+        
         print(f"====== Updated coords ======")
         # Plane coords is scaled to fit the pygame window
         plane_coords_scaled = []
@@ -382,6 +392,27 @@ class Engine:
                 line_elements.add((plane_coords[i], plane_coords[connection-1]))
 
         return line_elements
+
+    def render_debug_info(self):
+        """Render debug information on the right-side bar."""
+        font = pg.font.Font(None, 24)  # Default font, size 24
+        debug_text = [
+            f"FPS: {self.clock.get_fps():.2f}",
+            f"Camera X: {self.camera_coord[0]:.2f}",
+            f"Camera Y: {self.camera_coord[1]:.2f}",
+            f"Camera Z: {self.camera_coord[2]:.2f}",
+            f"Yaw: {self.camera_yaw_angle:.2f}",
+            f"Pitch: {self.camera_pitch_angle:.2f}"
+        ]
+
+        # Start position for text
+        x_start = self.WINDOW_DIM[0] - 190  
+        y_start = 10  
+
+        for text in debug_text:
+            text_surface = font.render(text, True, (255, 255, 255))  # White text
+            self.screen.blit(text_surface, (x_start, y_start))
+            y_start += 25  # Spacing between lines
 
 
     def run(self):

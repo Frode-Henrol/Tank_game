@@ -20,14 +20,13 @@ def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple, debug = False)
     px = ((x1*y2 - y1*x2) * (x3 - x4) - (x1 - x2) * (x3*y4 - y3*x4)) / denominator
     py = ((x1*y2 - y1*x2) * (y3 - y4) - (y1 - y2) * (x3*y4 - y3*x4)) / denominator
 
-
-    # Check if the intersection point is within both line segments
-    if (min(x1, x2) <= px <= max(x1, x2) and 
-        min(y1, y2) <= py <= max(y1, y2) and
-        min(x3, x4) <= px <= max(x3, x4) and
-        min(y3, y4) <= py <= max(y3, y4)):
+    epsilon = 1e-9
+    if (min(x1, x2) - epsilon <= px <= max(x1, x2) + epsilon and 
+        min(y1, y2) - epsilon <= py <= max(y1, y2) + epsilon and
+        min(x3, x4) - epsilon <= px <= max(x3, x4) + epsilon and
+        min(y3, y4) - epsilon <= py <= max(y3, y4) + epsilon):
         return (px, py)  # Intersection point
-    
+
     if debug:
         print(f"{denominator=}")
     

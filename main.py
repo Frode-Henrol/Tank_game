@@ -16,7 +16,7 @@ class TankGame:
         self.fps = 60
 
         # Window setup
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1920, 1080
+        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
@@ -155,20 +155,7 @@ class TankGame:
             for corner_pair in obstacle.get_corner_pairs():
                 pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
 
-        # UI text
-        self.screen.blit(self.font.render(f"Active projectiles {len(self.projectiles)}", 1, (0, 0, 0)), (5, 480))
-        
-        # Calculate and display FPS
-        current_time = time.time()
-        self.frame_count += 1
-        if current_time - self.last_time >= 1:  # Once every second
-            self.current_fps = self.frame_count
-            self.frame_count = 0
-            self.last_time = current_time
-            # Display FPS on screen
-        
-        self.screen.blit(self.font.render(f"FPS: {self.current_fps}", 1, (0, 0, 0)), (5, 580))
-
+        self.render_debug_info()
 
         pg.display.update()
         self.clock.tick(self.fps)
@@ -180,21 +167,43 @@ class TankGame:
             self.update()
             self.draw()
             
+    def render_debug_info(self):
+        """Render debug information on the right-side bar."""
+        font = pg.font.Font(None, 24)  # Default font, size 24
+        debug_text = [
+            f"FPS: {self.clock.get_fps():.2f}",
+            f"Active projectiles: {len(self.projectiles)}",
+            f"Main tank angle: {self.units[0].degrees}"
+        ]
+
+        # Start position for text
+        x_start = self.WINDOW_DIM[0] - 190  
+        y_start = 10  
+
+        for text in debug_text:
+            text_surface = font.render(text, True, (0, 0, 0))  # White text
+            self.screen.blit(text_surface, (x_start, y_start))
+            y_start += 25  # Spacing between lines
+            
 class Tank:
     def __init__(self, startpos: tuple, direction: tuple, speed: float, firerate: float, speed_projectile: float, image, death_image):
         self.pos = list(startpos)
-        self.direction = direction
+        self.direction = direction  # Forward/backward
         self.degrees = 0
         self.speed = speed  # Used to control speed so it wont be fps bound
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
         self.image = image
-        self.death_image = death_image
-        self.active_image = image
+
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
         self.hitbox = self.init_hitbox()
         self.dead = False
+        self.godmode = True     # Toggle godmode for all tanks
+        
+        # Tank images:
+        self.death_image = death_image
+        self.active_image = image
         
         self.projectiles: list[Projectile] = []
         
@@ -210,7 +219,7 @@ class Tank:
                 (x-size_factor, y+size_factor)]
         
     def move(self, direction: str):
-        if self.dead:
+        if self.dead and not self.godmode:
             return
             
         if direction == "forward":
@@ -255,7 +264,7 @@ class Tank:
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
     
     def rotate(self, deg: int):
-        if self.dead:
+        if self.dead and not self.godmode:
             return
         
         # Scale rotation to match speed
@@ -332,7 +341,7 @@ class Tank:
         
     def make_dead(self, active):
         
-        if active:
+        if active and not self.godmode:
             print("Tank dead")
             self.dead = True
             self.active_image = self.death_image
@@ -341,7 +350,7 @@ class Tank:
             self.active_image = self.image
                
     def shoot(self):
-        if self.dead:
+        if self.dead and not self.godmode:
             return
         if self.cannon_cooldown == 0:
             

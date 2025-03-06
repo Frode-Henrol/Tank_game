@@ -3,16 +3,26 @@ import utils.deflect as df
 from object_classes.projectile import Projectile
 import utils.helper_functions as helper_functions
 import numpy as np
+import random
 
 
 class Tank:
-    def __init__(self, startpos: tuple, direction: tuple, speed: float, firerate: float, speed_projectile: float, image, death_image):
+    def __init__(self, 
+                 startpos: tuple,
+                 direction: tuple, 
+                 speed: float,
+                 firerate: float,
+                 speed_projectile: float,
+                 spawn_degress: int, 
+                 image, 
+                 death_image,
+                 ai_type = None):
+        
         self.pos = list(startpos)
         self.direction = direction  # Forward/backward
-        self.degrees = 0
+        self.degrees = spawn_degress
         self.speed = speed  # Used to control speed so it wont be fps bound
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
-        self.image = image
 
         self.current_speed = [0,0]
         self.firerate = firerate
@@ -22,11 +32,19 @@ class Tank:
         self.godmode = True     # Toggle godmode for all tanks
         
         # Tank images:
+        self.image = image
         self.death_image = death_image
         self.active_image = image
         
+        # Projectiles from current tank
         self.projectiles: list[Projectile] = []
         
+        
+        # AI
+        # TEST DIC
+        
+        
+        self.ai = TankAI(self, None) if ai_type else None
         
     def init_hitbox(self):
         x = self.pos[0]
@@ -64,7 +82,7 @@ class Tank:
     
     def draw(self, surface):
         
-        # TEMP: constant to make sure tank points right way
+        # TEMP: constant to make sure tank image points right way
         tank_correct_orient = -90
         rotated_image = pg.transform.rotate(self.active_image, -self.degrees+tank_correct_orient)
         rect = rotated_image.get_rect(center=self.pos)
@@ -82,6 +100,10 @@ class Tank:
 
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
+        
+        #AI
+        if self.ai:
+            self.ai.update(States.IDLE)
     
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
@@ -196,3 +218,61 @@ class Tank:
     
     def remove_projectile(self, index):
         pass
+    
+
+
+class TankAI:
+    def __init__(self, tank: Tank, personality):
+        self.tank = tank  # The tank instance this AI controls
+        self.personality = personality
+        self.state = "idle"  # Default state
+        self.target = None  # Target for attack/movement
+
+    def update(self, game_state):
+        """Update AI behavior based on state."""
+        if self.state ==  States.IDLE:
+            self.idle_behavior()
+        elif self.state == States.PATROLLING:
+            self.patrol_behavior()
+        elif self.state == States.CHASING:
+            self.chase_behavior()
+        elif self.state == States.ATTACKING:
+            self.attack_behavior()
+    
+    def idle_behavior(self):
+        """Do nothing or look around."""
+        
+        # Test:
+        test = False
+        if test:
+            self.tank.rotate(random.randint(-1,2))
+            
+            self.tank.move("forward")
+            
+            if random.randint(0,1000) == 1:
+                self.tank.shoot()
+            
+        pass
+
+    def patrol_behavior(self):
+        """Move around randomly or along a set path."""
+        pass
+
+    def chase_behavior(self):
+        """Move toward the player or target."""
+        pass
+
+    def attack_behavior(self):
+        """Shoot at the player or another enemy."""
+        self.tank.shoot()
+
+    def change_state(self, new_state):
+        """Change the AI state."""
+        self.state = new_state
+
+class States:
+    IDLE = "idle"
+    PATROLLING = "patrolling"
+    CHASING = "chasing"
+    ATTACKING = "attacking"
+    

@@ -93,7 +93,12 @@ class TankGame:
         speed_projectile = 2
         speed_projectile *= speed
         spawn_point  = (500, 500)
-        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, self.tank_img, self.tank_death_img)
+        spawn_degrees = 0
+        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, spawn_degrees, self.tank_img, self.tank_death_img)
+        self.units.append(player_tank)
+        
+        # SKAL RETTES - test tank for teste ai
+        player_tank = Tank((600,500), (0, 0), speed, firerate, speed_projectile, spawn_degrees, self.tank_img, self.tank_death_img, ai_type="fed")
         self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
@@ -230,11 +235,16 @@ class TankGame:
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
 
-        # Check unit collisions
+        # Check unit/surface collisions
         for unit in self.units:
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")
+                    
+            #Check for unit/unit collisions:
+            
+        
+
 
     def draw(self):
         """Render all objects on the screen."""

@@ -8,8 +8,6 @@ import time
 from object_classes.projectile import Projectile
 from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
-from object_classes.button import Button 
-
 
 class TankGame:
     def __init__(self):
@@ -40,26 +38,7 @@ class TankGame:
         # Initialize game objectsd
         self.init_game_objects()
 
-        # Load gui related features
-        self.load_gui()
-        
 
-    def load_gui(self):
-        x_mid = self.WINDOW_DIM[0] // 2
-        y_mid = self.WINDOW_DIM[1] // 2
-        
-        # ==================== Button for states ====================
-        # Last argument for button tells the button which state it should change to
-        
-        button_width = 300
-        left = x_mid - button_width // 2    # The x value were button starts
-        
-        self.menu_buttons = [
-            Button(left, 150, 300, 60, "Level selection", States.LEVEL_SELECT),
-            Button(left, 250, 300, 60, "Quit", States.EXIT)
-        ]
-        
-    
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
@@ -100,11 +79,8 @@ class TankGame:
     def run(self):
         """Main game loop."""
         while True:
-            
-            event_list = pg.event.get()
-            
             if self.state == "menu":
-                self.main_menu(event_list)
+                pass
             elif self.state == "settings":
                 pass
             elif self.state == "level_select":
@@ -112,34 +88,15 @@ class TankGame:
             elif self.state == "playing":
                 pass
             elif self.state == "exit":
-                exit()
+                pass
             
-            self.handle_events(event_list)
-            #self.update()
-            #self.draw()
-            
-    def main_menu(self, event_list):
-        self.screen.fill("gray")
+            self.handle_events()
+            self.update()
+            self.draw()
 
-        # Handle events for main menu
-        for event in event_list:
-            for button in self.menu_buttons:
-                # Each button checks for click
-                new_state = button.handle_event(event)
-                if new_state:
-                    self.state = new_state
-        
-        for button in self.menu_buttons:
-            button.draw(self.screen)
-        pg.display.update()
-
-    def exit(self):
-        pg.quit()
-        sys.exit()
-        
-
-    def handle_events(self, event_list):
+    def handle_events(self):
         """Handle player inputs and game events."""
+        
         
         keys = pg.key.get_pressed()
         if keys[pg.K_q]:
@@ -156,19 +113,15 @@ class TankGame:
         if keys[pg.K_SPACE]:
             self.units[0].shoot()
 
-        for e in event_list:
+        for e in pg.event.get():
             match e.type:
                 case pg.QUIT:
                     pg.quit()
                     sys.exit()
-        """
-        for e in pg.event.get():
-            match e.type:
                 case pg.KEYDOWN:
                     if e.key == pg.K_r:
                         print("RESPAWN")
                         self.units[0].respawn()
-        """                      
                         
 
     def update(self):
@@ -225,7 +178,7 @@ class TankGame:
         self.render_debug_info()
 
         pg.display.update()
-        self.clock.tick(self.fps)   # --- skal rettes - kan måske slettes
+        self.clock.tick(self.fps)
 
 
             

@@ -1,3 +1,7 @@
 Husk at når du laver en polygon så skal du altid lave den med uret retning,
 hvis omvendt vil collision logikken bruge den forkert normal vektor og dermed
 vil tanken blive "suget" ind i polygonen.
+
+
+
+==================== xxxxxxxxx ====================

@@ -56,9 +56,18 @@ class TankGame:
         
         self.menu_buttons = [
             Button(left, 150, 300, 60, "Level selection", States.LEVEL_SELECT),
-            Button(left, 250, 300, 60, "Quit", States.EXIT)
+            Button(left, 250, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 350, 300, 60, "Quick play", States.PLAYING),
+            Button(left, 450, 300, 60, "Quit", States.EXIT)
         ]
         
+        self.setting_buttons = [
+            Button(left, 150, 300, 60, "Brian", States.SETTINGS),
+            Button(left, 250, 300, 60, "Henrol", States.SETTINGS),
+            Button(left, 350, 300, 60, "Back", States.MENU)
+        ]
+        
+    
     
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
@@ -106,41 +115,35 @@ class TankGame:
             if self.state == "menu":
                 self.main_menu(event_list)
             elif self.state == "settings":
-                pass
+                self.settings(event_list)
             elif self.state == "level_select":
                 pass
             elif self.state == "playing":
-                pass
+                self.playing(event_list)
             elif self.state == "exit":
                 exit()
             
             self.handle_events(event_list)
-            #self.update()
-            #self.draw()
-            
+
+    # ============================================ State methods ============================================
+    # ============================================ ------------- ============================================
     def main_menu(self, event_list):
         self.screen.fill("gray")
-
-        # Handle events for main menu
-        for event in event_list:
-            for button in self.menu_buttons:
-                # Each button checks for click
-                new_state = button.handle_event(event)
-                if new_state:
-                    self.state = new_state
-        
-        for button in self.menu_buttons:
-            button.draw(self.screen)
+        self.handle_buttons(self.menu_buttons, event_list, self.screen)
         pg.display.update()
 
     def exit(self):
         pg.quit()
         sys.exit()
         
-
-    def handle_events(self, event_list):
-        """Handle player inputs and game events."""
+    def settings(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.setting_buttons, event_list, self.screen)
+        pg.display.update()
+    
+    def playing(self, event_list):
         
+        # Controls in game:
         keys = pg.key.get_pressed()
         if keys[pg.K_q]:
             pg.quit()
@@ -155,6 +158,33 @@ class TankGame:
             self.units[0].move("backward")
         if keys[pg.K_SPACE]:
             self.units[0].shoot()
+        if keys[pg.K_ESCAPE]:
+            self.state = States.MENU
+        
+        
+        self.update()
+        self.draw()
+
+    
+    # ==================== Shared button handler for states ====================
+    
+    def handle_buttons(self, button_list, event_list, screen):
+        """Handles button events and drawing of buttons"""
+        for event in event_list:
+            for button in button_list:
+                # Each button checks for click
+                new_state = button.handle_event(event)
+                if new_state:
+                    self.state = new_state
+        
+        for button in button_list:
+            button.draw(screen)
+            
+    # ============================================ ------------- ============================================
+    # ============================================ ------------- ============================================
+
+    def handle_events(self, event_list):
+        """Handle player inputs and game events."""
 
         for e in event_list:
             match e.type:

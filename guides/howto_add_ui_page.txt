@@ -1,0 +1,38 @@
+Setting up a new state/menu page:
+
+1. ======================================================
+Add state to the State class and add to main while loop:
+
+def run(self):
+        """Main game loop."""
+        while True:
+            
+            event_list = pg.event.get()
+            
+            if self.state == "menu":
+                self.main_menu(event_list)
+            elif self.state == "settings":
+                self.settings(event_list)
+            elif self.state == "level_select":
+                pass
+            elif self.state == "playing":
+                pass
+            elif self.state == "exit":
+                exit()
+
+            *** ADD YOUR new state here with elif statement!! ***
+
+2. ======================================================
+
+ADD a method in the tankgame class like this:
+
+    def settings(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.setting_buttons, event_list, self.screen)
+        pg.display.update()
+
+    *** handle_buttons need you to input the list of buttons for the page (event_list and self.screen is constant for all pages)
+    go to load_gui and add a new list of the buttons you want on the page. - It is here you decide on the placement of buttons
+    
+    remember that the States.xxx is what button should go to. The example under will change the state to EXIT when pressed
+    Button(left, 350, 300, 60, "Quit", States.EXIT)

@@ -185,7 +185,7 @@ class Tank:
             spawn_projectile_pos = [self.pos[0] + unit_diretion[0]*spawn_distance_from_middle, self.pos[1] + unit_diretion[1]*spawn_distance_from_middle]
 
             projectile = Projectile(spawn_projectile_pos, self.direction, speed=self.speed_projectile)
-            self.projectiles.append(projectile)                                                                      # --------------- Class should have own list of the projectiles, and main should go throug each units projectiles 
+            self.projectiles.append(projectile)                                                                      
             print(self.direction)
 
         # Firerate is now just a cooldown amount

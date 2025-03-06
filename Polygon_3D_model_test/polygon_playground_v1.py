@@ -55,7 +55,7 @@ class Engine:
 
         # Skal rettes, er pt bare her for at skifte mellem at der dynamisk scales
         # Hold den til true pt, false mode virker ikke ordenligt
-        self.rotate_around_origin = False
+        self.rotate_around_origin = True
         if not self.rotate_around_origin:
             self.SCALE = 1
             self.camera_coord = np.array([0.0,0.0,0.0])

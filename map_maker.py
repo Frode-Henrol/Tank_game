@@ -1,6 +1,6 @@
 import pygame as pg
 import sys
-import helper_functions
+import utils.helper_functions as helper_functions
 
 
 def main():

@@ -1,3 +1,0 @@
-
-projection on 2d plane:
-https://www.songho.ca/opengl/gl_projectionmatrix.html#google_vignette

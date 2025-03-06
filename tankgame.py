@@ -250,6 +250,9 @@ class TankGame:
                 for other_corner_pair in other_unit.get_hitbox_corner_pairs():
                     unit.collision(other_corner_pair, collision_type="surface")
                     
+                    other_unit.add_direction_vector(unit.get_direction_vector())
+                    
+                # SKAL RETTES
                 # Next add so that you direction vector gets added to theirs
                 
             

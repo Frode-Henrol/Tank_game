@@ -64,6 +64,7 @@ class Tank:
             dir = 1
         elif direction == "backward":
             dir = -1
+            
         
         # Move tank image
         self.pos[0] = self.pos[0] + dir * self.direction[0] * self.speed
@@ -223,10 +224,26 @@ class Tank:
         return self.pos
 
     def get_hitbox_corner_pairs(self):
-        
         return helper_functions.coord_to_coordlist(self.hitbox)
 
+    def add_direction_vector(self, vec_dir):
+        # SKAL RETTES - meget logic burde kunne overføres til move method
+        x1, y1 = vec_dir
+        x2, y2 = self.pos 
+        self.pos = x1+x2, y1+y2
+        
+        # Move hit box:
+        for i in range(len(self.hitbox)):
+            x, y = self.hitbox[i]  # Unpack the point
+            
+            moved_x = x + x1
+            moved_y = y + y1
+            self.hitbox[i] = (moved_x, moved_y)
+        
+        
 
+    def get_direction_vector(self):
+        return self.direction
     
 
 

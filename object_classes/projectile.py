@@ -82,5 +82,8 @@ class Projectile:
         # Now do the reflection/deflection with chosen_normal
         self.direction = df.find_deflect_vector(chosen_normal, self.direction)
     
+    def get_pos(self):
+        return self.pos
+    
     def __repr__(self):
         return f"Dir vector: ({float(self.pos[0]):.1f}, {float(self.pos[1]):.1f})"

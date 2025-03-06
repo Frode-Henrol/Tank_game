@@ -19,8 +19,8 @@ class TankGame:
         self.fps = 60
 
         # Window setup
-        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
+        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
+        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
@@ -204,8 +204,8 @@ class TankGame:
                         print("RESPAWN")
                         self.units[0].respawn()
         """                      
-                        
-
+              
+    
     def update(self):
         
         # Temp list is created and all units projectiles are added to a single list
@@ -217,7 +217,7 @@ class TankGame:
         # The temp list is all active projetiles
         self.projectiles = temp_projectiles
         
-        """Update game state: projectiles, units, and collisions."""
+        #Update game state: projectiles, units, and collisions.
         # Update all projectiles from all tanks
         for unit in self.units:
             for i, proj in enumerate(unit.get_projectile_list()):
@@ -240,9 +240,38 @@ class TankGame:
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")
+
+            for other_unit in self.units:
+                if other_unit == unit:
+                    continue
+                if not self.are_tanks_close(unit, other_unit):
+                    continue
+                
+                for other_corner_pair in other_unit.get_hitbox_corner_pairs():
+                    unit.collision(other_corner_pair, collision_type="surface")
                     
-            #Check for unit/unit collisions:
+                # Next add so that you direction vector gets added to theirs
+                
             
+            
+    def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=50) -> bool:
+        """Proximity check: if tanks' centers are close enough based on their radius."""
+        # Get the center coordinates of both tanks
+        x1, y1 = tank1.get_pos()  # Assuming get_pos() returns the center (x, y)
+        x2, y2 = tank2.get_pos()
+
+        # Calculate the distance between the two centers
+        distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+        # Check if the distance is less than or equal to the threshold (radius)
+        return distance <= threshold  
+    
+    def are_projectile_close_surface(self, projectile, obstacle):
+        pass
+        #x1, y1 = projectile.get_pos()
+        # Skal rettes
+        # Optimering ide hvor man ikke regner line intersect for alle object, men kun for dem der inden for
+        # en radius af projectile. Dette er dog ligt svært når obstacles er linjer?
         
 
 

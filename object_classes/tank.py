@@ -219,6 +219,15 @@ class Tank:
     def remove_projectile(self, index):
         pass
     
+    def get_pos(self):
+        return self.pos
+
+    def get_hitbox_corner_pairs(self):
+        
+        return helper_functions.coord_to_coordlist(self.hitbox)
+
+
+    
 
 
 class TankAI:

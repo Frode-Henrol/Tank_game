@@ -5,7 +5,7 @@ import utils.helper_functions as helper_functions
 
 def main():
     
-    mapsize = (1200, 1000)
+    mapsize = (900, 450)
     map_name = r"map_files\map_test1.txt"
     # Snap map size to the grid
     
@@ -53,6 +53,7 @@ class PolygonDrawer:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_q:  # If 'Q' key is pressed
                     with open(self.map_name, "w") as f:
+                        
                         # Map name:
                         f.write(f"{self.map_name}\n")
                         # Write the map borders
@@ -60,6 +61,12 @@ class PolygonDrawer:
                         
 
                         for polygon in self.polygons:
+                            
+                            
+                            # Convert tuples to list for json: (only to print console for test)
+                            no_tuple = [[x[0],x[1]] for x in polygon.get_polygon_points()]
+                            print(no_tuple)
+                            
                             f.write(f"{polygon.get_polygon_points()}\n")
                     
                     pg.quit()

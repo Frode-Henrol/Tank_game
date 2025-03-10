@@ -37,7 +37,7 @@ class TankGame:
         # Load assets
         self.load_assets()
 
-        # Initialize game objectsd
+        # Initialize game objects - SKAL Rettes denne function skal omskrives sådan den init baseret på den rigtige json fil med map data
         self.init_game_objects()
 
         # Load gui related features
@@ -67,7 +67,17 @@ class TankGame:
             Button(left, 350, 300, 60, "Back", States.MENU)
         ]
         
-    
+        self.level_selection_buttons = [
+            Button(left, 150, 300, 60, "Level 1", States.PLAYING, action=self.load_map(map_num=1)),
+            Button(left, 250, 300, 60, "Level 2", States.PLAYING, action=self.load_map(map_num=2)),
+            Button(left, 350, 300, 60, "Level 3", States.PLAYING, action=self.load_map(map_num=3)),
+            Button(left, 450, 300, 60, "Level 4", States.PLAYING, action=self.load_map(map_num=4)),
+
+            Button(left, 550, 300, 60, "Back", States.MENU)  
+        ]
+        
+    def load_map(self, map_num):
+        print(f"MAP {map_num} loadet")
     
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
@@ -123,7 +133,7 @@ class TankGame:
             elif self.state == "settings":
                 self.settings(event_list)
             elif self.state == "level_select":
-                pass
+                self.level_selection(event_list)
             elif self.state == "playing":
                 self.playing(event_list)
             elif self.state == "exit":
@@ -147,10 +157,17 @@ class TankGame:
         self.handle_buttons(self.setting_buttons, event_list, self.screen)
         pg.display.update()
     
+    def level_selection(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.level_selection_buttons, event_list, self.screen)
+        pg.display.update()
+    
     def playing(self, event_list):
         
         # Controls in game:
         keys = pg.key.get_pressed()
+        mouse_buttons = pg.mouse.get_pressed()
+        
         if keys[pg.K_q]:
             pg.quit()
             sys.exit()
@@ -162,7 +179,7 @@ class TankGame:
             self.units[0].move("forward")
         if keys[pg.K_s]:
             self.units[0].move("backward")
-        if keys[pg.K_SPACE]:
+        if keys[pg.K_SPACE] or mouse_buttons[0]:
             self.units[0].shoot()
         if keys[pg.K_ESCAPE]:
             self.state = States.MENU

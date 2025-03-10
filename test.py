@@ -1,14 +1,21 @@
 import json
 
 
-dic = {"Test1" : 4000, "Test2" : 6000, "Unit_list" : [[1,2,3,4,5,6,7,8],[1,2,3,4,5,6,7,8]]}
+units = {
+    "tank1" : {
+        "tank_speed_modifer" : 1,
+        "projectile_speed_modifier" : 2,
+        "firerate" : 2,
+        "bounch_limit" : 2,
+        "ai_personality" : "test"
+    }
+    
+}
 
-print(dic)
 
 
-
-with open("test_data.json", "w") as f:
-    json.dump(dic, f, indent=4)
+with open("test_units.json", "w") as f:
+    json.dump(units, f, indent=4)
     
     
 with open("test_data.json", "r") as f:

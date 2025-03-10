@@ -1,0 +1,2 @@
+Der skal laves sådan at man kan ændre farve størrelse mm af projectil. Feks når "raket" projectile skal laves.
+Tank turret mangler at være animeret med en png fil der rotere korrekt.

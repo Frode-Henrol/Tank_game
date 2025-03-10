@@ -1,13 +1,14 @@
 import pygame as pg
 import sys
 import utils.helper_functions as helper_functions
-
+from object_classes.button import Button 
 
 def main():
     
     mapsize = (900, 450)
     map_name = r"map_files\map_test1.txt"
     # Snap map size to the grid
+    
     
     drawer = PolygonDrawer(1920, 1080, mapsize[0], mapsize[1], map_name)  # Adjust to your screen resolution
     drawer.run()
@@ -33,19 +34,75 @@ class PolygonDrawer:
         self.screen = pg.display.set_mode((window_width, window_height))
         pg.display.set_caption("Polygon Drawer")
         self.clock = pg.time.Clock()
-
+        
+        # Starting state:
+        self.state = States.MENU
+        
+        self.load_gui()
+    
+    def load_gui(self):
+        x_mid = self.window_width // 2
+        y_mid = self.window_height // 2
+        
+        # ==================== Button for states ====================
+        # Last argument for button tells the button which state it should change to
+        
+        button_width = 300
+        left = x_mid - button_width // 2    # The x value were button starts
+        
+        self.buttons_menu = [
+            Button(left, 150, 300, 60, "Level selection", ),
+            Button(left, 250, 300, 60, "Back", States.EDITOR)
+        ]
+        
+        self.buttons_editor = [
+            Button(left, 150, 300, 60, "Level selection"),
+            Button(left, 250, 300, 60, "Settings"),
+        ]
+        
+    def handle_buttons(self, button_list, event_list, screen):
+        """Handles button events and drawing of buttons"""
+        for event in event_list:
+            for button in button_list:
+                # Each button checks for click
+                new_state = button.handle_event(event)
+                if new_state:
+                    self.state = new_state
+                    
+        for button in button_list:
+            button.draw(screen)
+        
+        
     def run(self):
         """Main loop for drawing the polygon."""
         
         # Init the map border lines:
         while True:
-            self.handle_events()
-            self.draw()
-            self.clock.tick(30)  # Limit to 30 FPS
+            event_list = pg.event.get()
+            
+            if self.state == "menu":
+                self.menu(event_list)
+            elif self.state == "editor":
+                self.editor(event_list)
+                
 
-    def handle_events(self):
+            self.clock.tick(30)  # Limit to 30 FPS
+    
+    def menu(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.buttons_menu, event_list, self.screen)
+        pg.display.update()
+    
+    def editor(self, event_list):
+        
+        self.handle_events(event_list)
+        self.handle_buttons(self.buttons_editor, event_list, self.screen)    
+        self.draw()
+
+
+    def handle_events(self, event_list):
         """Handle all events."""
-        for event in pg.event.get():
+        for event in event_list:
             if event.type == pg.QUIT:
                 pg.quit()
                 exit()
@@ -59,10 +116,8 @@ class PolygonDrawer:
                         # Write the map borders
                         f.write(f"{self.map_borders}\n")
                         
-
                         for polygon in self.polygons:
-                            
-                            
+
                             # Convert tuples to list for json: (only to print console for test)
                             no_tuple = [[x[0],x[1]] for x in polygon.get_polygon_points()]
                             print(no_tuple)
@@ -73,6 +128,8 @@ class PolygonDrawer:
                     exit()
                 if event.key == pg.K_r: # Remove last polygon when pressing r
                     self.polygons.pop(-1)
+                if event.key == pg.K_ESCAPE:
+                    self.state = States.MENU
                 
             if event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
@@ -126,7 +183,6 @@ class PolygonDrawer:
         for corner_pair in helper_functions.coord_to_coordlist(self.map_borders):
             pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
 
-
         pg.display.flip()  # Update the screen
 
     def draw_grid(self):
@@ -178,6 +234,14 @@ class Polygon:
 def snap_to_grid(value):
     """Snap a value to the nearest multiple of 50."""
     return round(value / 50) * 50
+
+
+class States:
+    EDITOR = "editor"
+    MENU = "menu"
+    
+    
+
 
 # Run the program with a specified window size
 if __name__ == "__main__":

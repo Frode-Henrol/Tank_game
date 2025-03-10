@@ -83,13 +83,13 @@ class TankGame:
         """Load and scale game assets (e.g., images)."""
         try:
             path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")
-            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death.png")
+            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death2.png")
 
             self.tank_img = pg.image.load(path_tank).convert_alpha()
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
 
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
-            self.tank_death_img = pg.transform.scale(self.tank_death_img, self.WINDOW_DIM_SCALED)
+            self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0]*2,self.WINDOW_DIM_SCALED[1]*2))
             
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
@@ -106,12 +106,13 @@ class TankGame:
         spawn_point  = (500, 500)
         spawn_degrees = 0
         bounch_limit = 2
+        bomb_limit = 0
         
-        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, self.tank_img, self.tank_death_img, use_turret=True)
+        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
         self.units.append(player_tank)
         
         # SKAL RETTES - test tank for teste ai
-        player_tank = Tank((600,500), (0, 0), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, self.tank_img, self.tank_death_img, use_turret=True, ai_type="fed")
+        player_tank = Tank((600,500), (0, 0), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True, ai_type="fed")
         self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists

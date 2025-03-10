@@ -1,7 +1,7 @@
 import pygame as pg
 
 class Button:
-    def __init__(self, x, y, width, height, text, target_state, action=None):
+    def __init__(self, x, y, width, height, text, target_state = None, action=None):
         self.rect = pg.Rect(x, y, width, height)
         self.text = text
         self.target_state = target_state  # Store the target state for the button click

@@ -15,6 +15,7 @@ class Tank:
                  speed_projectile: float,
                  spawn_degress: int,
                  bounch_limit: int, 
+                 bomb_limit: int,
                  image, 
                  death_image,
                  use_turret,
@@ -28,13 +29,16 @@ class Tank:
         # Projectile
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
         self.bounch_limit = bounch_limit
+        
+        # Bombs (not implemented)
+        self.bomb_limit = bomb_limit
 
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
         self.hitbox = self.init_hitbox()
         self.dead = False
-        self.godmode = True     # Toggle godmode for all tanks
+        self.godmode = False     # Toggle godmode for all tanks
         
         # Tank images:
         self.image = image

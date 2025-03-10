@@ -5,7 +5,7 @@ import utils.deflect as df
 
 class Projectile:
     
-    def __init__(self, startpos: tuple, direction: tuple, speed: int):
+    def __init__(self, startpos: tuple, direction: tuple, speed: int, bounce_limit: int):
         self.pos = startpos
         self.direction = direction
         self.degrees = 0
@@ -13,6 +13,8 @@ class Projectile:
         self.alive = True  
         self.lifespan = 500     # Projectile lifespan
         self.projectile_path_scale = 10     # Scale of projectile len
+        self.bounce_count = 0
+        self.bounce_limit = bounce_limit
         
     def update(self):
         self.pos[0] += self.direction[0]*self.speed
@@ -21,6 +23,9 @@ class Projectile:
         self.lifespan -= 1
         
         if self.lifespan <= 0:
+            self.alive = False
+            
+        if self.bounce_count >= self.bounce_limit:
             self.alive = False
             
     def get_pos(self):
@@ -81,9 +86,20 @@ class Projectile:
         print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f}")
         # Now do the reflection/deflection with chosen_normal
         self.direction = df.find_deflect_vector(chosen_normal, self.direction)
+        
+        self.bounce_count +=1
+        
+    def add_bounce_count(self): 
+        self.bounce_count +=1       #SKAL SLETTES
+    
+    def get_bounce_count(self):
+        return self.bounce_count
     
     def get_pos(self):
         return self.pos
+    
+    def set_alive(self, state: bool):
+        self.alive = state
     
     def __repr__(self):
         return f"Dir vector: ({float(self.pos[0]):.1f}, {float(self.pos[1]):.1f})"

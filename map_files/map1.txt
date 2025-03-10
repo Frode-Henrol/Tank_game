@@ -1,8 +1,0 @@
-name,TestMap1
-map_dim
-height,400
-width,400
-spawn_point
-height,400
-width,400
-objects

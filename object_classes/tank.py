@@ -13,7 +13,8 @@ class Tank:
                  speed: float,
                  firerate: float,
                  speed_projectile: float,
-                 spawn_degress: int, 
+                 spawn_degress: int,
+                 bounch_limit: int, 
                  image, 
                  death_image,
                  use_turret,
@@ -23,7 +24,10 @@ class Tank:
         self.direction = direction  # Forward/backward
         self.degrees = spawn_degress
         self.speed = speed  # Used to control speed so it wont be fps bound
+        
+        # Projectile
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
+        self.bounch_limit = bounch_limit
 
         self.current_speed = [0,0]
         self.firerate = firerate
@@ -43,10 +47,8 @@ class Tank:
         # Use turret?
         self.use_turret = use_turret
         
-        
         # AI
         # TEST DIC
-        
         
         self.ai = TankAI(self, None) if ai_type else None
         
@@ -105,7 +107,7 @@ class Tank:
                 
                 if corner_pair == (self.hitbox[1], self.hitbox[2]):                     # Skal rettes! - lav front hitbox linje rød
                     pg.draw.line(surface, "green", corner_pair[0], corner_pair[1], 3)
-
+        
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
         
@@ -225,7 +227,7 @@ class Tank:
             # Find position for spawn of projectile
             spawn_projectile_pos = [self.pos[0] + unit_direction[0]*spawn_distance_from_middle, self.pos[1] + unit_direction[1]*spawn_distance_from_middle]
 
-            projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile)
+            projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile, bounce_limit=self.bounch_limit)
             self.projectiles.append(projectile)                                                                      
             print(self.direction)
 

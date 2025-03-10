@@ -16,6 +16,7 @@ class Tank:
                  spawn_degress: int, 
                  image, 
                  death_image,
+                 use_turret,
                  ai_type = None):
         
         self.pos = list(startpos)
@@ -38,6 +39,9 @@ class Tank:
         
         # Projectiles from current tank
         self.projectiles: list[Projectile] = []
+        
+        # Use turret?
+        self.use_turret = use_turret
         
         
         # AI
@@ -65,7 +69,6 @@ class Tank:
         elif direction == "backward":
             dir = -1
             
-        
         # Move tank image
         self.pos[0] = self.pos[0] + dir * self.direction[0] * self.speed
         self.pos[1] = self.pos[1] + dir * self.direction[1] * self.speed
@@ -89,6 +92,7 @@ class Tank:
         rect = rotated_image.get_rect(center=self.pos)
         surface.blit(rotated_image, rect.topleft)
         
+        
         # Decrease cooldown each new draw
         if self.cannon_cooldown > 0:
             self.cannon_cooldown -= 1
@@ -98,6 +102,9 @@ class Tank:
         if draw_hitbox:
             for corner_pair in helper_functions.coord_to_coordlist(self.hitbox):
                 pg.draw.line(surface, "blue", corner_pair[0], corner_pair[1], 3)
+                
+                if corner_pair == (self.hitbox[1], self.hitbox[2]):                     # Skal rettes! - lav front hitbox linje rød
+                    pg.draw.line(surface, "green", corner_pair[0], corner_pair[1], 3)
 
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
@@ -196,18 +203,29 @@ class Tank:
         if self.cannon_cooldown == 0:
             
             # At the moment the distance is hard coded, IT must be bigger than hit box or tank will shot itself.
-            spawn_distance_from_middle = 25
+            spawn_distance_from_middle = 30
             
-            # Calculate magnitude scalar of units direction vector
-            magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction)
-            
-            # Find unit vector for direction
-            unit_diretion = (self.direction[0]/magnitude_dir_vec, self.direction[1]/magnitude_dir_vec)
-            
+            if self.use_turret:
+                
+                # Find the unit vector between mouse and tank. This is the projectile unit direction vector
+                mouse_pos = pg.mouse.get_pos()
+                unit_direction = helper_functions.unit_vector(self.pos, mouse_pos)
+                projectile_direction = unit_direction
+                
+                print(f"{mouse_pos=} {unit_direction=}")
+            else:
+                # Calculate magnitude scalar of units direction vector
+                magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction)
+                
+                # Find unit vector for direction
+                unit_direction = (self.direction[0]/magnitude_dir_vec, self.direction[1]/magnitude_dir_vec)
+                
+                projectile_direction = self.direction
+                    
             # Find position for spawn of projectile
-            spawn_projectile_pos = [self.pos[0] + unit_diretion[0]*spawn_distance_from_middle, self.pos[1] + unit_diretion[1]*spawn_distance_from_middle]
+            spawn_projectile_pos = [self.pos[0] + unit_direction[0]*spawn_distance_from_middle, self.pos[1] + unit_direction[1]*spawn_distance_from_middle]
 
-            projectile = Projectile(spawn_projectile_pos, self.direction, speed=self.speed_projectile)
+            projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile)
             self.projectiles.append(projectile)                                                                      
             print(self.direction)
 
@@ -225,12 +243,15 @@ class Tank:
 
     def get_hitbox_corner_pairs(self):
         return helper_functions.coord_to_coordlist(self.hitbox)
-
+    
+    def get_hitbox_front_pair(self):
+        return self.hitbox[0], self.hitbox[1]
+    
     def add_direction_vector(self, vec_dir):
         # SKAL RETTES - meget logic burde kunne overføres til move method
         x1, y1 = vec_dir
         x2, y2 = self.pos 
-        self.pos = x1+x2, y1+y2
+        self.pos = list((x1+x2, y1+y2))
         
         # Move hit box:
         for i in range(len(self.hitbox)):

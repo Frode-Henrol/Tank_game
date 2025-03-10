@@ -19,8 +19,8 @@ class TankGame:
         self.fps = 60
 
         # Window setup
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
-        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
+        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
+        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
@@ -72,14 +72,15 @@ class TankGame:
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
-            path_tank = os.path.join(os.getcwd(), "pictures", "tank2.png")
-            path_tank_death = os.path.join(os.getcwd(), "pictures", "tank_death.png")
+            path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")
+            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death.png")
 
             self.tank_img = pg.image.load(path_tank).convert_alpha()
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
 
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
             self.tank_death_img = pg.transform.scale(self.tank_death_img, self.WINDOW_DIM_SCALED)
+            
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()
@@ -94,11 +95,11 @@ class TankGame:
         speed_projectile *= speed
         spawn_point  = (500, 500)
         spawn_degrees = 0
-        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, spawn_degrees, self.tank_img, self.tank_death_img)
+        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, spawn_degrees, self.tank_img, self.tank_death_img, use_turret=True)
         self.units.append(player_tank)
         
         # SKAL RETTES - test tank for teste ai
-        player_tank = Tank((600,500), (0, 0), speed, firerate, speed_projectile, spawn_degrees, self.tank_img, self.tank_death_img, ai_type="fed")
+        player_tank = Tank((600,500), (0, 0), speed, firerate, speed_projectile, spawn_degrees, self.tank_img, self.tank_death_img, use_turret=True, ai_type="fed")
         self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
@@ -196,14 +197,11 @@ class TankGame:
                 case pg.QUIT:
                     pg.quit()
                     sys.exit()
-        """
-        for e in pg.event.get():
-            match e.type:
                 case pg.KEYDOWN:
                     if e.key == pg.K_r:
                         print("RESPAWN")
-                        self.units[0].respawn()
-        """                      
+                        self.units[0].respawn() # The 0 indicates player tank
+                   
               
     
     def update(self):
@@ -228,7 +226,8 @@ class TankGame:
                 projectile_line = proj.get_line()
                 for unit in self.units:
                     if unit.collision(projectile_line, collision_type="projectile"):
-                        unit.projectiles.pop(i)
+                        if unit.projectiles:
+                            unit.projectiles.pop(i)
 
                 proj.update()
 
@@ -247,11 +246,11 @@ class TankGame:
                 if not self.are_tanks_close(unit, other_unit):
                     continue
                 
+                #front_cornerpairs = other_unit.get_hitbox_corner_pairs()[1:2][0] - front
                 for other_corner_pair in other_unit.get_hitbox_corner_pairs():
                     unit.collision(other_corner_pair, collision_type="surface")
                     
                     other_unit.add_direction_vector(unit.get_direction_vector())
-                    
                 # SKAL RETTES
                 # Next add so that you direction vector gets added to theirs
                 

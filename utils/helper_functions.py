@@ -1,6 +1,6 @@
 import numpy as np
 import ast  # For safely evaluating the string representation of the data
-
+import math
 
 def coord_to_coordlist(coordinat_list: list) -> list:
     """Takes a list of coordinates (polygon) and makes tuples representing each line"""
@@ -19,6 +19,17 @@ def coord_to_coordlist(coordinat_list: list) -> list:
 
 def get_vector_magnitude(vector: list) -> float:
     return np.sqrt(vector[0] ** 2 + vector[1] ** 2)
+
+def unit_vector(from_point: tuple, to_point: tuple) -> tuple:
+    """Returns the unit vector pointing from from_point to to_point."""
+    dx, dy = to_point[0] - from_point[0], to_point[1] - from_point[1]
+    length = get_vector_magnitude([dx, dy])
+    
+    if length == 0:
+        return (0, 0)  # Avoid division by zero
+    
+    return (dx / length, dy / length)
+
 
 def load_map_data(map_name):
     """Load the map and polygons from the text file."""

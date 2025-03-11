@@ -37,6 +37,10 @@ class PolygonDrawer:
         
         # Starting state:
         self.state = States.MENU 
+        
+        # Starting mode in the editor
+        self.editor_mode = EditorMode.POLYOGON
+        
         self.load_gui()
     
     def load_gui(self):
@@ -54,24 +58,47 @@ class PolygonDrawer:
             Button(left, 250, 300, 60, "Settings", States.SETTINGS),
             Button(left, 350, 300, 60, "Quit", States.EXIT)
         ]
-        
+                
         self.buttons_editor_menu = [
-            Button(left, 150, 300, 60, "Polygon placement", action=lambda: self.buttons_editor_menu[1].set_semi_disabled(True), color_normal=(0, 100, 0)),
-            Button(left, 250, 300, 60, "Unit placement",action=lambda: self.buttons_editor_menu[0].set_semi_disabled(True), semi_disabled=True, color_normal=(0, 100, 0)),
+            Button(left, 150, 300, 60, "Polygon placement", action = self.polygon_button, color_normal=(0, 100, 0)),
+            Button(left, 250, 300, 60, "Unit placement", action = self.unit_button, semi_disabled=True, color_normal=(0, 100, 0)),
             Button(left, 350, 300, 60, "Editor", States.EDITOR),
             Button(left, 550, 300, 60, "Save map to json"),
             Button(left, 650, 300, 60, "Exit to main menu", States.MENU),
             
         ]
-                
+        
         self.buttons_settings = [
             Button(left, 150, 300, 60, "1"),
             Button(left, 250, 300, 60, "2"),
             Button(left, 350, 300, 60, "2"),
             Button(left, 450, 300, 60, "2"),
             Button(left, 550, 300, 60, "Back", States.MENU),
-            
         ]
+        
+        
+        offset = 400
+        self.buttons_units = [
+            Button(left+offset, 150, 300, 60, "1"),
+            Button(left+offset, 250, 300, 60, "2"),
+            Button(left+offset, 350, 300, 60, "2"),
+            Button(left+offset, 450, 300, 60, "2"),
+            Button(left+offset, 550, 300, 60, "Back"),
+        ]
+        
+    # ===============================================================
+    # functions for the buttons - this is a temp solution:
+    def polygon_button(self):
+        self.buttons_editor_menu[1].set_semi_disabled(True)     # Semi disable unit button
+        self.editor_mode = EditorMode.POLYOGON
+        print("Polygon placement button clicked, editor mode set to POLYGON.")
+        
+    def unit_button(self):
+        self.buttons_editor_menu[0].set_semi_disabled(True)     # Semi disable polygon button
+        self.editor_mode = EditorMode.UNIT
+        print("Unit placement button clicked, editor mode set to UNIT.")
+    # ===============================================================
+        
         
     def handle_buttons(self, button_list, event_list, screen):
         """Handles button events and drawing of buttons"""
@@ -81,10 +108,9 @@ class PolygonDrawer:
                 new_state = button.handle_event(event)
                 if new_state:
                     self.state = new_state
-                    
+        
         for button in button_list:
             button.draw(screen)
-        
         
     def run(self):
         """Main loop for drawing the polygon."""
@@ -96,7 +122,7 @@ class PolygonDrawer:
             if self.state == States.MENU:
                 self.menu(event_list)
             elif self.state == States.EDITOR_MENU:
-                self.editor_menu(event_list)
+                self.editor_menu(event_list)                
             elif self.state == States.EDITOR:
                 self.editor(event_list)
             elif self.state == States.EXIT:
@@ -113,23 +139,32 @@ class PolygonDrawer:
         self.handle_buttons(self.buttons_menu, event_list, self.screen)
         
     def editor(self, event_list):
-        self.handle_editor_events(event_list)
+        
+        if self.editor_mode == EditorMode.POLYOGON:
+            self.handle_editor_events_polygon_mode(event_list)
+        
+        if self.editor_mode == EditorMode.UNIT:
+            self.handle_editor_events_units_mode(event_list)
+            
         self.draw()
         
     def editor_menu(self, event_list):
         self.screen.fill("gray")
-        self.handle_buttons(self.buttons_editor_menu, event_list, self.screen)  
+        self.handle_buttons(self.buttons_editor_menu, event_list, self.screen) 
+        
+        # If unit mode, then show the buttons for each unit
+        if self.editor_mode == EditorMode.UNIT:
+            self.handle_buttons(self.buttons_units, event_list, self.screen) 
         
         for event in event_list:    # Skal rettes - Dette er gentaget kode pt. 
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
-                    self.state = States.EDITOR_MENU
+                    self.state = States.EDITOR
     
     def settings(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.buttons_settings, event_list, self.screen)   
         
-    
     def exit(self):
         pg.quit()
         sys.exit()
@@ -145,7 +180,9 @@ class PolygonDrawer:
                     self.save()
                     self.exit()
     
-    def handle_editor_events(self, event_list):
+# ========================================= EVENTS for each specific mode in the editor =========================================================
+
+    def handle_editor_events_polygon_mode(self, event_list):
         for event in event_list:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_r: # Remove last polygon when pressing r
@@ -169,6 +206,25 @@ class PolygonDrawer:
                     
                     else:
                         self.points.append(snapped_pos)  # Add snapped point to the list
+
+    def handle_editor_events_units_mode(self, event_list):
+        for event in event_list:
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_r: # Remove last polygon when pressing r
+                    self.polygons.pop(-1)
+                if event.key == pg.K_ESCAPE:
+                    self.state = States.EDITOR_MENU
+               
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Left click
+                    mouse_pos = pg.mouse.get_pos()
+
+                    # Snap the mouse position to a grid of 50px spacing
+                    snapped_pos = (snap_to_grid(mouse_pos[0]), snap_to_grid(mouse_pos[1]))
+
+                   
+
+# ===============================================================================================================================================
 
 
     def save(self):

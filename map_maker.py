@@ -24,6 +24,8 @@ class PolygonDrawer:
         self.polygons: list[Polygon] = []
         self.map_name = map_name
         
+        self.units = []     # Skal rettes - test af unit list
+        
         self.map_width = map_width
         self.map_height = map_height
         
@@ -39,7 +41,7 @@ class PolygonDrawer:
         self.state = States.MENU 
         
         # Starting mode in the editor
-        self.editor_mode = EditorMode.POLYOGON
+        self.editor_mode = EditorMode.POLYGON
         
         # UNIT MODE:
         self.selected_tank = None  # Keep track of the currently selected tank button
@@ -102,7 +104,7 @@ class PolygonDrawer:
     # functions for the buttons - this is a temp solution:
     def polygon_button(self):
         self.buttons_editor_menu[1].set_semi_disabled(True)     # Semi disable unit button
-        self.editor_mode = EditorMode.POLYOGON
+        self.editor_mode = EditorMode.POLYGON
         print("Polygon placement button clicked, editor mode set to POLYGON.")
         
     def unit_button(self):
@@ -163,7 +165,7 @@ class PolygonDrawer:
         
     def editor(self, event_list):
         
-        if self.editor_mode == EditorMode.POLYOGON:
+        if self.editor_mode == EditorMode.POLYGON:
             self.handle_editor_events_polygon_mode(event_list)
         
         if self.editor_mode == EditorMode.UNIT:
@@ -233,8 +235,8 @@ class PolygonDrawer:
     def handle_editor_events_units_mode(self, event_list):
         for event in event_list:
             if event.type == pg.KEYDOWN:
-                if event.key == pg.K_r: # Remove last polygon when pressing r
-                    self.polygons.pop(-1)
+                if event.key == pg.K_r: # Remove last unit when pressing r
+                    self.units.pop(-1)
                 if event.key == pg.K_ESCAPE:
                     self.state = States.EDITOR_MENU
                
@@ -244,8 +246,19 @@ class PolygonDrawer:
 
                     # Snap the mouse position to a grid of 50px spacing
                     snapped_pos = (snap_to_grid(mouse_pos[0]), snap_to_grid(mouse_pos[1]))
+                    
+                    print(snapped_pos)
+                    if self.selected_tank is None:
+                        print(f"Error: No unit selected.")
+                        return
+                    if snapped_pos in self.units:
+                        print(f"Error: Can not place unit on top of other unit.")
+                        return
+                    
+                    self.units.append(snapped_pos)
+                    print(f"Added unit at {snapped_pos} to the units list.")
 
-                   
+                        
 
 # ===============================================================================================================================================
 
@@ -303,7 +316,10 @@ class PolygonDrawer:
         for corner_pair in helper_functions.coord_to_coordlist(self.map_borders):
             pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
 
-        
+        # Draw the units as circles in unit mode
+        for unit_pos in self.units:
+            pg.draw.circle(self.screen, (0, 0, 255), unit_pos, 15)  # Blue circles for units
+    
 
     def draw_grid(self):
         """Draw a faint grid on the screen."""
@@ -364,7 +380,7 @@ class States:
     SETTINGS = "settings"
 
 class EditorMode:
-    POLYOGON = "polygon"
+    POLYGON = "polygon"
     UNIT = "unit"
     
     

@@ -41,6 +41,9 @@ class PolygonDrawer:
         # Starting mode in the editor
         self.editor_mode = EditorMode.POLYOGON
         
+        # UNIT MODE:
+        self.selected_tank = None  # Keep track of the currently selected tank button
+        
         self.load_gui()
     
     def load_gui(self):
@@ -52,6 +55,7 @@ class PolygonDrawer:
         
         button_width = 300
         left = x_mid - button_width // 2    # The x value were button starts
+        standard_green_color = (0, 100, 0)
         
         self.buttons_menu = [
             Button(left, 150, 300, 60, "Start editor", States.EDITOR_MENU),
@@ -60,8 +64,8 @@ class PolygonDrawer:
         ]
                 
         self.buttons_editor_menu = [
-            Button(left, 150, 300, 60, "Polygon placement", action = self.polygon_button, color_normal=(0, 100, 0)),
-            Button(left, 250, 300, 60, "Unit placement", action = self.unit_button, semi_disabled=True, color_normal=(0, 100, 0)),
+            Button(left, 150, 300, 60, "Polygon placement", action = self.polygon_button, color_normal = standard_green_color),
+            Button(left, 250, 300, 60, "Unit placement", action = self.unit_button, semi_disabled=True, color_normal = standard_green_color),
             Button(left, 350, 300, 60, "Editor", States.EDITOR),
             Button(left, 550, 300, 60, "Save map to json"),
             Button(left, 650, 300, 60, "Exit to main menu", States.MENU),
@@ -78,14 +82,22 @@ class PolygonDrawer:
         
         
         offset = 400
+        offset_x = 600
+        width = 120
         self.buttons_units = [
-            Button(left+offset, 150, 300, 60, "1"),
-            Button(left+offset, 250, 300, 60, "2"),
-            Button(left+offset, 350, 300, 60, "2"),
-            Button(left+offset, 450, 300, 60, "2"),
-            Button(left+offset, 550, 300, 60, "Back"),
+            Button(left+offset, 150, width, 60, "Tank 1", action=lambda: self.tank_button(0), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 250, width, 60, "Tank 2", action=lambda: self.tank_button(1), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 350, width, 60, "Tank 3", action=lambda: self.tank_button(2), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 450, width, 60, "Tank 4", action=lambda: self.tank_button(3), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 550, width, 60, "Tank 5", action=lambda: self.tank_button(4), color_normal=standard_green_color, semi_disabled=True),
+
+            Button(left+offset_x, 150, width, 60, "Tank 6", action=lambda: self.tank_button(5), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 250, width, 60, "Tank 7", action=lambda: self.tank_button(6), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 350, width, 60, "Tank 8", action=lambda: self.tank_button(7), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 450, width, 60, "Tank 9", action=lambda: self.tank_button(8), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 550, width, 60, "Tank 10", action=lambda: self.tank_button(9), color_normal=standard_green_color, semi_disabled=True)
         ]
-        
+                
     # ===============================================================
     # functions for the buttons - this is a temp solution:
     def polygon_button(self):
@@ -97,6 +109,17 @@ class PolygonDrawer:
         self.buttons_editor_menu[0].set_semi_disabled(True)     # Semi disable polygon button
         self.editor_mode = EditorMode.UNIT
         print("Unit placement button clicked, editor mode set to UNIT.")
+        
+    
+    def tank_button(self, tank_index):
+        # Set the pressed tank button to green
+        for i, button in enumerate(self.buttons_units):
+            if i == tank_index:
+                self.selected_tank = tank_index  # Track the selected tank
+                print(f"Selected tank {i+1} with 0-index: {i}")
+            else:
+                button.set_semi_disabled(True)  # Semi-disable other buttons
+        
     # ===============================================================
         
         

@@ -131,16 +131,16 @@ class TankGame:
             
             event_list = pg.event.get()
             
-            if self.state == "menu":
+            if self.state == States.MENU:
                 self.main_menu(event_list)
-            elif self.state == "settings":
+            elif self.state == States.SETTINGS:
                 self.settings(event_list)
-            elif self.state == "level_select":
+            elif self.state == States.LEVEL_SELECT:
                 self.level_selection(event_list)
-            elif self.state == "playing":
+            elif self.state == States.PLAYING:
                 self.playing(event_list)
-            elif self.state == "exit":
-                exit()
+            elif self.state == States.EXIT:
+                self.exit()
             
             self.handle_events(event_list)
 
@@ -316,7 +316,7 @@ class TankGame:
         self.render_debug_info()
 
         pg.display.update()
-        self.clock.tick(self.fps)   # --- skal rettes - kan måske slettes
+        self.clock.tick(self.fps)   # Controls FPS
 
 
             

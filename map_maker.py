@@ -36,8 +36,7 @@ class PolygonDrawer:
         self.clock = pg.time.Clock()
         
         # Starting state:
-        self.state = States.MENU
-        
+        self.state = States.MENU 
         self.load_gui()
     
     def load_gui(self):
@@ -51,13 +50,27 @@ class PolygonDrawer:
         left = x_mid - button_width // 2    # The x value were button starts
         
         self.buttons_menu = [
-            Button(left, 150, 300, 60, "Level selection", ),
-            Button(left, 250, 300, 60, "Back", States.EDITOR)
+            Button(left, 150, 300, 60, "Start editor", States.EDITOR_MENU),
+            Button(left, 250, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 350, 300, 60, "Quit", States.EXIT)
         ]
         
-        self.buttons_editor = [
-            Button(left, 150, 300, 60, "Level selection"),
-            Button(left, 250, 300, 60, "Settings"),
+        self.buttons_editor_menu = [
+            Button(left, 150, 300, 60, "Polygon placement", action=lambda: self.buttons_editor_menu[1].set_semi_disabled(True), color_normal=(0, 100, 0)),
+            Button(left, 250, 300, 60, "Unit placement",action=lambda: self.buttons_editor_menu[0].set_semi_disabled(True), semi_disabled=True, color_normal=(0, 100, 0)),
+            Button(left, 350, 300, 60, "Editor", States.EDITOR),
+            Button(left, 550, 300, 60, "Save map to json"),
+            Button(left, 650, 300, 60, "Exit to main menu", States.MENU),
+            
+        ]
+                
+        self.buttons_settings = [
+            Button(left, 150, 300, 60, "1"),
+            Button(left, 250, 300, 60, "2"),
+            Button(left, 350, 300, 60, "2"),
+            Button(left, 450, 300, 60, "2"),
+            Button(left, 550, 300, 60, "Back", States.MENU),
+            
         ]
         
     def handle_buttons(self, button_list, event_list, screen):
@@ -80,57 +93,66 @@ class PolygonDrawer:
         while True:
             event_list = pg.event.get()
             
-            if self.state == "menu":
+            if self.state == States.MENU:
                 self.menu(event_list)
-            elif self.state == "editor":
+            elif self.state == States.EDITOR_MENU:
+                self.editor_menu(event_list)
+            elif self.state == States.EDITOR:
                 self.editor(event_list)
+            elif self.state == States.EXIT:
+                self.exit()
+            elif self.state == States.SETTINGS:
+                self.settings(event_list)
                 
-
+            self.handle_global_events(event_list)
             self.clock.tick(30)  # Limit to 30 FPS
+            pg.display.flip()  # Update the screen            
     
     def menu(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.buttons_menu, event_list, self.screen)
-        pg.display.update()
-    
-    def editor(self, event_list):
         
-        self.handle_events(event_list)
-        self.handle_buttons(self.buttons_editor, event_list, self.screen)    
+    def editor(self, event_list):
+        self.handle_editor_events(event_list)
         self.draw()
-
-
-    def handle_events(self, event_list):
-        """Handle all events."""
+        
+    def editor_menu(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.buttons_editor_menu, event_list, self.screen)  
+        
+        for event in event_list:    # Skal rettes - Dette er gentaget kode pt. 
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    self.state = States.EDITOR_MENU
+    
+    def settings(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.buttons_settings, event_list, self.screen)   
+        
+    
+    def exit(self):
+        pg.quit()
+        sys.exit()
+        
+    def handle_global_events(self, event_list):
+        """Handle events for all states"""
         for event in event_list:
             if event.type == pg.QUIT:
-                pg.quit()
-                exit()
+                self.exit()
             
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_q:  # If 'Q' key is pressed
-                    with open(self.map_name, "w") as f:
-                        
-                        # Map name:
-                        f.write(f"{self.map_name}\n")
-                        # Write the map borders
-                        f.write(f"{self.map_borders}\n")
-                        
-                        for polygon in self.polygons:
-
-                            # Convert tuples to list for json: (only to print console for test)
-                            no_tuple = [[x[0],x[1]] for x in polygon.get_polygon_points()]
-                            print(no_tuple)
-                            
-                            f.write(f"{polygon.get_polygon_points()}\n")
-                    
-                    pg.quit()
-                    exit()
+                    self.save()
+                    self.exit()
+    
+    def handle_editor_events(self, event_list):
+        for event in event_list:
+            if event.type == pg.KEYDOWN:
                 if event.key == pg.K_r: # Remove last polygon when pressing r
                     self.polygons.pop(-1)
                 if event.key == pg.K_ESCAPE:
-                    self.state = States.MENU
-                
+                    self.state = States.EDITOR_MENU
+               
             if event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     mouse_pos = pg.mouse.get_pos()
@@ -149,7 +171,26 @@ class PolygonDrawer:
                         self.points.append(snapped_pos)  # Add snapped point to the list
 
 
+    def save(self):
+        with open(self.map_name, "w") as f:
+                        
+            # Map name:
+            f.write(f"{self.map_name}\n")
+            # Write the map borders
+            f.write(f"{self.map_borders}\n")
+            
+            for polygon in self.polygons:
 
+                # Convert tuples to list for json: (only to print console for test)
+                no_tuple = [[x[0],x[1]] for x in polygon.get_polygon_points()]
+                print(no_tuple)
+                
+                f.write(f"{polygon.get_polygon_points()}\n")
+    
+
+        
+    
+    
     def is_point_near(self, point, compare_point, threshold=10):
         """Check if a point is near the first point (to close the polygon)."""
         x, y = point
@@ -183,7 +224,7 @@ class PolygonDrawer:
         for corner_pair in helper_functions.coord_to_coordlist(self.map_borders):
             pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
 
-        pg.display.flip()  # Update the screen
+        
 
     def draw_grid(self):
         """Draw a faint grid on the screen."""
@@ -238,7 +279,14 @@ def snap_to_grid(value):
 
 class States:
     EDITOR = "editor"
+    EDITOR_MENU = "editor_menu"
     MENU = "menu"
+    EXIT = "exit"
+    SETTINGS = "settings"
+
+class EditorMode:
+    POLYOGON = "polygon"
+    UNIT = "unit"
     
     
 

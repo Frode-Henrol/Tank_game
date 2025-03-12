@@ -331,6 +331,10 @@ class TankGame:
                 # For each projectile from unit, we check if it hits any other_unit and remove it if it hits
                 projectile_line = proj.get_line()
                 for other_unit in self.units:
+                    
+                    # Make sure to skip dead units (makes projectiles pass through dead tanks)
+                    if other_unit.get_death_status():
+                        continue
                     if other_unit.collision(projectile_line, collision_type="projectile"):
                         if unit.projectiles:
                             unit.projectiles.pop(i)
@@ -345,11 +349,14 @@ class TankGame:
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")
-
+            
+            # Check for unit unit collision 
             for other_unit in self.units:
                 if other_unit == unit:
                     continue
                 if not self.are_tanks_close(unit, other_unit):
+                    continue
+                if other_unit.get_death_status():
                     continue
                 
                 #front_cornerpairs = other_unit.get_hitbox_corner_pairs()[1:2][0] - front

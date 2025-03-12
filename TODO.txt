@@ -4,3 +4,4 @@ Tank turret mangler at være animeret med en png fil der rotere korrekt.
 
 KNOW bugs:
 Spam clicking buttons makes them go towards a white color
+Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have

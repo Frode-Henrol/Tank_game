@@ -276,7 +276,8 @@ class Tank:
             moved_y = y + y1
             self.hitbox[i] = (moved_x, moved_y)
         
-        
+    def get_death_status(self):
+        return self.dead
 
     def get_direction_vector(self):
         return self.direction

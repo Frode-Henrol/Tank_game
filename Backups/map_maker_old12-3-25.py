@@ -10,8 +10,6 @@ def main():
     mapsize = (900, 450)
     map_name = r"map_files\map_test1.txt"
     # Snap map size to the grid
-    
-    
     drawer = PolygonDrawer(1920, 1080, mapsize[0], mapsize[1], map_name)  # Adjust to your screen resolution
     drawer.run()
 
@@ -19,9 +17,6 @@ def main():
 
 class PolygonDrawer:
     def __init__(self, window_width, window_height, map_width, map_height, map_name):
-        
-        
-        
         
         self.window_width = window_width
         self.window_height = window_height

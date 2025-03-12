@@ -165,7 +165,7 @@ class TankGame:
                                         firerate           = specific_unit_data["firerate"],
                                         speed_projectile   = temp_speed * specific_unit_data["projectile_speed_modifier"],
                                         spawn_degress      = unit_angle,
-                                        bounch_limit       = specific_unit_data["bounch_limit"],
+                                        bounch_limit       = specific_unit_data["bounch_limit"] + 1,
                                         bomb_limit         = specific_unit_data["bomb_limit"],
                                         image              = self.tank_img,
                                         death_image        = self.tank_death_img,
@@ -327,10 +327,11 @@ class TankGame:
                 for obstacle in self.obstacles:
                     for corner_pair in obstacle.get_corner_pairs():
                         proj.collision(corner_pair)
-
+                
+                # For each projectile from unit, we check if it hits any other_unit and remove it if it hits
                 projectile_line = proj.get_line()
-                for unit in self.units:
-                    if unit.collision(projectile_line, collision_type="projectile"):
+                for other_unit in self.units:
+                    if other_unit.collision(projectile_line, collision_type="projectile"):
                         if unit.projectiles:
                             unit.projectiles.pop(i)
 

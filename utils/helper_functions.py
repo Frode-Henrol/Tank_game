@@ -14,7 +14,6 @@ def coord_to_coordlist(coordinat_list: list) -> list:
     # close the polygon
     new_coordinat_list.append((coordinat_list[-1], coordinat_list[0]))
     
-    #return [((420, 420), (480, 420)),((400,100),(600,100))] #------------------------------------------------------------!
     return new_coordinat_list
 
 def get_vector_magnitude(vector: list) -> float:

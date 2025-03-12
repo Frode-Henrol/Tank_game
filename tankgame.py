@@ -29,8 +29,11 @@ class TankGame:
 
         # Game objects
         self.units: list[Tank] = []
+        self.units_player_controlled: list[Tank] = []
+        
         self.projectiles: list[Projectile] = []
         self.obstacles: list[Obstacle] = []
+        
         
         # Game states:
         self.state = States.MENU
@@ -106,44 +109,77 @@ class TankGame:
         speed_projectile *= speed
         spawn_point  = (800, 500)
         spawn_degrees = 45
-        bounch_limit = 10
+        bounch_limit = 1
         bomb_limit = 0
         
         player_tank = Tank(spawn_point, speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
         self.units.append(player_tank)
         
         # SKAL RETTES - test tank for teste ai
-        player_tank = Tank((600,500), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True, ai_type="fed")
+        player_tank = Tank((600,500), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
         self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
         polygon_list, unit_list = helper_functions.load_map_data(map_name)
         
-        # ==================== Load map obstacles ====================
+        # ==================== Load map obstacles and units ====================
         for polygon_conrners in polygon_list:
             self.obstacles.extend([Obstacle(polygon_conrners)])
         
         # Open unit json to get unit info
-        unit_json_path = r"units\units.json"
+        all_units_data_json_path = r"units\units.json"
         
-        # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type)
+        # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
         tank_mappings = {0 : "tank1", 1 : "tank2"}
         
-        with open(unit_json_path, "r") as json_file:
+        with open(all_units_data_json_path, "r") as json_file:
                 
-            unit_data_dict = json.load(json_file)
-            print(f"Loaded unit dict: {unit_data_dict}")
+            all_units_data_json = json.load(json_file)
+            print(f"Loaded unit dict: {all_units_data_json}")
         
             # Unpack each unit map data
             for unit in unit_list:
                 unit_pos, unit_angle, unit_type = unit
                 
+                # Get unit type in json format
+                unit_type_json_format = tank_mappings[unit_type]
                 
-
+                # Fetch specific unit data 
+                specific_unit_data = all_units_data_json[unit_type_json_format]
                 
-
-        
+                
+                temp_speed = 144 / self.fps 
+                # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
+                
+                # Make sure that if the ai type is set to None if it is a player controlled tank
+                if specific_unit_data["ai_personality"] == "player":
+                    print(f"Tank {unit} is player controlled.")
+                    ai_type = None
+                else:
+                    ai_type = specific_unit_data["ai_personality"]
+                
+                try:
+                    unit_to_add = Tank(startpos            = unit_pos,
+                                        speed              = temp_speed * specific_unit_data["tank_speed_modifier"], 
+                                        firerate           = specific_unit_data["firerate"],
+                                        speed_projectile   = temp_speed * specific_unit_data["projectile_speed_modifier"],
+                                        spawn_degress      = unit_angle,
+                                        bounch_limit       = specific_unit_data["bounch_limit"],
+                                        bomb_limit         = specific_unit_data["bomb_limit"],
+                                        image              = self.tank_img,
+                                        death_image        = self.tank_death_img,
+                                        use_turret         = True, 
+                                        ai_type            = ai_type)
+                    
+                    if unit_to_add.get_ai() == None:
+                        self.units_player_controlled.append(unit_to_add)
+                        
+                    self.units.append(unit_to_add)
+                    
+                except Exception as e:
+                    print(f"Error: {e}")
+            
 
     def run(self):
         """Main game loop."""
@@ -195,15 +231,15 @@ class TankGame:
             pg.quit()
             sys.exit()
         if keys[pg.K_a]:
-            self.units[0].rotate(-1)
+            self.units_player_controlled[0].rotate(-1)
         if keys[pg.K_d]:
-            self.units[0].rotate(1)
+            self.units_player_controlled[0].rotate(1)
         if keys[pg.K_w]:
-            self.units[0].move("forward")
+            self.units_player_controlled[0].move("forward")
         if keys[pg.K_s]:
-            self.units[0].move("backward")
+            self.units_player_controlled[0].move("backward")
         if keys[pg.K_SPACE] or mouse_buttons[0]:
-            self.units[0].shoot()
+            self.units_player_controlled[0].shoot()
         if keys[pg.K_ESCAPE]:
             self.state = States.MENU
         

@@ -259,6 +259,9 @@ class Tank:
     def get_hitbox_front_pair(self):
         return self.hitbox[0], self.hitbox[1]
     
+    def get_ai(self):
+        return self.ai
+    
     def add_direction_vector(self, vec_dir):
         # SKAL RETTES - meget logic burde kunne overføres til move method
         x1, y1 = vec_dir

@@ -61,7 +61,7 @@ class TankGame:
         self.menu_buttons = [
             Button(left, 150, 300, 60, "Level selection", States.LEVEL_SELECT),
             Button(left, 250, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 350, 300, 60, "Quick play", States.PLAYING),
+            Button(left, 350, 300, 60, "Quick play", States.COUNTDOWN),
             Button(left, 450, 300, 60, "Quit", States.EXIT)
         ]
         
@@ -112,12 +112,12 @@ class TankGame:
         bounch_limit = 1
         bomb_limit = 0
         
-        player_tank = Tank(spawn_point, speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
-        self.units.append(player_tank)
+        #player_tank = Tank(spawn_point, speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
+        #self.units.append(player_tank)
         
         # SKAL RETTES - test tank for teste ai
-        player_tank = Tank((600,500), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
-        self.units.append(player_tank)
+        #player_tank = Tank((600,500), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
+        #self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
@@ -195,6 +195,8 @@ class TankGame:
                 self.level_selection(event_list)
             elif self.state == States.PLAYING:
                 self.playing(event_list)
+            elif self.state == States.COUNTDOWN:
+                self.count_down(event_list)
             elif self.state == States.EXIT:
                 self.exit()
             
@@ -221,29 +223,57 @@ class TankGame:
         self.handle_buttons(self.level_selection_buttons, event_list, self.screen)
         pg.display.update()
     
+    def count_down(self, eventlist):
+        # Set countdown starting number (for example, 3 seconds)
+        countdown_number = 3
+        font = pg.font.Font(None, 200)  # Large font for the countdown number
+        
+        while countdown_number > 0:
+            self.draw() # Drawing all objects
+            
+            # Setup text
+            countdown_text = font.render(str(countdown_number), True, (0,0,0))
+            text_rect = countdown_text.get_rect(center=(self.WINDOW_W // 2, self.WINDOW_H // 2))  # Center the text
+            
+            # Draw the countdown number on the screen
+            self.screen.blit(countdown_text, text_rect)
+
+            # Update the display
+            pg.display.update()
+
+            # Wait for a second before decreasing the countdown number
+            time.sleep(1)
+
+            # Decrease the countdown number
+            countdown_number -= 1
+    
+        self.state = States.PLAYING
+
     def playing(self, event_list):
         
         # Controls in game:
         keys = pg.key.get_pressed()
         mouse_buttons = pg.mouse.get_pressed()
-        
+
         if keys[pg.K_q]:
             pg.quit()
             sys.exit()
-        if keys[pg.K_a]:
-            self.units_player_controlled[0].rotate(-1)
-        if keys[pg.K_d]:
-            self.units_player_controlled[0].rotate(1)
-        if keys[pg.K_w]:
-            self.units_player_controlled[0].move("forward")
-        if keys[pg.K_s]:
-            self.units_player_controlled[0].move("backward")
-        if keys[pg.K_SPACE] or mouse_buttons[0]:
-            self.units_player_controlled[0].shoot()
         if keys[pg.K_ESCAPE]:
             self.state = States.MENU
         
-        
+        # If the player controlled units list is empty we dont take inputs
+        if self.units_player_controlled:
+            if keys[pg.K_a]:
+                self.units_player_controlled[0].rotate(-1)
+            if keys[pg.K_d]:
+                self.units_player_controlled[0].rotate(1)
+            if keys[pg.K_w]:
+                self.units_player_controlled[0].move("forward")
+            if keys[pg.K_s]:
+                self.units_player_controlled[0].move("backward")
+            if keys[pg.K_SPACE] or mouse_buttons[0]:
+                self.units_player_controlled[0].shoot()
+
         self.update()
         self.draw()
 
@@ -278,7 +308,6 @@ class TankGame:
                         print("RESPAWN")
                         self.units[0].respawn() # The 0 indicates player tank
                    
-              
     
     def update(self):
         
@@ -401,4 +430,5 @@ class States:
     SETTINGS = "settings"
     LEVEL_SELECT = "level_select"
     PLAYING = "playing"
+    COUNTDOWN = "countdown"
     EXIT = "exit"

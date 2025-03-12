@@ -9,7 +9,6 @@ import random
 class Tank:
     def __init__(self, 
                  startpos: tuple,
-                 direction: tuple, 
                  speed: float,
                  firerate: float,
                  speed_projectile: float,
@@ -22,7 +21,7 @@ class Tank:
                  ai_type = None):
         
         self.pos = list(startpos)
-        self.direction = direction  # Forward/backward
+        self.direction = (0,0)  # Skal rettes
         self.degrees = spawn_degress
         self.speed = speed  # Used to control speed so it wont be fps bound
         
@@ -36,7 +35,7 @@ class Tank:
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
-        self.hitbox = self.init_hitbox()
+        self.init_hitbox(spawn_degress)    # Init the hitbox in the correct orientation
         self.dead = False
         self.godmode = False     # Toggle godmode for all tanks
         
@@ -56,15 +55,17 @@ class Tank:
         
         self.ai = TankAI(self, None) if ai_type else None
         
-    def init_hitbox(self):
+    def init_hitbox(self, spawn_degress):
         x = self.pos[0]
         y = self.pos[1]
         size_factor = 20
         # top left, top right, bottom right, bottom left ->  Front, right, back, right (line orientation in respect to tank, when run through coord_to_coordlist function)
-        return [(x-size_factor, y-size_factor),
-                (x+size_factor, y-size_factor),
-                (x+size_factor, y+size_factor),
-                (x-size_factor, y+size_factor)]
+        self.hitbox = [(x-size_factor, y-size_factor),
+                       (x+size_factor, y-size_factor),
+                       (x+size_factor, y+size_factor),
+                       (x-size_factor, y+size_factor)]
+        
+        self.rotate_hit_box(spawn_degress)
         
     def move(self, direction: str):
         if self.dead and not self.godmode:
@@ -132,8 +133,12 @@ class Tank:
         
         # Update direction vector
         self.direction = np.cos(rads), np.sin(rads)
-        #print(f"Rotation: {self.degrees}°, Direction: {self.direction}")
         
+        # When rotating we also rate the tank hitbox
+        self.rotate_hit_box(deg)
+
+            
+    def rotate_hit_box(self, deg):
         # Rotate tank hitbox
         rads = np.radians(deg)  # The hitbox is rotated specified degress
         
@@ -147,6 +152,7 @@ class Tank:
 
             # Update the list in place
             self.hitbox[i] = (rotated_x, rotated_y)
+            
 
     def collision(self, line: tuple, collision_type: str) -> bool:
         """line should be a tuple of 2 coords"""

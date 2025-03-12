@@ -9,6 +9,7 @@ from object_classes.projectile import Projectile
 from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
 from object_classes.button import Button 
+import json
 
 
 class TankGame:
@@ -103,27 +104,46 @@ class TankGame:
         firerate = 2
         speed_projectile = 2
         speed_projectile *= speed
-        spawn_point  = (500, 500)
-        spawn_degrees = 0
-        bounch_limit = 2
+        spawn_point  = (800, 500)
+        spawn_degrees = 45
+        bounch_limit = 10
         bomb_limit = 0
         
-        player_tank = Tank(spawn_point, (0, 0), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
+        player_tank = Tank(spawn_point, speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
         self.units.append(player_tank)
         
         # SKAL RETTES - test tank for teste ai
-        player_tank = Tank((600,500), (0, 0), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True, ai_type="fed")
+        player_tank = Tank((600,500), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True, ai_type="fed")
         self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
-        map_data = helper_functions.load_map_data(map_name)
+        polygon_list, unit_list = helper_functions.load_map_data(map_name)
         
         # ==================== Load map obstacles ====================
-        self.obstacles.extend([Obstacle(map_data[0])])
-                
-        for polygon_conrners in map_data[1]:
+        for polygon_conrners in polygon_list:
             self.obstacles.extend([Obstacle(polygon_conrners)])
+        
+        # Open unit json to get unit info
+        unit_json_path = r"units\units.json"
+        
+        # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type)
+        tank_mappings = {0 : "tank1", 1 : "tank2"}
+        
+        with open(unit_json_path, "r") as json_file:
+                
+            unit_data_dict = json.load(json_file)
+            print(f"Loaded unit dict: {unit_data_dict}")
+        
+            # Unpack each unit map data
+            for unit in unit_list:
+                unit_pos, unit_angle, unit_type = unit
+                
+                
+
+                
+
+        
 
     def run(self):
         """Main game loop."""
@@ -346,5 +366,3 @@ class States:
     LEVEL_SELECT = "level_select"
     PLAYING = "playing"
     EXIT = "exit"
-    
-    

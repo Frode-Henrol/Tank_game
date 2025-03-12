@@ -1,26 +1,25 @@
-import json
+import pygame
 
+pygame.init()
 
-units = {
-    "tank1" : {
-        "tank_speed_modifer" : 1,
-        "projectile_speed_modifier" : 2,
-        "firerate" : 2,
-        "bounch_limit" : 2,
-        "ai_personality" : "test"
-    }
-    
-}
+# Create a window
+screen = pygame.display.set_mode((500, 500))
+pygame.display.set_caption("Mouse Click Positions")
 
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
+        # Detect mouse button down (click start)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            print(f"Mouse Down at: {event.pos}")
 
-with open("test_units.json", "w") as f:
-    json.dump(units, f, indent=4)
-    
-    
-with open("test_data.json", "r") as f:
-    
-    data = json.load(f)
-    
-    
-print(data)
+        # Detect mouse button up (click release)
+        if event.type == pygame.MOUSEBUTTONUP:
+            print(f"Mouse Up at: {event.pos}")
+
+    pygame.display.update()
+
+pygame.quit()

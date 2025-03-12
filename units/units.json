@@ -8,5 +8,15 @@
         "ai_personality": "test",
         "image_name" : "tank1",
         "use_turret" : true
+    },
+    "tank2": {
+        "tank_speed_modifer": 1,
+        "projectile_speed_modifier": 2,
+        "firerate": 2,
+        "bounch_limit": 2,
+        "bomb_limit" : 0,
+        "ai_personality": "test",
+        "image_name" : "tank1",
+        "use_turret" : true
     }
 }

@@ -32,25 +32,40 @@ def unit_vector(from_point: tuple, to_point: tuple) -> tuple:
 
 
 def load_map_data(map_name):
-    """Load the map and polygons from the text file."""
-    map_borders = []
+    """Load the map and polygons/units from the text file."""
     polygons = []
+    units = []
 
     try:
         with open(map_name, "r") as f:
             lines = f.readlines()
 
-            # Read map borders (first line after the name)
-            if lines:
-                map_borders_line = lines[1].strip()  # Map borders are on the second line
-                map_borders = ast.literal_eval(map_borders_line)
+            # Parse the lines to find the relevant sections
+            current_section = None
+            for line in lines:
+                line = line.strip()
 
-            # Read the polygons
-            for line in lines[2:]:  # The rest are polygons
-                polygon_points = ast.literal_eval(line.strip())
-                polygons.append(polygon_points)
+                # Skip empty lines
+                if not line:
+                    continue
+                
+                # Identify the section headers
+                if line == "Polygons:":
+                    current_section = "polygons"
+                    continue
+                elif line == "Units:":
+                    current_section = "units"
+                    continue
+                
+                # Depending on the current section, parse the appropriate data
+                if current_section == "polygons" and line.startswith('['):
+                    polygon_points = ast.literal_eval(line)
+                    polygons.append(polygon_points)
+                elif current_section == "units" and line.startswith('('):
+                    unit_data = ast.literal_eval(line)
+                    units.append(unit_data)
 
     except Exception as e:
         print(f"Error loading map data: {e}")
 
-    return map_borders, polygons
+    return polygons, units

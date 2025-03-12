@@ -18,21 +18,13 @@ def main():
 
 
 class PolygonDrawer:
-    def __init__(self, WINDOW_W, WINDOW_H, map_width, map_height, map_name):
+    def __init__(self, window_width, window_height, map_width, map_height, map_name):
         
         
-        pg.init()
-        self.clock = pg.time.Clock()
-        pg.display.set_caption("Polygon Drawer")
-        self.fps = 30
-
-        # Window setup
-        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = WINDOW_W, WINDOW_H
-        self.SCALE = 30
-        self.screen = pg.display.set_mode(self.WINDOW_DIM)
-        self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
-    
+        
+        
+        self.window_width = window_width
+        self.window_height = window_height
         self.points = []  # List to store the points of the polygon
         self.is_closed = False  # To check if the polygon is closed
         self.polygons: list[Polygon] = []
@@ -50,6 +42,12 @@ class PolygonDrawer:
         self.mouse_pos2 = (0,0)
         self.snapped_pos = (0,0)
         
+        
+        pg.init()
+        self.screen = pg.display.set_mode((window_width, window_height))
+        pg.display.set_caption("Polygon Drawer")
+        self.clock = pg.time.Clock()
+        
         # Starting state:
         self.state = States.MENU 
         
@@ -60,12 +58,11 @@ class PolygonDrawer:
         self.selected_tank = None  # Keep track of the currently selected tank button
         
         self.load_gui()
-        self.load_assets()
     
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
-            path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")       # Skal rettes - burde kobles op på tankl type, dvs der skal loades en list af alle tank billeder
+            path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")
 
             self.tank_img = pg.image.load(path_tank).convert_alpha()
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
@@ -76,8 +73,8 @@ class PolygonDrawer:
             
     
     def load_gui(self):
-        x_mid = self.WINDOW_W // 2
-        y_mid = self.WINDOW_H // 2
+        x_mid = self.window_width // 2
+        y_mid = self.window_height // 2
         
         # ==================== Button for states ====================
         # Last argument for button tells the button which state it should change to
@@ -114,7 +111,7 @@ class PolygonDrawer:
         offset_x = 600
         width = 120
         self.buttons_units = [
-            Button(left+offset, 150, width, 60, "Player", action=lambda: self.tank_button(0), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 150, width, 60, "Tank 1", action=lambda: self.tank_button(0), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset, 250, width, 60, "Tank 2", action=lambda: self.tank_button(1), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset, 350, width, 60, "Tank 3", action=lambda: self.tank_button(2), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset, 450, width, 60, "Tank 4", action=lambda: self.tank_button(3), color_normal=standard_green_color, semi_disabled=True),
@@ -183,7 +180,7 @@ class PolygonDrawer:
                 self.settings(event_list)
                 
             self.handle_global_events(event_list)
-            self.clock.tick(self.fps)  # Limit to 30 FPS
+            self.clock.tick(30)  # Limit to 30 FPS
             pg.display.flip()  # Update the screen            
     
     def menu(self, event_list):
@@ -218,7 +215,6 @@ class PolygonDrawer:
         self.handle_buttons(self.buttons_settings, event_list, self.screen)   
         
     def exit(self):
-        self.save()
         pg.quit()
         sys.exit()
         
@@ -230,6 +226,7 @@ class PolygonDrawer:
             
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_q:  # If 'Q' key is pressed
+                    self.save()
                     self.exit()
     
 # ========================================= EVENTS for each specific mode in the editor =========================================================
@@ -276,7 +273,14 @@ class PolygonDrawer:
                     self.snapped_pos = (snap_to_grid(self.mouse_pos1[0]), snap_to_grid(self.mouse_pos1[1]))
                     
                     print(self.snapped_pos)
+                    if self.selected_tank is None:
+                        print(f"Error: No unit selected.")
+                        return
+                    if self.snapped_pos in self.units:
+                        print(f"Error: Can not place unit on top of other unit.")
+                        return
 
+                    
             if event.type == pg.MOUSEBUTTONUP:
                 if event.button == 1:  # Left click
                     self.mouse_pos2 = pg.mouse.get_pos()
@@ -286,26 +290,13 @@ class PolygonDrawer:
                     snapped_pos2 = (snap_to_grid(self.mouse_pos2[0]), snap_to_grid(self.mouse_pos2[1]))
                     x1, y1 = snapped_pos1
                     x2, y2 = snapped_pos2
-                    dx, dy = x1-x2, y1-y2
+                    dx, dy = x2-x1, y2-y1
                     
                     # Use arctan2 to compute the correct angle
-                    angle_rad = np.arctan2(dx, dy)
+                    angle_rad = np.arctan2(dy, dx)
                     angle_deg = np.degrees(angle_rad)
 
-                    if self.selected_tank is None:
-                        print(f"Error: No unit selected.")
-                        return
-                    
-                    for unit in self.units:
-                        if self.snapped_pos == unit[0]:
-                            print(f"Error: Can not place unit on top of other unit.")
-                            return
-                    
-                    # Quick fix to prevent tank showing at (0,0) do to the self.snapped_pos being a class value initialized as (0,0) (Skal rettes)
-                    if self.snapped_pos == (0, 0):  
-                        return    
-                    # Unit position, angle and type is saved
-                    self.units.append((self.snapped_pos, int(angle_deg), self.selected_tank))
+                    self.units.append((self.snapped_pos, angle_deg))
                     print(f"Added unit at {self.snapped_pos} with angle {angle_deg} to the units list.")
                 
 
@@ -316,10 +307,8 @@ class PolygonDrawer:
         with open(self.map_name, "w") as f:
                         
             # Map name:
-            f.write("Mapname:\n")
             f.write(f"{self.map_name}\n")
             # Write the map borders
-            f.write("Polygons:\n")
             f.write(f"{self.map_borders}\n")
             
             for polygon in self.polygons:
@@ -329,10 +318,6 @@ class PolygonDrawer:
                 print(no_tuple)
                 
                 f.write(f"{polygon.get_polygon_points()}\n")
-            
-            f.write("Units:\n")
-            for unit in self.units:
-                f.write(f"{unit}\n")
     
 
         
@@ -371,17 +356,10 @@ class PolygonDrawer:
         for corner_pair in helper_functions.coord_to_coordlist(self.map_borders):
             pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
 
-
         # Draw the units as circles in unit mode
         for unit in self.units:
             unit_pos = unit[0]
-            unit_rotation = unit[1]
-            
-            rotated_unit_image = pg.transform.rotate(self.tank_img, unit_rotation)
-            rect = rotated_unit_image.get_rect(center=unit_pos)
-            self.screen.blit(rotated_unit_image, rect.topleft)
-            
-            #pg.draw.circle(self.screen, (0, 0, 255), unit_pos, 15)  # Blue circles for units
+            pg.draw.circle(self.screen, (0, 0, 255), unit_pos, 15)  # Blue circles for units
     
 
     def draw_grid(self):
@@ -391,17 +369,17 @@ class PolygonDrawer:
         grid_color_with_opacity = grid_color + (grid_opacity,)
 
         # Draw vertical grid lines
-        for x in range(0, self.WINDOW_W, 50):
-            pg.draw.line(self.screen, grid_color_with_opacity, (x, 0), (x, self.WINDOW_H))
+        for x in range(0, self.window_width, 50):
+            pg.draw.line(self.screen, grid_color_with_opacity, (x, 0), (x, self.window_height))
 
         # Draw horizontal grid lines
-        for y in range(0, self.WINDOW_H, 50):
-            pg.draw.line(self.screen, grid_color_with_opacity, (0, y), (self.WINDOW_W, y))
+        for y in range(0, self.window_height, 50):
+            pg.draw.line(self.screen, grid_color_with_opacity, (0, y), (self.window_width, y))
 
     def draw_map_border(self):
         # Find mid point
-        mid_x = self.WINDOW_W // 2
-        mid_y = self.WINDOW_H // 2
+        mid_x = self.window_width // 2
+        mid_y = self.window_height // 2
 
         # Snap map width and height to grid
         snapped_map_width = snap_to_grid(self.map_width)

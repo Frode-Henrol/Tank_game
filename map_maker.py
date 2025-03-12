@@ -238,7 +238,8 @@ class PolygonDrawer:
         for event in event_list:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_r: # Remove last polygon when pressing r
-                    self.polygons.pop(-1)
+                    if self.polygons:
+                        self.polygons.pop(-1)
                 if event.key == pg.K_ESCAPE:
                     self.state = States.EDITOR_MENU
                
@@ -264,7 +265,8 @@ class PolygonDrawer:
         for event in event_list:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_r: # Remove last unit when pressing r
-                    self.units.pop(-1)
+                    if self.units:
+                        self.units.pop(-1)
                 if event.key == pg.K_ESCAPE:
                     self.state = States.EDITOR_MENU
                

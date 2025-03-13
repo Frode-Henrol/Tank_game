@@ -3,12 +3,15 @@ import pygame as pg
 
 class Textfield:
     
-    def __init__(self, x, y, width, height, default_text, color_normal=None, color_clicked=None, disabled=False, semi_disabled=False, click_color_enabled=False):
+    def __init__(self, x, y, width, height, default_text, color_normal=None, color_clicked=None, disabled=False, semi_disabled=False, click_color_enabled=False, obj_id = None):
         
         self.rect = pg.Rect(x, y, width, height)
         self.text = ""
         self.default_text = default_text
         self.font = pg.font.Font(None, 36)
+        
+        # id for each object
+        self.obj_id = obj_id
         
         # Default colors
         self.default_color_normal = (100, 100, 200)
@@ -99,3 +102,9 @@ class Textfield:
     
     def get_string(self):
         return self.text
+    
+    def is_field_empty(self):
+        return True if self.text == self.default_text or self.text == "" else False
+
+    def get_id(self):
+        return self.obj_id

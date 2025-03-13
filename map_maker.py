@@ -9,17 +9,17 @@ import os
 def main():
     
     mapsize = (900, 450)
-    map_name = r"map_files\map_test1.txt"
+
     # Snap map size to the grid
     
     
-    drawer = PolygonDrawer(1920, 1080, mapsize[0], mapsize[1], map_name)  # Adjust to your screen resolution
+    drawer = PolygonDrawer(1920, 1080, mapsize[0], mapsize[1])  # Adjust to your screen resolution
     drawer.run()
 
 
 
 class PolygonDrawer:
-    def __init__(self, WINDOW_W, WINDOW_H, map_width, map_height, map_name):
+    def __init__(self, WINDOW_W, WINDOW_H, map_width, map_height):
         
         
         pg.init()
@@ -37,7 +37,11 @@ class PolygonDrawer:
         self.points = []  # List to store the points of the polygon
         self.is_closed = False  # To check if the polygon is closed
         self.polygons: list[Polygon] = []
-        self.map_name = map_name
+        self.map_name = ""
+        self.map_name_only_display = ""
+        
+        self.map_folder_path = "map_files"
+        
         
         self.units = []     # Skal rettes - test af unit list
         
@@ -94,11 +98,15 @@ class PolygonDrawer:
         ]
                 
         self.buttons_editor_menu = [
+            Button(left-150, 50, 600, 60, "---", hover_enabled=False, click_color_enabled=False),
             Button(left, 150, 300, 60, "Polygon placement", action = self.polygon_button, color_normal = standard_green_color),
             Button(left, 250, 300, 60, "Unit placement", action = self.unit_button, semi_disabled=True, color_normal = standard_green_color),
             Button(left, 350, 300, 60, "Editor", States.EDITOR),
-            Button(left, 550, 300, 60, "Save map to json"),
-            Button(left, 650, 300, 60, "Exit to main menu", States.MENU),
+            Textfield(left+350, 650, 300, 60, "-type map name-"),
+            Textfield(left+350, 750, 300, 60, "-type map name-"),
+            Button(left, 650, 300, 60, "Save map to json", action=lambda: self.save()),
+            Button(left, 750, 300, 60, "Load map from json", action=lambda: self.load()),
+            Button(left, 850, 300, 60, "Exit to main menu", States.MENU),
             
         ]
         
@@ -109,6 +117,12 @@ class PolygonDrawer:
             Textfield(left, 450, 300, 60, "Write name test"),
             Button(left, 550, 300, 60, "Back", States.MENU),
         ]
+        
+        # A temp way to acces the map save textfield/buttons for now
+        self.textfield_map_save = self.buttons_editor_menu[4]
+        self.textfield_map_load = self.buttons_editor_menu[5]
+        
+        self.map_name_only_display = self.buttons_editor_menu[0]
         
         
         offset = 400
@@ -131,14 +145,16 @@ class PolygonDrawer:
     # ===============================================================
     # functions for the buttons - this is a temp solution:
     def polygon_button(self):
-        self.buttons_editor_menu[1].set_semi_disabled(True)     # Semi disable unit button
+        self.buttons_editor_menu[2].set_semi_disabled(True)     # Semi disable unit button
         self.editor_mode = EditorMode.POLYGON
         print("Polygon placement button clicked, editor mode set to POLYGON.")
         
     def unit_button(self):
-        self.buttons_editor_menu[0].set_semi_disabled(True)     # Semi disable polygon button
+        self.buttons_editor_menu[1].set_semi_disabled(True)     # Semi disable polygon button
         self.editor_mode = EditorMode.UNIT
         print("Unit placement button clicked, editor mode set to UNIT.")
+        
+
         
     def tank_button(self, tank_index):
         # Set the pressed tank button to green
@@ -314,8 +330,18 @@ class PolygonDrawer:
 
 
     def save(self):
-        with open(self.map_name, "w") as f:
-                        
+        
+        # If the save textfield i used get the string inside
+        if self.textfield_map_save.is_field_empty():
+            print("No name is given")
+            return
+
+        self.map_name = f"{self.textfield_map_save.get_string()}.txt"
+        
+        map_path = os.path.join(self.map_folder_path, self.map_name)
+        
+        with open(map_path, "w") as f:
+            
             # Map name:
             f.write("Mapname:\n")
             f.write(f"{self.map_name}\n")
@@ -334,10 +360,43 @@ class PolygonDrawer:
             f.write("Units:\n")
             for unit in self.units:
                 f.write(f"{unit}\n")
-    
-
+            
+        self.map_name_only_display.change_button_text(self.map_name)
         
-    
+    def load(self):
+        
+        # Clear all data before load
+        self.polygons = []
+        self.units = []
+        
+        # If the load textfield is used, get the string inside
+        if self.textfield_map_load.is_field_empty():
+            print("No name is given")
+            return
+        self.map_name = f"{self.textfield_map_load.get_string()}.txt"
+        
+        map_path = os.path.join(self.map_folder_path, self.map_name)
+        
+        # Load the objects and units into map editor
+        polygons, units = helper_functions.load_map_data(map_path)
+        
+        # Make sure to use first polygon as map borders and remove from the polygon list (reason is border wont be filed with solid color)
+        self.map_borders = polygons[0]
+        polygons.pop(0)
+
+        # Polygons need a class instance:
+        for polygon_points in polygons:
+            print(f"Polygon points: {polygon_points}")
+            self.polygons.append(Polygon(polygon_points))
+        
+        print(f"Loaded {len(polygons)} obstacles.")
+        print(f"Loaded {len(units)} units.")
+        
+        # Units at the moment is just a simple tuple, so no class instance needed
+        self.units = units
+        
+        self.map_name_only_display.change_button_text(self.map_name)
+
 
     def is_point_near(self, point, compare_point, threshold=10):
         """Check if a point is near the first point (to close the polygon)."""

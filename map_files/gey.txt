@@ -1,5 +1,5 @@
 Mapname:
-map_files\map_test1.txt
+gey.txt
 Polygons:
 [(500, 750), (1400, 750), (1400, 300), (500, 300)]
 Units:

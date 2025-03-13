@@ -1,12 +1,15 @@
 import pygame as pg
 
 class Button:
-    def __init__(self, x, y, width, height, text, target_state=None, action=None, is_toggle_on=False, color_normal=None, color_clicked=None, hover_enabled=True, disabled=False, semi_disabled=False, click_color_enabled=False):
+    def __init__(self, x, y, width, height, text, target_state=None, action=None, is_toggle_on=False, color_normal=None, color_clicked=None, hover_enabled=True, disabled=False, semi_disabled=False, click_color_enabled=False, obj_id = None):
         self.rect = pg.Rect(x, y, width, height)
         self.text = text
         self.target_state = target_state
         self.action = action
         self.font = pg.font.Font(None, 36)
+        
+        # id for each object
+        self.obj_id = obj_id
         
         # Default colors
         self.default_color_normal = (100, 100, 200)
@@ -58,7 +61,9 @@ class Button:
         text_surface = self.font.render(self.text, True, (255, 255, 255))
         surface.blit(text_surface, (self.rect.x + (self.rect.width - text_surface.get_width()) // 2,
                                     self.rect.y + (self.rect.height - text_surface.get_height()) // 2))
-
+    def change_button_text(self, new_text):
+        self.text = new_text
+    
     def handle_event(self, event):
         if self.disabled:
             return None  # Ignore events when fully disabled
@@ -89,3 +94,6 @@ class Button:
                 self.color = self.get_current_color()
         
         return None
+
+    def get_id(self):
+        return self.obj_id

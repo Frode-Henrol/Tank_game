@@ -2,6 +2,7 @@ import pygame as pg
 import sys
 import utils.helper_functions as helper_functions
 from object_classes.button import Button 
+from object_classes.textfield import Textfield
 import numpy as np
 import os
 
@@ -105,7 +106,7 @@ class PolygonDrawer:
             Button(left, 150, 300, 60, "1"),
             Button(left, 250, 300, 60, "2"),
             Button(left, 350, 300, 60, "2"),
-            Button(left, 450, 300, 60, "2"),
+            Textfield(left, 450, 300, 60, "Write name test"),
             Button(left, 550, 300, 60, "Back", States.MENU),
         ]
         
@@ -139,7 +140,6 @@ class PolygonDrawer:
         self.editor_mode = EditorMode.UNIT
         print("Unit placement button clicked, editor mode set to UNIT.")
         
-    
     def tank_button(self, tank_index):
         # Set the pressed tank button to green
         for i, button in enumerate(self.buttons_units):
@@ -150,7 +150,6 @@ class PolygonDrawer:
                 button.set_semi_disabled(True)  # Semi-disable other buttons
         
     # ===============================================================
-        
         
     def handle_buttons(self, button_list, event_list, screen):
         """Handles button events and drawing of buttons"""
@@ -165,7 +164,7 @@ class PolygonDrawer:
             button.draw(screen)
         
     def run(self):
-        """Main loop for drawing the polygon."""
+        """Main loop running the map maker"""
         
         # Init the map border lines:
         while True:

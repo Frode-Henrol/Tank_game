@@ -47,6 +47,11 @@ class TankGame:
         # Load gui related features
         self.load_gui()
         
+        # Settings menu:
+        self.show_obstacle_corners = False
+        self.draw_hitbox = True # Not implemented 
+        self.godmode = False    # Not implemented 
+        
 
     def load_gui(self):
         x_mid = self.WINDOW_DIM[0] // 2
@@ -66,9 +71,10 @@ class TankGame:
         ]
         
         self.setting_buttons = [
-            Button(left, 150, 300, 60, "Brian", States.SETTINGS),
-            Button(left, 250, 300, 60, "Henrol", States.SETTINGS),
-            Button(left, 350, 300, 60, "Back", States.MENU)
+            Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: self.toggle_bool("show_obstacle_corners")),
+            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: self.toggle_bool("draw_hitbox")),
+            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: self.toggle_bool("godmode")),
+            Button(left, 450, 300, 60, "Back", States.MENU)
         ]
         
         self.level_selection_buttons = [
@@ -79,7 +85,20 @@ class TankGame:
 
             Button(left, 550, 300, 60, "Back", States.MENU)  
         ]
+    
+    def toggle_bool(self, attr_name):
+        """Toggles a boolean attribute given its name as a string."""
+        if hasattr(self, attr_name):  # Check if attribute exists
+            current_value = getattr(self, attr_name)  # Get the current value
+            if isinstance(current_value, bool):  # Ensure it's a boolean
+                setattr(self, attr_name, not current_value)  # Toggle it
+                print(f"Toggled {attr_name}")
+            else:
+                raise ValueError(f"Attribute '{attr_name}' is not a boolean.")
+        else:
+            raise AttributeError(f"'{self.__class__.__name__}' has no attribute '{attr_name}'")
         
+            
     def load_map(self, map_num):
         print(f"MAP {map_num} loadet")
     
@@ -405,6 +424,10 @@ class TankGame:
             # Debug: draw obstacle collision lines
             for corner_pair in obstacle.get_corner_pairs():
                 pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
+                
+                # Draw corners of obstacles if turned on
+                if self.show_obstacle_corners:
+                    pg.draw.circle(self.screen, "blue", center=corner_pair[0], radius=5)   
 
         self.render_debug_info()
 

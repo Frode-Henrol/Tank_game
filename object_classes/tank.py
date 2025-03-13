@@ -18,7 +18,9 @@ class Tank:
                  image, 
                  death_image,
                  use_turret,
-                 ai_type = None):
+                 ai_type = None,
+                 godmode = False,
+                 draw_hitbox = True):
         
         self.pos = list(startpos)
         self.direction = (0,0)  # Skal rettes
@@ -35,9 +37,16 @@ class Tank:
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
+        
+        # Hitbox
         self.init_hitbox(spawn_degress)    # Init the hitbox in the correct orientation
+        self.draw_hitbox = draw_hitbox
+            
+        # Health
         self.dead = False
-        self.godmode = False     # Toggle godmode for all tanks
+        
+        # Ekstra features
+        self.godmode = godmode     # Toggle godmode for all tanks
         
         # Tank images:
         self.image = image
@@ -104,9 +113,8 @@ class Tank:
         if self.cannon_cooldown > 0:
             self.cannon_cooldown -= 1
         
-        #Update hitbox:
-        draw_hitbox = True 
-        if draw_hitbox:
+        #Draw hitbox:
+        if self.draw_hitbox:
             for corner_pair in helper_functions.coord_to_coordlist(self.hitbox):
                 pg.draw.line(surface, "blue", corner_pair[0], corner_pair[1], 3)
                 
@@ -282,6 +290,11 @@ class Tank:
     def get_direction_vector(self):
         return self.direction
     
+    def toggle_godmode(self):
+        self.godmode = not self.godmode
+        
+    def toggle_draw_hitbox(self):
+        self.draw_hitbox = not self.draw_hitbox
 
 
 class TankAI:

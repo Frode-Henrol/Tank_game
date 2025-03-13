@@ -1,6 +1,7 @@
 import numpy as np
-import ast  # For safely evaluating the string representation of the data
-import math
+import ast  
+import itertools
+
 
 def coord_to_coordlist(coordinat_list: list) -> list:
     """Takes a list of coordinates (polygon) and makes tuples representing each line"""
@@ -31,7 +32,7 @@ def unit_vector(from_point: tuple, to_point: tuple) -> tuple:
 
 
 def load_map_data(map_name):
-    """Load the map and polygons/units from the text file."""
+    """Load the map and polygons/units from the text file. Returns: (polygons, units)"""
     polygons = []
     units = []
 
@@ -68,3 +69,32 @@ def load_map_data(map_name):
         print(f"Error loading map data: {e}")
 
     return polygons, units
+
+
+def check_triangle(triangle, point):
+    # Get all permutations of the triangle vertices
+    permutations = itertools.permutations(triangle)
+    
+    # We need to look at potentiel all permutations of the triangle, since some choices of A B C corners can led to division by zero error
+    # Even though its a perfect valid triangle:
+    for perm in permutations:
+        Ax, Ay = perm[0]
+        Bx, By = perm[1]
+        Cx, Cy = perm[2]
+        Px, Py = point
+
+        # Try using the formula to check if point is inside triangle. Source: https://www.youtube.com/watch?v=HYAgJN3x4GA&ab_channel=SebastianLague
+        try:
+            w1 = (Ax * (Cy - Ay) + (Py - Ay) * (Cx - Ax) - Px * (Cy - Ay)) / ((By - Ay) * (Cx - Ax) - (Bx - Ax) * (Cy - Ay))
+            w2 = (Py - Ay - w1 * (By - Ay)) / (Cy - Ay)
+
+            if w1 >= 0 and w2 >= 0 and (w1 + w2) <= 1:
+                print(True)
+                return True
+            else:
+                print(False)
+                return False
+
+        except ZeroDivisionError:
+            print("Division with 0, trying next permutation...")
+            continue  # Try the next permutation

@@ -246,6 +246,7 @@ class PolygonDrawer:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_q:  # If 'Q' key is pressed
                     self.exit()
+                
     
 # ========================================= EVENTS for each specific mode in the editor =========================================================
 

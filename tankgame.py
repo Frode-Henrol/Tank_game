@@ -142,6 +142,10 @@ class TankGame:
         map_name = r"map_files\map_test1.txt"
         polygon_list, unit_list = helper_functions.load_map_data(map_name)
         
+        # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
+        self.polygon_list_no_border = polygon_list.copy()
+        self.polygon_list_no_border.pop(0)    # Removes the border polygon
+        
         # ==================== Load map obstacles and units ====================
         for polygon_conrners in polygon_list:
             self.obstacles.extend([Obstacle(polygon_conrners)])
@@ -317,17 +321,26 @@ class TankGame:
     def handle_events(self, event_list):
         """Handle player inputs and game events."""
 
-        for e in event_list:
-            match e.type:
+        for event in event_list:
+            match event.type:
                 case pg.QUIT:
                     pg.quit()
                     sys.exit()
                 case pg.KEYDOWN:
-                    if e.key == pg.K_r:
+                    if event.key == pg.K_r:
                         print("RESPAWN")
                         self.units[0].respawn() # The 0 indicates player tank
-                   
-    
+            
+            # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
+            if event.type == pg.MOUSEBUTTONUP:
+                pos = pg.mouse.get_pos()
+                for poly in self.polygon_list_no_border:
+
+                    poly_pg_object = pg.draw.polygon(self.screen, (0,100,0), poly)
+                    if poly_pg_object.collidepoint(pos):
+                        print("True mouse inside polygone")
+            # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
+            
     def update(self):
         
         # Temp list is created and all units projectiles are added to a single list

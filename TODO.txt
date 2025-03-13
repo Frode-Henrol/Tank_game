@@ -6,3 +6,24 @@ KNOW bugs:
 Spam clicking buttons makes them go towards a white color
 Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have
 Collsion between tanks i not working correct
+
+
+1. Split polygons op i trekanter. Lav en list af disse trekanter (de tre hjørnepunkter)
+2. Lav function der returnerer False hvis et punkt p er indenfor denne trekant ellers False
+3. Brug nu de 2 for loop i test_node_grid_gen.py til at frasortere (markere dem som "sorte" nodes) nodes der ligger inden i trekanter
+4. Lav nu en graph af de punkter der sidder sammen. Brug 8 vejs, dvs man også kan bevæge sig diagonal. Dog skal der laves check at diagonal ikke må laves hvis der er en sort node ligesom her:
+
+X = lovlig
+S = ulovlig
+1 = start
+2 = slut
+
+Fra midten til højre top kan kan den ikke bruge diagonal:
+X X 2
+X 1 S
+X X X
+
+Gælder også her (her burde graph ikke lave en connect alligvel)
+X S 2
+X 1 S
+X X X

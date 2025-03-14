@@ -71,8 +71,17 @@ def load_map_data(map_name):
     return polygons, units
 
 
-def check_triangle(triangle, point):
-    # TEST check all perms
+def check_triangle(triangle: list[tuple], point: tuple) -> bool:
+    """Checks if a point is inside a triangle
+
+    Args:
+        triangle (list[tuple])
+        point (tuple)
+
+    Returns:
+        bool: true if inside false if outside
+    """
+    
     # Get all permutations of the triangle vertices
     permutations = itertools.permutations(triangle)
     detected = False

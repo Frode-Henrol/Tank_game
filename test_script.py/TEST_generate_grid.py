@@ -3,7 +3,8 @@ import utils.helper_functions as hf
 import numpy as np
 import triangle as tr
 
-    
+# Need to be in the tank folder to work
+
 def split_polygon_into_triangles(polygon: list[tuple]) -> list[tuple]:
     # Define input for triangle
     segments = {
@@ -48,16 +49,12 @@ node_spacing = 50
 grid_size_x = top_right[0] - top_left[0]
 grid_size_y = bot_right[1] - top_right[1]
 
-print(f"{grid_size_x} {grid_size_y}")
-
 grid_nodes_x = grid_size_x // 50
 grid_nodes_y = grid_size_y // 50
 
 start_offset = node_spacing // 2
-print(f"{start_offset=} {grid_nodes_x=} {node_spacing=}")
 
 valid_nodes = []  # List to store nodes outside any polygon
-
 all_triangles = []
 
 # Loop through the grid and collect valid nodes
@@ -68,16 +65,14 @@ for x in range(start_offset, grid_size_x, node_spacing):
         offset_x, offset_y = top_left
         node = (x + offset_x, y + offset_y)
         
-        # Check if this node is inside any of the polygons
+        # Check if this node is inside any of the polygons sub triangles
         is_inside = False
         for polygon in polygons:
-            
             triangles = split_polygon_into_triangles(np.array(polygon))
             for triangle in triangles:
-                
                 if hf.check_triangle(triangle, node):
                     is_inside = True
-            
+        # If the node (point) is not inside then we add it to valid nodes
         if not is_inside:
             valid_nodes.append(node)  # Add to valid_nodes if not inside any polygon
 

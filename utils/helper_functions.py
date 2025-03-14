@@ -72,9 +72,10 @@ def load_map_data(map_name):
 
 
 def check_triangle(triangle, point):
+    # TEST check all perms
     # Get all permutations of the triangle vertices
     permutations = itertools.permutations(triangle)
-    
+    detected = False
     # We need to look at potentiel all permutations of the triangle, since some choices of A B C corners can led to division by zero error
     # Even though its a perfect valid triangle:
     for perm in permutations:
@@ -89,12 +90,10 @@ def check_triangle(triangle, point):
             w2 = (Py - Ay - w1 * (By - Ay)) / (Cy - Ay)
 
             if w1 >= 0 and w2 >= 0 and (w1 + w2) <= 1:
-                print(True)
-                return True
-            else:
-                print(False)
-                return False
-
+                detected = True
+                
         except ZeroDivisionError:
             print("Division with 0, trying next permutation...")
             continue  # Try the next permutation
+        
+    return detected

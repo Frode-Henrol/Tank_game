@@ -1,7 +1,28 @@
 import pygame as pg
-from utils.helper_functions import load_map_data
+import utils.helper_functions as hf
+import numpy as np
+import triangle as tr
 
+    
+def split_polygon_into_triangles(polygon: list[tuple]) -> list[tuple]:
+    # Define input for triangle
+    segments = {
+        "vertices": polygon,
+        "segments": [[i, i+1] for i in range(len(polygon)-1)] + [[len(polygon)-1, 0]]  # Close the loop 
+    }
+    
+    # Perform constrained triangulation
+    triangulation = tr.triangulate(segments, "p")
+    
+    # Extract vertices and triangles
+    vertices = triangulation["vertices"]  # All unique vertices
+    triangles = triangulation["triangles"]  # Indices of triangles
 
+    # Convert to list of lists of tuples (each triangle as 3 coordinate points)
+    triangle_list = [[tuple(vertices[i]) for i in triangle] for triangle in triangles]
+    
+    return triangle_list
+        
 # Initialize Pygame
 pg.init()
 
@@ -12,7 +33,7 @@ screen = pg.display.set_mode((screen_width, screen_height))
 pg.display.set_caption("Polygon Drawer")
 
 # Load the map data
-polygons, units = load_map_data(r"map_files\map_test1.txt")
+polygons, units = hf.load_map_data(r"map_files\map_test1.txt")
 
 # Remove border polygon:
 polygons.pop(0)
@@ -37,6 +58,8 @@ print(f"{start_offset=} {grid_nodes_x=} {node_spacing=}")
 
 valid_nodes = []  # List to store nodes outside any polygon
 
+all_triangles = []
+
 # Loop through the grid and collect valid nodes
 for x in range(start_offset, grid_size_x, node_spacing):
     for y in range(start_offset, grid_size_y, node_spacing):
@@ -47,14 +70,22 @@ for x in range(start_offset, grid_size_x, node_spacing):
         
         # Check if this node is inside any of the polygons
         is_inside = False
-        for poly in polygons:
-            if pg.draw.polygon(screen, (0, 255, 0), poly).collidepoint(node):
-                is_inside = True
-                break  # Break if the node is inside any polygon
-        
+        for polygon in polygons:
+            
+            triangles = split_polygon_into_triangles(np.array(polygon))
+            for triangle in triangles:
+                
+                if hf.check_triangle(triangle, node):
+                    is_inside = True
+            
         if not is_inside:
             valid_nodes.append(node)  # Add to valid_nodes if not inside any polygon
 
+for polygon in polygons:
+    triangles = split_polygon_into_triangles(np.array(polygon))
+    all_triangles += triangles
+    
+print(all_triangles)
 
 
 # Colors for drawing polygons and nodes
@@ -77,16 +108,14 @@ while running:
     for node in valid_nodes:
         pg.draw.circle(screen, NODE_COLOR, node, 5)  # Draw nodes as circles
 
+    # Drawtriangles:
+    for triangle in all_triangles:
+        pg.draw.polygon(screen, (0,100,0), triangle, 3)
+    
     # Handle events (e.g., quit the game)
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
-            
-        if event.type == pg.MOUSEBUTTONUP:
-            pos = pg.mouse.get_pos()
-            for poly in polygons:
-                if pg.draw.polygon(screen, (0, 255, 0), poly).collidepoint(pos):
-                    print("Mouse inside polygon")
             
 
     # Update the screen

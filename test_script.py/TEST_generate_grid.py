@@ -49,8 +49,8 @@ node_spacing = 50
 grid_size_x = top_right[0] - top_left[0]
 grid_size_y = bot_right[1] - top_right[1]
 
-grid_nodes_x = grid_size_x // 50
-grid_nodes_y = grid_size_y // 50
+grid_nodes_x = grid_size_x // node_spacing
+grid_nodes_y = grid_size_y // node_spacing
 
 start_offset = node_spacing // 2
 

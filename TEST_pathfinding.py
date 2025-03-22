@@ -4,17 +4,12 @@ import numpy as np
 import triangle as tr
 import heapq
 from collections import defaultdict
-    
-    
-def split_polygon(polygon: list[tuple]) -> list[list[tuple]]:
-    """ Split polygon into triangles
+import time 
+import math
 
-    Args:
-        polygon (list[tuple]): A polygon is a list of points (tuples)
 
-    Returns:
-        list[list[tuple]]: list of triangles. A triangle is a list of points (tuples)
-    """
+# Functions that only is used once per map load: (the grid dict could be stored in map files to prevent loads)
+def split_polygon_into_triangles(polygon: list[tuple]) -> list[tuple]:
     # Define input for triangle
     segments = {
         "vertices": polygon,
@@ -73,7 +68,7 @@ def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[lis
             # Check if this node is inside any of the polygons sub triangles
             is_inside = False
             for polygon in polygons:
-                triangles = split_polygon(np.array(polygon))
+                triangles = split_polygon_into_triangles(np.array(polygon))
                 for triangle in triangles:
                     if hf.check_triangle(triangle, node):
                         is_inside = True
@@ -86,52 +81,6 @@ def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[lis
                 
     return map_grid, valid_nodes
 
-
-# ==========
-
-def distance(current_coord: tuple[int, int], goal_coord: tuple[int, int]) -> float:
-    x1, y1 = current_coord
-    x2, y2 = goal_coord
-    return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-def find_path(grid_dict: dict[tuple, list], start_coord: tuple[int, int], end_coord: tuple[int, int]):
-    g_cost = {start_coord: 0}  # Actual cost from start
-    came_from = {}  # To reconstruct path
-    open_list = []
-    heapq.heappush(open_list, (0, start_coord))  # (f, coord)
-    closed_list = set()  # Fully explored nodes
-
-    while open_list:
-        _, pre_coord = heapq.heappop(open_list)  # Get node with lowest f
-
-        if pre_coord == end_coord:  # If goal is reached, reconstruct path
-            print(f"Found end")
-            path = []
-            while pre_coord in came_from:
-                path.append(pre_coord)
-                pre_coord = came_from[pre_coord]
-            path.append(start_coord)
-            return path[::-1]  # Return reversed path
-
-        closed_list.add(pre_coord)
-
-        # Explore neighbors        
-        for suc_coord, suc_cost in grid_dict[pre_coord]:
-            if suc_coord in closed_list:
-                continue  # Skip already processed nodes
-
-            new_g = g_cost[pre_coord] + suc_cost  # Compute new cost
-            new_f = new_g + distance(suc_coord, end_coord)
-
-            # Only update if it's a better path
-            if suc_coord not in g_cost or new_g < g_cost[suc_coord]:
-                g_cost[suc_coord] = new_g
-                came_from[suc_coord] = pre_coord
-                #print(f"Pushing {suc_coord} Cost: {new_f}")
-                heapq.heappush(open_list, (new_f, suc_coord))
-
-    return None  # No path found
-      
 def grid_to_dict(grid: np.ndarray, node_spacing: int) -> dict:
         
     y_size, x_size = grid.shape
@@ -183,60 +132,47 @@ def grid_to_dict(grid: np.ndarray, node_spacing: int) -> dict:
             #print(f"({x}, {y}) -> Neighbors: {temp_coord}")
 
     return coord_dict
-        
-def grid_to_dict_GPT(grid: np.ndarray) -> dict:
-    y_size, x_size = grid.shape
-    coord_dict = defaultdict(list)
 
-    # Define relative neighbor positions
-    neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
-
-    for y in range(y_size):
-        for x in range(x_size):
-            temp_coord = []
-            
-            for dx, dy in neighbors:
-                nx, ny = x + dx, y + dy  # Compute neighbor coordinates
-
-                # Ensure the neighbor is within bounds
-                if 0 <= nx < x_size and 0 <= ny < y_size and grid[ny, nx] == 0:
-                    
-                    # Check for diagonal neighbors' validity
-                    if (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
-                        # Check for blocked diagonals
-                        if grid[y, x-1] == 1 or grid[y-1, x] == 1 if dy == -1 else grid[y+1, x] == 1 or grid[y, x+1] == 1:
-                            continue  # Skip invalid diagonal moves
-                        temp_coord.append(((nx, ny), 1.4))
-                    else:
-                        temp_coord.append(((nx, ny), 1))  # Add regular move (horizontal/vertical)
-
-            coord_dict[(x, y)] = temp_coord
-
-    return coord_dict
-
-
-# ==========
-
-def split_polygon_into_triangles(polygon: list[tuple]) -> list[tuple]:
-    # Define input for triangle
-    segments = {
-        "vertices": polygon,
-        "segments": [[i, i+1] for i in range(len(polygon)-1)] + [[len(polygon)-1, 0]]  # Close the loop 
-    }
+# This is used by a unit each time it need to find a path
+def find_path(grid_dict: dict[tuple, list], start_coord: tuple[int, int], end_coord: tuple[int, int]):
+    """Optimized A* pathfinding"""
     
-    # Perform constrained triangulation
-    triangulation = tr.triangulate(segments, "p")
-    
-    # Extract vertices and triangles
-    vertices = triangulation["vertices"]  # All unique vertices
-    triangles = triangulation["triangles"]  # Indices of triangles
+    open_list = [(0, start_coord)]  # Priority queue (min heap)
+    heapq.heapify(open_list)  # Ensures it's a valid heap
 
-    # Convert to list of lists of tuples (each triangle as 3 coordinate points)
-    triangle_list = [[tuple(vertices[i]) for i in triangle] for triangle in triangles]
-    
-    return triangle_list
+    g_cost = {start_coord: 0}  # Cost from start
+    came_from = {}  # To reconstruct path
+    closed_list = set()  # Explored nodes
 
+    while open_list:
+        _, current = heapq.heappop(open_list)  # Pop lowest cost node
 
+        if current == end_coord:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start_coord)
+            return path[::-1]
+
+        closed_list.add(current)
+
+        # Explore neighbors
+        current_g = g_cost[current]
+        for neighbor, cost in grid_dict.get(current, []):
+            if neighbor in closed_list:
+                continue
+
+            new_g = current_g + cost
+            if neighbor not in g_cost or new_g < g_cost[neighbor]:
+                g_cost[neighbor] = new_g
+                f_cost = new_g + math.hypot(neighbor[0] - end_coord[0], neighbor[1] - end_coord[1])
+                heapq.heappush(open_list, (f_cost, neighbor))
+                came_from[neighbor] = current
+
+    return None  # No path found
+
+# These 2 functions convert from grid coords to pygame coords
 def pygame_to_grid(pygame_coord, top_left, node_spacing):
     """Convert Pygame (pixel) coordinates to grid (row, col)"""
     x, y = pygame_coord
@@ -252,8 +188,10 @@ def grid_to_pygame(grid_coord, top_left, node_spacing):
     return x, y
 
 
-
 if __name__ == "__main__":
+    # Testing for timing:
+    timings = []
+    
     # Load the map data
     polygons, units = hf.load_map_data(r"map_files\map_test1.txt")
 
@@ -300,7 +238,6 @@ if __name__ == "__main__":
     while running:
         screen.fill((255, 255, 255))  # Fill screen with white
         
-        
         # Get mouse position
         pos = pg.mouse.get_pos()
 
@@ -329,6 +266,7 @@ if __name__ == "__main__":
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
+                print(f"TIME: {sum(timings) / len(timings)}")
             
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_s:
@@ -345,15 +283,20 @@ if __name__ == "__main__":
                     print(f"End (grid): {end}")
 
                     # Find path in grid coordinates
+                    start_time = time.time()
                     path = find_path(grid_dict, start_coord, end_coord)
-
+                    
+                    time_taken = time.time() - start_time
+                    if time_taken > 0:
+                        timings.append(time_taken)
+                    
                     # Convert path from grid coordinates to Pygame coordinates for drawing
                     if path != None:
                         lines = [(grid_to_pygame(path[i], corners[3], node_spacing), 
                                 grid_to_pygame(path[i + 1], corners[3], node_spacing)) 
                                 for i in range(len(path) - 1)]
                     
-                    print(f"{lines=}")
+                    #print(f"{lines=}")
 
                     
 

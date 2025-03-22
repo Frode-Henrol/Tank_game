@@ -8,7 +8,7 @@ import os
 
 def main():
     
-    mapsize = (900, 450)
+    mapsize = (800, 450)
 
     # Snap map size to the grid
     
@@ -106,8 +106,10 @@ class PolygonDrawer:
             Textfield(left+350, 750, 300, 60, "-type map name-"),
             Button(left, 650, 300, 60, "Save map to json", action=lambda: self.save()),
             Button(left, 750, 300, 60, "Load map from json", action=lambda: self.load()),
+            Button(left, 450, 300, 60, "Pathfinding", States.PATHFINDING),
             Button(left, 850, 300, 60, "Exit to main menu", States.MENU),
-            
+            Textfield(left-350, 250, 300, 60, "-map height-"),
+            Textfield(left-350, 350, 300, 60, "-map width-")
         ]
         
         self.buttons_settings = [
@@ -115,12 +117,20 @@ class PolygonDrawer:
             Button(left, 250, 300, 60, "2"),
             Button(left, 350, 300, 60, "2"),
             Textfield(left, 450, 300, 60, "Write name test"),
-            Button(left, 550, 300, 60, "Back", States.MENU),
+            Button(left, 550, 300, 60, "Back", States.EDITOR),
         ]
         
-        # A temp way to acces the map save textfield/buttons for now
+        self.button_pathfinding = [
+            Button(left, 250, 300, 60, "unbound"),
+            Button(left, 350, 300, 60, "Back", States.EDITOR_MENU),
+        ]
+        
+        # A temp way to access the map save textfield/buttons for now
         self.textfield_map_save = self.buttons_editor_menu[4]
         self.textfield_map_load = self.buttons_editor_menu[5]
+        
+        self.textfield_map_height = self.buttons_editor_menu[10]
+        self.textfield_map_width = self.buttons_editor_menu[11]
         
         self.map_name_only_display = self.buttons_editor_menu[0]
         
@@ -154,8 +164,6 @@ class PolygonDrawer:
         self.editor_mode = EditorMode.UNIT
         print("Unit placement button clicked, editor mode set to UNIT.")
         
-
-        
     def tank_button(self, tank_index):
         # Set the pressed tank button to green
         for i, button in enumerate(self.buttons_units):
@@ -166,7 +174,7 @@ class PolygonDrawer:
                 button.set_semi_disabled(True)  # Semi-disable other buttons
         
     # ===============================================================
-        
+    
     def handle_buttons(self, button_list, event_list, screen):
         """Handles button events and drawing of buttons"""
         for event in event_list:
@@ -196,6 +204,8 @@ class PolygonDrawer:
                 self.exit()
             elif self.state == States.SETTINGS:
                 self.settings(event_list)
+            elif self.state == States.PATHFINDING:
+                self.pathfinding_settings(event_list)
                 
             self.handle_global_events(event_list)
             self.clock.tick(self.fps)  # Limit to 30 FPS
@@ -227,7 +237,27 @@ class PolygonDrawer:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     self.state = States.EDITOR
-    
+        
+        # ============== Handle height and width textfield ================    
+        # Get testfield 
+        height_textfield = self.textfield_map_height.get_string()
+        width_textfield = self.textfield_map_width.get_string()
+        
+        # Check if digits is written in the width and heigh text fields
+        if height_textfield.isdigit() and width_textfield.isdigit():
+            new_map_height = int(height_textfield)
+            new_map_width = int(width_textfield)
+
+            # Check if the height and width has changed to prevent calling draw_map_border each iteration
+            if new_map_height != self.map_height or new_map_width != self.map_width:
+                self.map_height = new_map_height
+                self.map_width = new_map_width
+                self.map_borders = self.draw_map_border()        
+                    
+    def pathfinding_settings(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.button_pathfinding, event_list, self.screen)    
+            
     def settings(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.buttons_settings, event_list, self.screen)   
@@ -246,8 +276,7 @@ class PolygonDrawer:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_q:  # If 'Q' key is pressed
                     self.exit()
-                
-    
+
 # ========================================= EVENTS for each specific mode in the editor =========================================================
 
     def handle_editor_events_polygon_mode(self, event_list):
@@ -276,7 +305,6 @@ class PolygonDrawer:
                     else:
                         self.points.append(snapped_pos)  # Add snapped point to the list
 
-    
     def handle_editor_events_units_mode(self, event_list):
         for event in event_list:
             if event.type == pg.KEYDOWN:
@@ -326,9 +354,7 @@ class PolygonDrawer:
                     self.units.append((self.snapped_pos, int(angle_deg), self.selected_tank))
                     print(f"Added unit at {self.snapped_pos} with angle {angle_deg} to the units list.")
                 
-
 # ===============================================================================================================================================
-
 
     def save(self):
         
@@ -361,6 +387,8 @@ class PolygonDrawer:
             f.write("Units:\n")
             for unit in self.units:
                 f.write(f"{unit}\n")
+            
+            f.write("Pathfinding:\n")
             
         self.map_name_only_display.change_button_text(self.map_name)
         
@@ -397,7 +425,6 @@ class PolygonDrawer:
         self.units = units
         
         self.map_name_only_display.change_button_text(self.map_name)
-
 
     def is_point_near(self, point, compare_point, threshold=10):
         """Check if a point is near the first point (to close the polygon)."""
@@ -444,7 +471,6 @@ class PolygonDrawer:
             
             #pg.draw.circle(self.screen, (0, 0, 255), unit_pos, 15)  # Blue circles for units
     
-
     def draw_grid(self):
         """Draw a faint grid on the screen."""
         grid_color = (200, 200, 200)  # Light gray for faint grid lines
@@ -502,6 +528,7 @@ class States:
     MENU = "menu"
     EXIT = "exit"
     SETTINGS = "settings"
+    PATHFINDING = "pathfinding"
 
 class EditorMode:
     POLYGON = "polygon"

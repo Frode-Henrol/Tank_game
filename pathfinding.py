@@ -166,9 +166,6 @@ def get_mapgrid_dict(polygons, node_spacing) -> dict:
     # Convert grid to a dictionary that stores each coords(nodes) neighbors and costs (only ran once per map)
     return grid_to_dict(map_grid, 1)
 
-
-
-
 # This is used by a unit each time it need to find a path
 def find_path(grid_dict: dict[tuple, list], start_coord: tuple[int, int], end_coord: tuple[int, int]):
     """Optimized A* pathfinding"""

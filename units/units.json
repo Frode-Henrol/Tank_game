@@ -1,6 +1,6 @@
 {
     "tank1": {
-        "tank_speed_modifier": 1,
+        "tank_speed_modifier": 0.7,
         "projectile_speed_modifier": 2,
         "firerate": 2,
         "bounch_limit": 4,

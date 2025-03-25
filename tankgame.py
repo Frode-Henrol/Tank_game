@@ -10,7 +10,7 @@ from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
 from object_classes.button import Button 
 import json
-import map_grid
+import pathfinding
 
 class TankGame:
     def __init__(self):
@@ -148,7 +148,7 @@ class TankGame:
         
         # Get pathfinding data from map.
         self.node_spacing = 50 # skal rettes. This part need to be loaded from map!!
-        self.grid_dict = map_grid.get_mapgrid_dict(self.polygon_list.copy(), self.node_spacing)
+        self.grid_dict = pathfinding.get_mapgrid_dict(self.polygon_list.copy(), self.node_spacing)
         
         # ==================== Load map obstacles and units ====================
         for polygon_conrners in self.polygon_list:

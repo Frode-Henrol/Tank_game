@@ -1,4 +1,4 @@
-import map_grid
+import pathfinding
 import utils.helper_functions as hf
 
 # Load the polygons and units (assuming this function is correct)
@@ -8,9 +8,9 @@ top_left = polygons[0][3]
 print(top_left)
 
 # Call get_mapgrid_dict on the instance
-grid_dict = map_grid.get_mapgrid_dict(polygons, 50)
+grid_dict = pathfinding.get_mapgrid_dict(polygons, 50)
 
-path = map_grid.find_path(grid_dict, (0,0), (15,11))
+path = pathfinding.find_path(grid_dict, (0,0), (15,11))
 
 
 print(path)

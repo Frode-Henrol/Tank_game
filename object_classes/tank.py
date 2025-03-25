@@ -4,7 +4,7 @@ from object_classes.projectile import Projectile
 import utils.helper_functions as helper_functions
 import numpy as np
 import random
-import map_grid
+import pathfinding
 
 class Tank:
     def __init__(self, 
@@ -308,14 +308,14 @@ class Tank:
         self.top_left = top_left
 
         # Converts tank position to a node position in the node grid
-        tank_pos_grid = map_grid.pygame_to_grid(self.pos, top_left, node_spacing)
-        destination_coord_grid = map_grid.pygame_to_grid(destination_coord, top_left, node_spacing)
+        tank_pos_grid = pathfinding.pygame_to_grid(self.pos, top_left, node_spacing)
+        destination_coord_grid = pathfinding.pygame_to_grid(destination_coord, top_left, node_spacing)
         
         # Find path
-        path = map_grid.find_path(grid_dict, tank_pos_grid, destination_coord_grid)
+        path = pathfinding.find_path(grid_dict, tank_pos_grid, destination_coord_grid)
         
         # Save the path as the waypoint queue  (reversing since .pop() is used in move_to_node)
-        self.waypoint_queue = [map_grid.grid_to_pygame(x, top_left, node_spacing) for x in path]
+        self.waypoint_queue = [pathfinding.grid_to_pygame(x, top_left, node_spacing) for x in path]
         self.waypoint_queue.reverse()
         
         # Active bool that allows tank to follow waypoint

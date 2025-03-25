@@ -149,12 +149,14 @@ def get_mapgrid_dict(polygons, node_spacing) -> dict:
     for polygon in polygons:
         triangles = split_polygon_into_triangles(np.array(polygon))
         all_triangles += triangles
+        
+    if len(all_triangles) > 2:
+        print("get_mapgrad_dict: all_triagnles is empty")
+        # Remove map triangles (two)
+        all_triangles.pop(0)
+        all_triangles.pop(0)
 
-    # Remove map triangles (two)
-    all_triangles.pop(0)
-    all_triangles.pop(0)
-
-    # Remove border polygon:
+  
     corners = polygons.pop(0)
     
     # Node spacing is the quality of the pathfinding grid

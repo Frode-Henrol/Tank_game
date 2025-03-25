@@ -60,17 +60,10 @@ class Tank:
         self.use_turret = use_turret
         
         # Pathfinding and waypoint logic
-        self.go_to_waypoint = True     # Bool to control if tanks should follow waypoint queue
-        self.movement_state = MovementState.IDLE    # Tank states for pathfinding
+        self.go_to_waypoint = False     # Bool to control if tanks should follow waypoint queue
+        self.movement_state = MovementState.IDLE    # Tank states for pathfinding (NOT USED AT THE MOMENT) skal rettes
         self.waypoint_queue = []    # Tank starts with empty waypoint queue
-        self.current_node = None      # The current node (coordinate) the tank tries to drive to 
-        
-        # ALT UNDER SLETTES:::: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BARE EN TEST MED EN TEST PATH!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        self.go_to_waypoint = True     # Bool to control if tanks should follow waypoint queue
-        self.movement_state = MovementState.IDLE    # Tank states for pathfinding
-        self.waypoint_queue = [(500,500),(800,400),(200,200),(200,1000),(2000,1000),(10,10)]    # Tank starts with empty waypoint queue
-        self.current_node = self.waypoint_queue[0]      # The current node (coordinate) the tank tries to drive to 
-        
+
         # AI
         # TEST DIC
         
@@ -308,21 +301,22 @@ class Tank:
         
     def toggle_draw_hitbox(self):
         self.draw_hitbox = not self.draw_hitbox
-        
-        
+               
     def init_waypoint(self, grid_dict: dict, destination_coord: tuple, top_left: tuple, node_spacing: int):
         # Functions makes sure to set up tank for at given path for pathfinding
         self.node_spacing = node_spacing
         self.top_left = top_left
-            
+
         # Converts tank position to a node position in the node grid
         tank_pos_grid = map_grid.pygame_to_grid(self.pos, top_left, node_spacing)
+        destination_coord_grid = map_grid.pygame_to_grid(destination_coord, top_left, node_spacing)
         
         # Find path
-        path = map_grid.find_path(grid_dict = grid_dict, start_coord = tank_pos_grid, end_coord = destination_coord)
+        path = map_grid.find_path(grid_dict, tank_pos_grid, destination_coord_grid)
         
         # Save the path as the waypoint queue  (reversing since .pop() is used in move_to_node)
-        self.waypoint_queue = path.reverse()
+        self.waypoint_queue = [map_grid.grid_to_pygame(x, top_left, node_spacing) for x in path]
+        self.waypoint_queue.reverse()
         
         # Active bool that allows tank to follow waypoint
         self.go_to_waypoint = True
@@ -330,8 +324,6 @@ class Tank:
         # Set current node:
         self.next_node()
         
-        
-
     def move_to_node(self, node_coord):
         
         # -------------------------------------- Computing angle differens --------------------------------------
@@ -360,8 +352,8 @@ class Tank:
         pos_dir = (self.pos[0] + self.direction[0], self.pos[1] + self.direction[1])
         
         TURN_THRESHOLD_MIN = 5  # Stop rotating under this value       
-        TURN_THRESHOLD_MAX = 90 # Stop moving forward over this value
-        DISTANCE_THRESHOLD = 100 # Stop moving when within this distance to node
+        TURN_THRESHOLD_MAX = 45 # Stop moving forward over this value
+        DISTANCE_THRESHOLD = 50 # Stop moving when within this distance to node
         # Distance to node
         distance_to_node = np.hypot(node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
         
@@ -374,7 +366,7 @@ class Tank:
                     
             if TURN_THRESHOLD_MAX > angle_diff_deg:
                     self.move("forward")
-                    print(f"{distance_to_node=}")
+                    #print(f"{distance_to_node=}")
         
         else:
             if self.waypoint_queue:

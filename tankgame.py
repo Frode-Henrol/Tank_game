@@ -140,14 +140,18 @@ class TankGame:
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
-        polygon_list, unit_list = helper_functions.load_map_data(map_name)
+        self.polygon_list, unit_list = helper_functions.load_map_data(map_name)
         
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
-        self.polygon_list_no_border = polygon_list.copy()
-        self.polygon_list_no_border.pop(0)    # Removes the border polygon
+        self.polygon_list_no_border = self.polygon_list.copy()
+        self.border_polygon = self.polygon_list_no_border.pop(0)    # Removes the border polygon and store seperate
+        
+        # Get pathfinding data from map.
+        self.node_spacing = 50 # skal rettes. This part need to be loaded from map!!
+        self.grid_dict = map_grid.get_mapgrid_dict(self.polygon_list.copy(), self.node_spacing)
         
         # ==================== Load map obstacles and units ====================
-        for polygon_conrners in polygon_list:
+        for polygon_conrners in self.polygon_list:
             self.obstacles.extend([Obstacle(polygon_conrners)])
         
         # Open unit json to get unit info
@@ -170,7 +174,6 @@ class TankGame:
                 
                 # Fetch specific unit data 
                 specific_unit_data = all_units_data_json[unit_type_json_format]
-                
                 
                 temp_speed = 144 / self.fps 
                 # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
@@ -296,6 +299,16 @@ class TankGame:
                 self.units_player_controlled[0].move("backward")
             if keys[pg.K_SPACE] or mouse_buttons[0]:
                 self.units_player_controlled[0].shoot()
+                
+            if keys[pg.K_p]:
+                mouse_pos = pg.mouse.get_pos()
+
+                top_left_corner = self.border_polygon[3]
+                print(f"{self.polygon_list_no_border=}")
+                
+                if self.grid_dict is not None:
+                    self.units_player_controlled[0].init_waypoint(self.grid_dict, mouse_pos, top_left_corner, self.node_spacing)
+                
             
 
         self.update()

@@ -2,7 +2,10 @@ import pygame as pg
 import utils.helper_functions as hf
 import numpy as np
 import triangle as tr
+import heapq
 from collections import defaultdict
+import time 
+import math
 
 # Collection of function used for path finding
 
@@ -160,3 +163,60 @@ def get_mapgrid_dict(polygons, node_spacing) -> dict:
 
     # Convert grid to a dictionary that stores each coords(nodes) neighbors and costs (only ran once per map)
     return grid_to_dict(map_grid, 1)
+
+
+
+
+# This is used by a unit each time it need to find a path
+def find_path(grid_dict: dict[tuple, list], start_coord: tuple[int, int], end_coord: tuple[int, int]):
+    """Optimized A* pathfinding"""
+    
+    open_list = [(0, start_coord)]  # Priority queue (min heap)
+    heapq.heapify(open_list)  # Ensures it's a valid heap
+
+    g_cost = {start_coord: 0}  # Cost from start
+    came_from = {}  # To reconstruct path
+    closed_list = set()  # Explored nodes
+
+    while open_list:
+        _, current = heapq.heappop(open_list)  # Pop lowest cost node
+
+        if current == end_coord:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start_coord)
+            return path[::-1]
+
+        closed_list.add(current)
+
+        # Explore neighbors
+        current_g = g_cost[current]
+        for neighbor, cost in grid_dict.get(current, []):
+            if neighbor in closed_list:
+                continue
+
+            new_g = current_g + cost
+            if neighbor not in g_cost or new_g < g_cost[neighbor]:
+                g_cost[neighbor] = new_g
+                f_cost = new_g + math.hypot(neighbor[0] - end_coord[0], neighbor[1] - end_coord[1])
+                heapq.heappush(open_list, (f_cost, neighbor))
+                came_from[neighbor] = current
+
+    return None  # No path found
+
+# These 2 functions convert from grid coords to pygame coords
+def pygame_to_grid(pygame_coord: tuple, top_left: tuple, node_spacing: int):
+    """Convert Pygame (pixel) coordinates to grid (row, col)"""
+    x, y = pygame_coord
+    grid_x = (x - top_left[0]) // node_spacing
+    grid_y = (y - top_left[1]) // node_spacing
+    return int(grid_x), int(grid_y)  # Ensure integer output
+
+def grid_to_pygame(grid_coord: tuple, top_left: tuple, node_spacing: int):
+    """Convert grid (row, col) coordinates to Pygame (pixel)"""
+    grid_x, grid_y = grid_coord
+    x = grid_x * node_spacing + top_left[0] + node_spacing // 2
+    y = grid_y * node_spacing + top_left[1] + node_spacing // 2
+    return x, y

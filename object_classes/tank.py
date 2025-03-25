@@ -4,7 +4,7 @@ from object_classes.projectile import Projectile
 import utils.helper_functions as helper_functions
 import numpy as np
 import random
-
+import map_grid
 
 class Tank:
     def __init__(self, 
@@ -58,6 +58,18 @@ class Tank:
         
         # Use turret?
         self.use_turret = use_turret
+        
+        # Pathfinding and waypoint logic
+        self.go_to_waypoint = True     # Bool to control if tanks should follow waypoint queue
+        self.movement_state = MovementState.IDLE    # Tank states for pathfinding
+        self.waypoint_queue = []    # Tank starts with empty waypoint queue
+        self.current_node = None      # The current node (coordinate) the tank tries to drive to 
+        
+        # ALT UNDER SLETTES:::: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BARE EN TEST MED EN TEST PATH!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        self.go_to_waypoint = True     # Bool to control if tanks should follow waypoint queue
+        self.movement_state = MovementState.IDLE    # Tank states for pathfinding
+        self.waypoint_queue = [(500,500),(800,400),(200,200),(200,1000),(2000,1000),(10,10)]    # Tank starts with empty waypoint queue
+        self.current_node = self.waypoint_queue[0]      # The current node (coordinate) the tank tries to drive to 
         
         # AI
         # TEST DIC
@@ -127,6 +139,10 @@ class Tank:
         #AI
         if self.ai:
             self.ai.update(States.IDLE)
+            
+        # Pathfinding / waypoint logic if it is activated
+        if self.go_to_waypoint:
+            self.move_to_node(self.current_node)
     
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
@@ -255,9 +271,6 @@ class Tank:
     def get_projectile_list(self):
         return self.projectiles
     
-    def remove_projectile(self, index):
-        pass
-    
     def get_pos(self):
         return self.pos
 
@@ -295,6 +308,92 @@ class Tank:
         
     def toggle_draw_hitbox(self):
         self.draw_hitbox = not self.draw_hitbox
+        
+        
+    def init_waypoint(self, grid_dict: dict, destination_coord: tuple, top_left: tuple, node_spacing: int):
+        # Functions makes sure to set up tank for at given path for pathfinding
+        self.node_spacing = node_spacing
+        self.top_left = top_left
+            
+        # Converts tank position to a node position in the node grid
+        tank_pos_grid = map_grid.pygame_to_grid(self.pos, top_left, node_spacing)
+        
+        # Find path
+        path = map_grid.find_path(grid_dict = grid_dict, start_coord = tank_pos_grid, end_coord = destination_coord)
+        
+        # Save the path as the waypoint queue  (reversing since .pop() is used in move_to_node)
+        self.waypoint_queue = path.reverse()
+        
+        # Active bool that allows tank to follow waypoint
+        self.go_to_waypoint = True
+        
+        # Set current node:
+        self.next_node()
+        
+        
+
+    def move_to_node(self, node_coord):
+        
+        # -------------------------------------- Computing angle differens --------------------------------------
+        # Compute vector to the target
+        to_target = (node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
+        
+        # Normalize the target direction vector
+        to_target_mag = np.hypot(to_target[0], to_target[1])  # Compute magnitude
+        to_target_unit = (to_target[0] / to_target_mag, to_target[1] / to_target_mag)  # Normalize
+        
+        # Compute dot product
+        dot = self.direction[0] * to_target_unit[0] + self.direction[1] * to_target_unit[1]
+        
+        # Clamp dot product to valid range for acos (this is to prevent floating point numbers errors above 1 and below -1) since acos will give error otherwise
+        dot = np.clip(dot, -1.0, 1.0)
+        
+        # Compute angle difference (in radians)
+        angle_diff = np.arccos(dot)
+
+        # Convert to degrees
+        angle_diff_deg = np.degrees(angle_diff)
+        
+        # -------------------------------------- Controlling of tank to a node --------------------------------------
+        
+        # Make a second point to form the direction line from the tank
+        pos_dir = (self.pos[0] + self.direction[0], self.pos[1] + self.direction[1])
+        
+        TURN_THRESHOLD_MIN = 5  # Stop rotating under this value       
+        TURN_THRESHOLD_MAX = 90 # Stop moving forward over this value
+        DISTANCE_THRESHOLD = 100 # Stop moving when within this distance to node
+        # Distance to node
+        distance_to_node = np.hypot(node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
+        
+        if distance_to_node > DISTANCE_THRESHOLD:
+            if angle_diff_deg > TURN_THRESHOLD_MIN:
+                if self.left_turn(self.pos, pos_dir, node_coord):
+                    self.rotate(1) 
+                else:
+                    self.rotate(-1) 
+                    
+            if TURN_THRESHOLD_MAX > angle_diff_deg:
+                    self.move("forward")
+                    print(f"{distance_to_node=}")
+        
+        else:
+            if self.waypoint_queue:
+                self.next_node()
+                print("Node finished.")
+            else:
+                print("Waypoint queue finished")
+                self.go_to_waypoint = False
+    
+    def next_node(self):
+        # Gets the next node in the waypoint queue and removes it and stores it in seperate variable
+        self.current_node = self.waypoint_queue.pop()
+        
+    
+    def left_turn(self, p: tuple, q: tuple, r: tuple) -> bool:
+        # Check if coord r is to left of right of line p-q
+        return (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]) >= 0
+        
+        
 
 
 class TankAI:
@@ -351,4 +450,10 @@ class States:
     PATROLLING = "patrolling"
     CHASING = "chasing"
     ATTACKING = "attacking"
+    
+    
+class MovementState:
+    ROTATING = "rotating"
+    MOVING = "moving"
+    IDLE = "idle"
     

@@ -10,7 +10,7 @@ from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
 from object_classes.button import Button 
 import json
-
+import map_grid
 
 class TankGame:
     def __init__(self):
@@ -296,6 +296,7 @@ class TankGame:
                 self.units_player_controlled[0].move("backward")
             if keys[pg.K_SPACE] or mouse_buttons[0]:
                 self.units_player_controlled[0].shoot()
+            
 
         self.update()
         self.draw()

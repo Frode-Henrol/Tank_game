@@ -1,5 +1,5 @@
 Mapname:
-map_test1.txt
+map_test1.txt.txt
 Polygons:
 [(-4050, 5550), (5950, 5550), (5950, -4450), (-4050, -4450)]
 Units:

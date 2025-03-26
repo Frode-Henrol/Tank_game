@@ -33,17 +33,16 @@ class PolygonDrawer:
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
-    
+
         self.points = []  # List to store the points of the polygon
         self.is_closed = False  # To check if the polygon is closed
-        self.polygons: list[Polygon] = []
+        self.polygons: list[Polygon] = []   # List to store the polygons on the map
         self.map_name = ""
         self.map_name_only_display = ""
         
-        self.map_folder_path = "map_files"
+        self.map_folder_path = "map_files"  # skal rettes - skal måske kunne være custom?
         
-        
-        self.units = []     # Skal rettes - test af unit list
+        self.units = [] # List to store the units on the map
         
         self.map_width = map_width
         self.map_height = map_height
@@ -64,9 +63,16 @@ class PolygonDrawer:
         # UNIT MODE:
         self.selected_tank = None  # Keep track of the currently selected tank button
         
+        # Path finding:
+        self.node_spacing = 50
+        self.show_nodes = False
+        
+        
+        # Assets to load last
         self.load_gui()
         self.load_assets()
-    
+        
+
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
@@ -121,10 +127,13 @@ class PolygonDrawer:
         ]
         
         self.button_pathfinding = [
-            Button(left, 250, 300, 60, "unbound"),
-            Button(left, 350, 300, 60, "Back", States.EDITOR_MENU),
+            Button(left, 150, 300, 60, "Re-calculate nodes NOT implemented"),
+            Button(left, 250, 300, 60, "Show path nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_nodes")),
+            Button(left, 350, 300, 60, f"Node spacing: {self.node_spacing}", action=self.change_node_spacing, hover_enabled=False),
+            Button(left, 450, 300, 60, "Back", States.EDITOR_MENU),
         ]
         
+        # skal rettes: all buttons should be in a dictionary, to prevent this under:
         # A temp way to access the map save textfield/buttons for now
         self.textfield_map_save = self.buttons_editor_menu[4]
         self.textfield_map_load = self.buttons_editor_menu[5]
@@ -133,6 +142,8 @@ class PolygonDrawer:
         self.textfield_map_width = self.buttons_editor_menu[11]
         
         self.map_name_only_display = self.buttons_editor_menu[0]
+        
+        self.node_spacing_button =  self.button_pathfinding[2]
         
         
         offset = 400
@@ -173,6 +184,15 @@ class PolygonDrawer:
             else:
                 button.set_semi_disabled(True)  # Semi-disable other buttons
         
+    def change_node_spacing(self):
+        # TEMP solution for choosing nodespacing. This should be a slider or textfield in the future?
+        # skal rettes
+        if self.node_spacing < 100:
+            self.node_spacing +=25
+        else:
+            self.node_spacing = 25
+            
+        self.node_spacing_button.change_button_text(f"Node spacing: {self.node_spacing}")
     # ===============================================================
     
     def handle_buttons(self, button_list, event_list, screen):

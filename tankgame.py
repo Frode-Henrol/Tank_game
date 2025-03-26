@@ -71,9 +71,9 @@ class TankGame:
         ]
         
         self.setting_buttons = [
-            Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: self.toggle_bool("show_obstacle_corners")),
-            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: self.toggle_bool("draw_hitbox")),
-            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: self.toggle_bool("godmode")),
+            Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
+            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "draw_hitbox")),
+            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "godmode")),
             Button(left, 450, 300, 60, "Back", States.MENU)
         ]
         
@@ -85,19 +85,6 @@ class TankGame:
 
             Button(left, 550, 300, 60, "Back", States.MENU)  
         ]
-    
-    def toggle_bool(self, attr_name):
-        """Toggles a boolean attribute given its name as a string."""
-        if hasattr(self, attr_name):  # Check if attribute exists
-            current_value = getattr(self, attr_name)  # Get the current value
-            if isinstance(current_value, bool):  # Ensure it's a boolean
-                setattr(self, attr_name, not current_value)  # Toggle it
-                print(f"Toggled {attr_name}")
-            else:
-                raise ValueError(f"Attribute '{attr_name}' is not a boolean.")
-        else:
-            raise AttributeError(f"'{self.__class__.__name__}' has no attribute '{attr_name}'")
-        
             
     def load_map(self, map_num):
         print(f"MAP {map_num} loadet")

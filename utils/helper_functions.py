@@ -1,6 +1,7 @@
 import numpy as np
 import ast  
 import itertools
+from typing import Any
 
 
 def coord_to_coordlist(coordinat_list: list) -> list:
@@ -29,7 +30,6 @@ def unit_vector(from_point: tuple, to_point: tuple) -> tuple:
         return (0, 0)  # Avoid division by zero
     
     return (dx / length, dy / length)
-
 
 def load_map_data(map_name):
     """Load the map and polygons/units from the text file. Returns: (polygons, units)"""
@@ -70,7 +70,6 @@ def load_map_data(map_name):
 
     return polygons, units
 
-
 def check_triangle(triangle: list[tuple], point: tuple) -> bool:
     """Checks if a point is inside a triangle
 
@@ -106,3 +105,16 @@ def check_triangle(triangle: list[tuple], point: tuple) -> bool:
             continue  # Try the next permutation
         
     return detected
+
+
+def toggle_bool(obj: Any, attr_name: str) -> None: 
+    """Toggles a boolean attribute given its name as a string."""
+    if hasattr(obj, attr_name):  # Check if attribute exists
+        current_value = getattr(obj, attr_name)  # Get the current value
+        if isinstance(current_value, bool):  # Ensure it's a boolean
+            setattr(obj, attr_name, not current_value)  # Toggle it
+            print(f"Toggled {attr_name}")
+        else:
+            raise ValueError(f"Attribute '{attr_name}' is not a boolean.")
+    else:
+        raise AttributeError(f"'{obj.__class__.__name__}' has no attribute '{attr_name}'")

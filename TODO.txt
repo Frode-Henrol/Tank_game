@@ -10,3 +10,7 @@ Collsion between tanks i not working correct
 
 Lige nu kan tanks køre til en test node. Alle tanks kører pt da deres bool i init er hardcoded true
 Næste skridt er at init pathfinding for enkelt tank og så prøve at give den en et slut coord, hvor den selv vil genere en path
+
+AI:
+Senere skal der laves så hver ai tank tjekker alle projectiler på map, og tjekker om deres position er inden for Feks
+x afstand. For dem indenfor afstanden skal den predict deres bane og prøve at undgå dem

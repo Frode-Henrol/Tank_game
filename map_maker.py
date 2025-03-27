@@ -5,6 +5,7 @@ from object_classes.button import Button
 from object_classes.textfield import Textfield
 import numpy as np
 import os
+import pathfinding
 
 def main():
     
@@ -65,12 +66,13 @@ class PolygonDrawer:
         
         # Path finding:
         self.node_spacing = 50
-        self.show_nodes = False
+        self.show_pathfinding_nodes = False
         
         
         # Assets to load last
         self.load_gui()
         self.load_assets()
+        
         
 
     def load_assets(self):
@@ -127,8 +129,8 @@ class PolygonDrawer:
         ]
         
         self.button_pathfinding = [
-            Button(left, 150, 300, 60, "Re-calculate nodes NOT implemented"),
-            Button(left, 250, 300, 60, "Show path nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_nodes")),
+            Button(left, 150, 300, 60, "Re-calculate nodes", action=self.update_pathfinding_nodes),
+            Button(left, 250, 300, 60, "Show path nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action = self.toggle_and_update),
             Button(left, 350, 300, 60, f"Node spacing: {self.node_spacing}", action=self.change_node_spacing, hover_enabled=False),
             Button(left, 450, 300, 60, "Back", States.EDITOR_MENU),
         ]
@@ -193,6 +195,24 @@ class PolygonDrawer:
             self.node_spacing = 25
             
         self.node_spacing_button.change_button_text(f"Node spacing: {self.node_spacing}")
+        
+        # Update the pathfinding nodes
+        self.update_pathfinding_nodes()
+    
+    def toggle_and_update(self):
+        helper_functions.toggle_bool(self, "show_pathfinding_nodes")
+        self.update_pathfinding_nodes()
+    
+    def update_pathfinding_nodes(self):
+        """ Updates the path finding nodes"""
+        
+        if self.show_pathfinding_nodes:
+            polygon_list = [x.get_polygon_points() for x in self.polygons]
+            
+            _, self.valid_nodes = pathfinding.find_valid_nodes(self.map_borders, self.node_spacing, polygon_list)  
+    
+    
+    
     # ===============================================================
     
     def handle_buttons(self, button_list, event_list, screen):
@@ -305,6 +325,8 @@ class PolygonDrawer:
                 if event.key == pg.K_r: # Remove last polygon when pressing r
                     if self.polygons:
                         self.polygons.pop(-1)
+                    # Update nodes if active
+                    self.update_pathfinding_nodes()
                 if event.key == pg.K_ESCAPE:
                     self.state = States.EDITOR_MENU
                
@@ -321,6 +343,9 @@ class PolygonDrawer:
                         self.polygons.append(Polygon(self.points))
                         print("Polygone done")
                         self.points = []
+                        
+                        # Update nodes if active
+                        self.update_pathfinding_nodes()
                     
                     else:
                         self.points.append(snapped_pos)  # Add snapped point to the list
@@ -479,8 +504,7 @@ class PolygonDrawer:
         for corner_pair in helper_functions.coord_to_coordlist(self.map_borders):
             pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
 
-
-        # Draw the units as circles in unit mode
+        # Draw the units images in unit mode
         for unit in self.units:
             unit_pos = unit[0]
             unit_rotation = unit[1]
@@ -489,7 +513,12 @@ class PolygonDrawer:
             rect = rotated_unit_image.get_rect(center=unit_pos)
             self.screen.blit(rotated_unit_image, rect.topleft)
             
-            #pg.draw.circle(self.screen, (0, 0, 255), unit_pos, 15)  # Blue circles for units
+        # Draw pathfinding nodes if turned on:
+        if self.show_pathfinding_nodes:
+            for node in self.valid_nodes:
+                pg.draw.circle(self.screen, "purple", node, 5)
+        
+        
     
     def draw_grid(self):
         """Draw a faint grid on the screen."""

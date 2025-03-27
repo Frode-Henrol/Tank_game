@@ -7,6 +7,7 @@ from collections import defaultdict
 import time 
 import math
 
+
 # Collection of function used for path finding
 
 # --- helpers ---
@@ -89,14 +90,14 @@ def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[lis
                 
     return map_grid, valid_nodes
 
-def grid_to_dict(grid: np.ndarray, node_spacing: int) -> dict:
+def grid_to_dict(grid: np.ndarray) -> dict:
         
     y_size, x_size = grid.shape
 
     coord_list = []
 
     # Define relative neighbor positions
-    k = node_spacing
+    k = 1   # Hardcoded at 1
     neighbors = [(-k,-k), (0,-k), (k,-k), (-k,0), (k,0), (-k,k), (0,k), (k,k)]
 
     coord_dict = defaultdict(list)
@@ -143,7 +144,7 @@ def grid_to_dict(grid: np.ndarray, node_spacing: int) -> dict:
 # --- helpers ---
 
 # --- func to use ---
-def get_mapgrid_dict(polygons, node_spacing) -> dict:
+def get_mapgrid_dict(polygons: list[list[tuple]]) -> dict:
     
     all_triangles = []
     for polygon in polygons:
@@ -156,7 +157,7 @@ def get_mapgrid_dict(polygons, node_spacing) -> dict:
         all_triangles.pop(0)
         all_triangles.pop(0)
 
-  
+
     corners = polygons.pop(0)
     
     # Node spacing is the quality of the pathfinding grid
@@ -164,7 +165,7 @@ def get_mapgrid_dict(polygons, node_spacing) -> dict:
     map_grid, valid_nodes = find_valid_nodes(corners, node_spacing, polygons)    
 
     # Convert grid to a dictionary that stores each coords(nodes) neighbors and costs (only ran once per map)
-    return grid_to_dict(map_grid, 1)
+    return grid_to_dict(map_grid)
 
 # This is used by a unit each time it need to find a path
 def find_path(grid_dict: dict[tuple, list], start_coord: tuple[int, int], end_coord: tuple[int, int]):

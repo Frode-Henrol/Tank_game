@@ -81,14 +81,14 @@ def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[lis
                 
     return map_grid, valid_nodes
 
-def grid_to_dict(grid: np.ndarray, node_spacing: int) -> dict:
+def grid_to_dict(grid: np.ndarray) -> dict:
         
     y_size, x_size = grid.shape
 
     coord_list = []
 
     # Define relative neighbor positions
-    k = node_spacing
+    k = 1   # Hardcoded at 1
     neighbors = [(-k,-k), (0,-k), (k,-k), (-k,0), (k,0), (-k,k), (0,k), (k,k)]
 
     coord_dict = defaultdict(list)
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     start_coord, end_coord = (0,0), (0,0)
 
     # Convert grid to a dictionary that stores each coords(nodes) neighbors and costs (only ran once per map)
-    grid_dict = grid_to_dict(map_grid, 1)
+    grid_dict = grid_to_dict(map_grid)
 
     # Main game loop
     running = True

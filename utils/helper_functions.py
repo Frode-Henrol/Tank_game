@@ -31,7 +31,7 @@ def unit_vector(from_point: tuple, to_point: tuple) -> tuple:
     
     return (dx / length, dy / length)
 
-def load_map_data(map_name):
+def load_map_data2(map_name):
     """Load the map and polygons/units from the text file. Returns: (polygons, units)"""
     polygons = []
     units = []
@@ -56,6 +56,8 @@ def load_map_data(map_name):
                 elif line == "Units:":
                     current_section = "units"
                     continue
+                elif line == "Nodespacing:":
+                    current_section = "Nodespacing"
                 
                 # Depending on the current section, parse the appropriate data
                 if current_section == "polygons" and line.startswith('['):
@@ -64,11 +66,67 @@ def load_map_data(map_name):
                 elif current_section == "units" and line.startswith('('):
                     unit_data = ast.literal_eval(line)
                     units.append(unit_data)
+                elif current_section == "Nodespacing":
+                    node_spacing = int(line)
 
     except Exception as e:
         print(f"Error loading map data: {e}")
 
-    return polygons, units
+    return polygons, units, node_spacing 
+
+def load_map_data(map_name: str) -> tuple[list,list,int]:
+    """Load the map and polygons/units from the text file. 
+    Returns: (polygons, units, node_spacing)
+    """
+    polygons = []
+    units = []
+    node_spacing = None  # Default in case it's not found
+
+    try:
+        with open(map_name, "r") as f:
+            lines = f.readlines()
+
+            current_section = None
+            for line in lines:
+                line = line.strip()
+
+                if not line:
+                    continue
+                
+                # Identify section headers
+                if line == "Polygons:":
+                    current_section = "polygons"
+                    continue
+                elif line == "Units:":
+                    current_section = "units"
+                    continue
+                elif line.startswith("Nodespacing:"):
+                    try:
+                        node_spacing = int(line.split(":")[1].strip())
+                    except ValueError:
+                        print("Warning: Invalid node spacing value.")
+                    continue
+                
+                # Parse data based on section
+                if current_section == "polygons":
+                    try:
+                        polygon_points = ast.literal_eval(line)
+                        if isinstance(polygon_points, list):
+                            polygons.append(polygon_points)
+                    except Exception as e:
+                        print(f"Error parsing polygon: {e}")
+                elif current_section == "units":
+                    try:
+                        unit_data = ast.literal_eval(line)
+                        if isinstance(unit_data, tuple):
+                            units.append(unit_data)
+                    except Exception as e:
+                        print(f"Error parsing unit: {e}")
+
+    except Exception as e:
+        print(f"Error loading map data: {e}")
+
+    return polygons, units, node_spacing
 
 def check_triangle(triangle: list[tuple], point: tuple) -> bool:
     """Checks if a point is inside a triangle

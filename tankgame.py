@@ -51,6 +51,11 @@ class TankGame:
         self.show_obstacle_corners = False
         self.draw_hitbox = True # Not implemented 
         self.godmode = False    # Not implemented 
+        self.show_pathfinding_nodes = False
+        self.show_pathfinding_paths = False
+
+        # Pathfinding
+        self.all_unit_waypoint_queues = []
         
 
     def load_gui(self):
@@ -72,9 +77,11 @@ class TankGame:
         
         self.setting_buttons = [
             Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
-            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "draw_hitbox")),
-            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "godmode")),
-            Button(left, 450, 300, 60, "Back", States.MENU)
+            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
+            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "godmode")),
+            Button(left, 450, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
+            Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
+            Button(left, 650, 300, 60, "Back", States.MENU)
         ]
         
         self.level_selection_buttons = [
@@ -88,6 +95,9 @@ class TankGame:
             
     def load_map(self, map_num):
         print(f"MAP {map_num} loadet")
+        # not implemented
+        
+        
     
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
@@ -127,15 +137,20 @@ class TankGame:
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
-        self.polygon_list, unit_list = helper_functions.load_map_data(map_name)
-        
+        self.polygon_list, unit_list, self.node_spacing = helper_functions.load_map_data(map_name)
+       
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
         self.polygon_list_no_border = self.polygon_list.copy()
         self.border_polygon = self.polygon_list_no_border.pop(0)    # Removes the border polygon and store seperate
         
         # Get pathfinding data from map.
-        self.node_spacing = 50 # skal rettes. This part need to be loaded from map!!
         self.grid_dict = pathfinding.get_mapgrid_dict(self.polygon_list.copy())
+        
+        # Get valid nodes for path finding visuals
+        print("INFO")
+        print(self.border_polygon, self.node_spacing, self.polygon_list)
+        _, self.valid_nodes = pathfinding.find_valid_nodes(self.border_polygon, self.node_spacing, self.polygon_list_no_border) 
+        print(f"VALID NODES: {self.valid_nodes}")
         
         # ==================== Load map obstacles and units ====================
         for polygon_conrners in self.polygon_list:
@@ -238,7 +253,7 @@ class TankGame:
     
     def count_down(self, eventlist):
         # Set countdown starting number (for example, 3 seconds)
-        countdown_number = 3
+        countdown_number = 1
         font = pg.font.Font(None, 200)  # Large font for the countdown number
         
         while countdown_number > 0:
@@ -288,16 +303,36 @@ class TankGame:
                 self.units_player_controlled[0].shoot()
                 
             if keys[pg.K_p]:
-                mouse_pos = pg.mouse.get_pos()
-
-                top_left_corner = self.border_polygon[3]
-                print(f"{self.polygon_list_no_border=}")
                 
+                mouse_pos = pg.mouse.get_pos()  # Mouse position
+                top_left_corner = self.border_polygon[3]    # Top left corner of map
+                
+                # Only start a path search/init if the grid_dict is present
                 if self.grid_dict is not None:
                     self.units_player_controlled[0].init_waypoint(self.grid_dict, mouse_pos, top_left_corner, self.node_spacing)
-                
-            
+                # -------------------------------------------
+                # Alt under er blot test og skal ikke finde sted her. Skal rettes
+                # Dette kunne laves sådan den opdaterer path og fjerner nodes.
+                # Dette vil kræve at man konstant kigger efter alle units waypoint queues ligesom under, udover
+                # Det skal ske hver frame og ikke kun når der trykkes på p
+                if self.show_pathfinding_paths:
+                    
+                    self.all_unit_waypoint_queues.clear()
 
+                    # Get all waypoint queues from all units
+                    for unit in self.units:
+                        waypoint_queue = unit.get_waypoint_queue()
+                
+                    if waypoint_queue != None:
+                        # Convert waypoint queue to a list of lines to be drawn
+                        path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
+                        
+                        self.all_unit_waypoint_queues.append(path_lines)
+                    
+                    print(f"All waypoint paths: {self.all_unit_waypoint_queues}")
+                else:
+                    print(f"self.grid is None")
+                # -------------------------------------------
         self.update()
         self.draw()
 
@@ -443,6 +478,18 @@ class TankGame:
                 if self.show_obstacle_corners:
                     pg.draw.circle(self.screen, "blue", center=corner_pair[0], radius=5)   
 
+        # If path finding visuals is on draw path lines and nodes:
+        if self.show_pathfinding_nodes:
+            for node in self.valid_nodes:
+                pg.draw.circle(self.screen, "purple", node, 5)  # Draw nodes as circles
+                
+        # Draw path
+        if self.show_pathfinding_paths:
+            for queue in self.all_unit_waypoint_queues:
+                for c1, c2 in queue:
+                    pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
+        
+        
         self.render_debug_info()
 
         pg.display.update()

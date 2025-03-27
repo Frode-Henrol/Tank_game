@@ -296,6 +296,9 @@ class Tank:
     def get_direction_vector(self):
         return self.direction
     
+    def get_waypoint_queue(self):
+        return self.waypoint_queue
+    
     def toggle_godmode(self):
         self.godmode = not self.godmode
         
@@ -313,6 +316,9 @@ class Tank:
         
         # Find path
         path = pathfinding.find_path(grid_dict, tank_pos_grid, destination_coord_grid)
+        if path is None:
+            print("Could not find path")
+            return
         
         # Save the path as the waypoint queue  (reversing since .pop() is used in move_to_node)
         self.waypoint_queue = [pathfinding.grid_to_pygame(x, top_left, node_spacing) for x in path]

@@ -211,8 +211,6 @@ class PolygonDrawer:
             
             _, self.valid_nodes = pathfinding.find_valid_nodes(self.map_borders, self.node_spacing, polygon_list)  
     
-    
-    
     # ===============================================================
     
     def handle_buttons(self, button_list, event_list, screen):
@@ -403,12 +401,13 @@ class PolygonDrawer:
 
     def save(self):
         
-        # If the save textfield i used get the string inside
+        # Get map name from textfield
+        self.map_name = f"{self.textfield_map_save.get_string()}.txt"
+        
+        # If textfield empty overwrite name to a standard
         if self.textfield_map_save.is_field_empty():
             print("No name is given")
-            return
-
-        self.map_name = f"{self.textfield_map_save.get_string()}.txt"
+            self.map_name = "map_test1.txt" # Use standard name if none given
         
         map_path = os.path.join(self.map_folder_path, self.map_name)
         
@@ -430,10 +429,17 @@ class PolygonDrawer:
                 f.write(f"{polygon.get_polygon_points()}\n")
             
             f.write("Units:\n")
+            # If no units are added, there will automaticly be added a tank at a valid position
+            if not self.units:
+                self.show_pathfinding_nodes = True
+                self.update_pathfinding_nodes()
+                print("No units added. Adding player tank at valid node")
+                self.units.append((self.valid_nodes[0], int(90), 0))
+            
             for unit in self.units:
                 f.write(f"{unit}\n")
             
-            f.write("Pathfinding:\n")
+            f.write(f"Nodespacing: {self.node_spacing}")
             
         self.map_name_only_display.change_button_text(self.map_name)
         
@@ -518,8 +524,6 @@ class PolygonDrawer:
             for node in self.valid_nodes:
                 pg.draw.circle(self.screen, "purple", node, 5)
         
-        
-    
     def draw_grid(self):
         """Draw a faint grid on the screen."""
         grid_color = (200, 200, 200)  # Light gray for faint grid lines

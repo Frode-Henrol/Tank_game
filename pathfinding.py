@@ -44,7 +44,7 @@ def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[lis
     Args:
         corners (list[tuple]): list of corners coordinates
         node_spacing (int): how far between each node
-        polygons list[list[tuple]]: list of polygons. A polygon is a list of points (tuples)
+        polygons list[list[tuple]]: list of polygons. A polygon is a list of points (tuples) (EXCLUDING THE CORNER POLYGON!)
 
     Returns:
         list[tuple]: the valid node list - nodes that are not inside a polygon

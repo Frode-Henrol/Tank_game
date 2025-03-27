@@ -11,3 +11,5 @@ AI:
 Senere skal der laves så hver ai tank tjekker alle projectiler på map, og tjekker om deres position er inden for Feks
 x afstand. For dem indenfor afstanden skal den predict deres bane og prøve at undgå dem
 
+For alle polygons på mappet skal der generest punkter langs de lines de udgør. Disse punkter skal blot være coordinater i en liste. 
+På den måde kan man tjekke om projetilen er inden for feks 10 units afstand og så kun køre line intersect logic under denne afstand

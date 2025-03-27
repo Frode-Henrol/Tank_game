@@ -2,7 +2,6 @@
 import pygame as pg
 import utils.deflect as df
 
-
 class Projectile:
     
     def __init__(self, startpos: tuple, direction: tuple, speed: int, bounce_limit: int):   # Add color and more later!!!!

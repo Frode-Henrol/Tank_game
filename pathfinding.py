@@ -144,7 +144,7 @@ def grid_to_dict(grid: np.ndarray) -> dict:
 # --- helpers ---
 
 # --- func to use ---
-def get_mapgrid_dict(polygons: list[list[tuple]]) -> dict:
+def get_mapgrid_dict(polygons: list[list[tuple]], node_spacing: int) -> dict:
     
     all_triangles = []
     for polygon in polygons:
@@ -161,7 +161,6 @@ def get_mapgrid_dict(polygons: list[list[tuple]]) -> dict:
     corners = polygons.pop(0)
     
     # Node spacing is the quality of the pathfinding grid
-    node_spacing = 50
     map_grid, valid_nodes = find_valid_nodes(corners, node_spacing, polygons)    
 
     # Convert grid to a dictionary that stores each coords(nodes) neighbors and costs (only ran once per map)

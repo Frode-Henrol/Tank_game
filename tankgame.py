@@ -144,11 +144,9 @@ class TankGame:
         self.border_polygon = self.polygon_list_no_border.pop(0)    # Removes the border polygon and store seperate
         
         # Get pathfinding data from map.
-        self.grid_dict = pathfinding.get_mapgrid_dict(self.polygon_list.copy())
+        self.grid_dict = pathfinding.get_mapgrid_dict(self.polygon_list.copy(), self.node_spacing)
         
         # Get valid nodes for path finding visuals
-        print("INFO")
-        print(self.border_polygon, self.node_spacing, self.polygon_list)
         _, self.valid_nodes = pathfinding.find_valid_nodes(self.border_polygon, self.node_spacing, self.polygon_list_no_border) 
         print(f"VALID NODES: {self.valid_nodes}")
         

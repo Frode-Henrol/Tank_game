@@ -11,4 +11,3 @@ AI:
 Senere skal der laves så hver ai tank tjekker alle projectiler på map, og tjekker om deres position er inden for Feks
 x afstand. For dem indenfor afstanden skal den predict deres bane og prøve at undgå dem
 
-Pathfinding virker ikke korrekt når node_spacing er andet end 50? Brug ny debug feauture til at fix

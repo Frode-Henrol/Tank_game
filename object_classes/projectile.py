@@ -11,7 +11,7 @@ class Projectile:
         self.degrees = 0
         self.speed = speed  
         self.alive = True  
-        self.lifespan = 500     # Projectile lifespan
+        self.lifespan = 50000     # Projectile lifespan
         self.projectile_path_scale = 10     # Scale of projectile len
         self.bounce_count = 0
         self.bounce_limit = bounce_limit

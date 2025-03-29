@@ -456,7 +456,7 @@ class PolygonDrawer:
         map_path = os.path.join(self.map_folder_path, self.map_name)
         
         # Load the objects and units into map editor
-        polygons, units = helper_functions.load_map_data(map_path)
+        polygons, units, self.node_spacing = helper_functions.load_map_data(map_path)
         
         # Make sure to use first polygon as map borders and remove from the polygon list (reason is border wont be filed with solid color)
         self.map_borders = polygons[0]

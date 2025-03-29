@@ -301,7 +301,7 @@ class TankGame:
                 self.units_player_controlled[0].shoot()
                 
             if keys[pg.K_p]:
-                
+                print(f"{self.show_pathfinding_paths=}")
                 mouse_pos = pg.mouse.get_pos()  # Mouse position
                 top_left_corner = self.border_polygon[3]    # Top left corner of map
                 
@@ -320,16 +320,17 @@ class TankGame:
                     # Get all waypoint queues from all units
                     for unit in self.units:
                         waypoint_queue = unit.get_waypoint_queue()
-                
-                    if waypoint_queue != None:
-                        # Convert waypoint queue to a list of lines to be drawn
-                        path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
-                        
-                        self.all_unit_waypoint_queues.append(path_lines)
+                        print(f"Waypoint queue: {waypoint_queue}")
                     
-                    print(f"All waypoint paths: {self.all_unit_waypoint_queues}")
-                else:
-                    print(f"self.grid is None")
+                        if waypoint_queue != None:
+                            # Convert waypoint queue to a list of lines to be drawn
+                            path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
+                            
+                            self.all_unit_waypoint_queues.append(path_lines)
+                        
+                        print(f"All waypoint paths: {self.all_unit_waypoint_queues}")
+                    else:
+                        print(f"self.grid is None")
                 # -------------------------------------------
         self.update()
         self.draw()

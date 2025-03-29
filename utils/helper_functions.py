@@ -164,7 +164,7 @@ def check_triangle(triangle: list[tuple], point: tuple) -> bool:
         
     return detected
 
-# UNUSED:
+# UNUSED
 def generate_polygon_coordinates(polygon: list[tuple[int,int]], spacing: int) -> list[tuple[int,int]]:
     """
     Generates evenly spaced coordinates along the edges of a polygon.

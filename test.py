@@ -1,28 +1,28 @@
-import pathfinding
-import utils.helper_functions as hf
+import numpy as np
 
-# Load the polygons and units (assuming this function is correct)
-polygons, units = hf.load_map_data(r"map_files\map_test1.txt")
+def generate_polygon_coordinates(polygon, spacing):
+    points = []
+    num_vertices = len(polygon)
+    
+    for i in range(num_vertices):
+        start = np.array(polygon[i])
+        end = np.array(polygon[(i + 1) % num_vertices])  # Loop back to the first point
+        
+        # Compute the distance and direction
+        edge_vector = end - start
+        edge_length = np.linalg.norm(edge_vector)
+        direction = edge_vector / edge_length  # Unit vector
+        
+        # Add points along the edge, starting from 'start'
+        num_points = int(edge_length // spacing)  # Number of points to add
+        for j in range(num_points + 1):  # Include the end point
+            new_point = start + j * spacing * direction
+            points.append(tuple(map(int, new_point)))  # Convert to integer tuple
+    
+    return sorted(set(points), key=lambda p: (p[0], p[1]))
 
-top_left = polygons[0][3]
-print(top_left)
-
-# Call get_mapgrid_dict on the instance
-grid_dict = pathfinding.get_mapgrid_dict(polygons, 50)
-
-path = pathfinding.find_path(grid_dict, (0,0), (15,11))
-
-
-print(path)
-
-
-def left_turn(p, q, r):
-    return (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]) >= 0
-
-
-
-
-
-
-
-print(left_turn((0,0), (5,0), (1,-1)))
+# Example usage:
+polygon = [(550, 750), (1350, 750), (1350, 300), (550, 300)]
+spacing = 100
+coordinates = generate_polygon_coordinates(polygon, spacing)
+print(coordinates)

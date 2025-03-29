@@ -487,7 +487,6 @@ class TankGame:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
         
-        
         self.render_debug_info()
 
         pg.display.update()

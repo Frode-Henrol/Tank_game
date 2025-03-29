@@ -18,10 +18,8 @@ def main():
     drawer.run()
 
 
-
 class PolygonDrawer:
     def __init__(self, WINDOW_W, WINDOW_H, map_width, map_height):
-        
         
         pg.init()
         self.clock = pg.time.Clock()

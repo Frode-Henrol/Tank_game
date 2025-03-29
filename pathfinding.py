@@ -38,7 +38,7 @@ def split_polygon_into_triangles(polygon: list[tuple]) -> list[tuple]:
     
     return triangle_list
         
-def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[list[tuple]]) -> np.ndarray:
+def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[list[tuple]]) -> tuple:
     """ Find all nodes in a grid that is not inside of a polygon
 
     Args:

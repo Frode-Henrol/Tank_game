@@ -15,7 +15,7 @@
         "firerate": 2,
         "bounch_limit": 20000,
         "bomb_limit" : 0,
-        "ai_personality": "player",
+        "ai_personality": "standard",
         "image_name" : "tank1",
         "use_turret" : true
     }

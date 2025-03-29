@@ -178,13 +178,8 @@ class TankGame:
                 temp_speed = 144 / self.fps 
                 # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
                 
-                # Make sure that if the ai type is set to None if it is a player controlled tank
-                if specific_unit_data["ai_personality"] == "player":
-                    print(f"Tank {unit} is player controlled.")
-                    ai_type = None
-                else:
-                    ai_type = specific_unit_data["ai_personality"]
-                
+                ai_type = specific_unit_data["ai_personality"]
+                    
                 try:
                     unit_to_add = Tank(startpos            = unit_pos,
                                         speed              = temp_speed * specific_unit_data["tank_speed_modifier"], 
@@ -198,14 +193,23 @@ class TankGame:
                                         use_turret         = True, 
                                         ai_type            = ai_type)
                     
-                    if unit_to_add.get_ai() == None:
-                        self.units_player_controlled.append(unit_to_add)
-                        
+                    # Init waypoint processing for tank
+                    unit_to_add.init_waypoint(self.grid_dict, self.border_polygon[3], self.node_spacing, self.valid_nodes)
+                
                     self.units.append(unit_to_add)
-                    
+                        
                 except Exception as e:
                     print(f"Error: {e}")
             
+            for unit in self.units:
+                unit.set_units(self.units)  # Transfer unit list data to each tank
+                unit.init_ai()    
+                
+                if unit.get_ai() == "player":
+                    self.units_player_controlled.append(unit)
+                    
+        print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
+        print(f"Player controlled units: {self.units_player_controlled[0]}")
 
     def run(self):
         """Main game loop."""
@@ -303,34 +307,31 @@ class TankGame:
             if keys[pg.K_p]:
                 print(f"{self.show_pathfinding_paths=}")
                 mouse_pos = pg.mouse.get_pos()  # Mouse position
-                top_left_corner = self.border_polygon[3]    # Top left corner of map
                 
                 # Only start a path search/init if the grid_dict is present
                 if self.grid_dict is not None:
-                    self.units_player_controlled[0].init_waypoint(self.grid_dict, mouse_pos, top_left_corner, self.node_spacing)
+                    self.units_player_controlled[0].find_waypoint(mouse_pos)
                 # -------------------------------------------
                 # Alt under er blot test og skal ikke finde sted her. Skal rettes
                 # Dette kunne laves sådan den opdaterer path og fjerner nodes.
                 # Dette vil kræve at man konstant kigger efter alle units waypoint queues ligesom under, udover
                 # Det skal ske hver frame og ikke kun når der trykkes på p
-                if self.show_pathfinding_paths:
-                    
-                    self.all_unit_waypoint_queues.clear()
+            if self.show_pathfinding_paths:
+                
+                self.all_unit_waypoint_queues.clear()
 
-                    # Get all waypoint queues from all units
-                    for unit in self.units:
-                        waypoint_queue = unit.get_waypoint_queue()
-                        print(f"Waypoint queue: {waypoint_queue}")
-                    
-                        if waypoint_queue != None:
-                            # Convert waypoint queue to a list of lines to be drawn
-                            path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
-                            
-                            self.all_unit_waypoint_queues.append(path_lines)
+                # Get all waypoint queues from all units
+                for unit in self.units:
+                    waypoint_queue = unit.get_waypoint_queue()
+                    #print(f"Waypoint queue: {waypoint_queue}")
+                
+                    if waypoint_queue != None:
+                        # Convert waypoint queue to a list of lines to be drawn
+                        path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
                         
-                        print(f"All waypoint paths: {self.all_unit_waypoint_queues}")
-                    else:
-                        print(f"self.grid is None")
+                        self.all_unit_waypoint_queues.append(path_lines)
+                    
+                    #print(f"All waypoint paths: {self.all_unit_waypoint_queues}")
                 # -------------------------------------------
         self.update()
         self.draw()
@@ -364,7 +365,7 @@ class TankGame:
                 case pg.KEYDOWN:
                     if event.key == pg.K_r:
                         print("RESPAWN")
-                        self.units[0].respawn() # The 0 indicates player tank
+                        self.units_player_controlled[0].respawn() # The 0 indicates player tank
             
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             if event.type == pg.MOUSEBUTTONUP:
@@ -447,14 +448,6 @@ class TankGame:
 
         # Check if the distance is less than or equal to the threshold (radius)
         return distance <= threshold  
-    
-    def are_projectile_close_surface(self, projectile, obstacle):
-        pass
-        #x1, y1 = projectile.get_pos()
-        # Skal rettes
-        # Optimering ide hvor man ikke regner line intersect for alle object, men kun for dem der inden for
-        # en radius af projectile. Dette er dog ligt svært når obstacles er linjer?
-        
 
 
     def draw(self):
@@ -501,8 +494,10 @@ class TankGame:
         debug_text = [
             f"FPS: {self.clock.get_fps():.2f}",
             f"Active projectiles: {len(self.projectiles)}",
-            f"Main tank angle: {self.units[0].degrees}"
+            f"Main tank angle: {self.units_player_controlled[0].degrees}"
         ]
+        
+        
 
         # Start position for text
         x_start = self.WINDOW_DIM[0] - 190  

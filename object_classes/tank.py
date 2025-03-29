@@ -66,9 +66,16 @@ class Tank:
 
         # AI
         # TEST DIC
+        self.ai_type = ai_type  
         
-        self.ai = TankAI(self, None) if ai_type else None
+        self.units = []
         
+    def init_ai(self):
+        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy()) if self.ai_type != "player" else None
+    
+    def set_units(self, units):
+        self.units = units
+    
     def init_hitbox(self, spawn_degress):
         x = self.pos[0]
         y = self.pos[1]
@@ -131,7 +138,7 @@ class Tank:
         
         #AI
         if self.ai:
-            self.ai.update(States.IDLE)
+            self.ai.update()
             
         # Pathfinding / waypoint logic if it is activated
         if self.go_to_waypoint:
@@ -153,8 +160,7 @@ class Tank:
         
         # When rotating we also rate the tank hitbox
         self.rotate_hit_box(deg)
-
-            
+           
     def rotate_hit_box(self, deg):
         # Rotate tank hitbox
         rads = np.radians(deg)  # The hitbox is rotated specified degress
@@ -170,7 +176,6 @@ class Tank:
             # Update the list in place
             self.hitbox[i] = (rotated_x, rotated_y)
             
-
     def collision(self, line: tuple, collision_type: str) -> bool:
         """line should be a tuple of 2 coords"""
         
@@ -261,6 +266,9 @@ class Tank:
         # Firerate is now just a cooldown amount
         self.cannon_cooldown = self.firerate
 
+    def __str__(self):
+        return f"Pos: {self.pos} ai: {self.ai_type}"
+
     def get_projectile_list(self):
         return self.projectiles
     
@@ -274,7 +282,8 @@ class Tank:
         return self.hitbox[0], self.hitbox[1]
     
     def get_ai(self):
-        return self.ai
+        print(f"AI type: {self.ai_type}")
+        return self.ai_type
     
     def add_direction_vector(self, vec_dir):
         # SKAL RETTES - meget logic burde kunne overføres til move method
@@ -304,24 +313,29 @@ class Tank:
         
     def toggle_draw_hitbox(self):
         self.draw_hitbox = not self.draw_hitbox
-               
-    def init_waypoint(self, grid_dict: dict, destination_coord: tuple, top_left: tuple, node_spacing: int):
+
+    # ---------- Pathfinding ----------
+    def init_waypoint(self, grid_dict: dict, top_left: tuple, node_spacing: int, valid_nodes: list[tuple]):
         # Functions makes sure to set up tank for at given path for pathfinding
         self.node_spacing = node_spacing
         self.top_left = top_left
+        self.grid_dict = grid_dict
+        self.valid_nodes = valid_nodes
+    
+    def find_waypoint(self, destination_coord: tuple):
 
         # Converts tank position to a node position in the node grid
-        tank_pos_grid = pathfinding.pygame_to_grid(self.pos, top_left, node_spacing)
-        destination_coord_grid = pathfinding.pygame_to_grid(destination_coord, top_left, node_spacing)
+        tank_pos_grid = pathfinding.pygame_to_grid(self.pos, self.top_left, self.node_spacing)
+        destination_coord_grid = pathfinding.pygame_to_grid(destination_coord, self.top_left, self.node_spacing)
         
         # Find path
-        path = pathfinding.find_path(grid_dict, tank_pos_grid, destination_coord_grid)
+        path = pathfinding.find_path(self.grid_dict, tank_pos_grid, destination_coord_grid)
         if path is None:
             print("Could not find path")
             return
         
         # Save the path as the waypoint queue  (reversing since .pop() is used in move_to_node)
-        self.waypoint_queue = [pathfinding.grid_to_pygame(x, top_left, node_spacing) for x in path]
+        self.waypoint_queue = [pathfinding.grid_to_pygame(x, self.top_left, self.node_spacing) for x in path]
         self.waypoint_queue.reverse()
         
         # Active bool that allows tank to follow waypoint
@@ -386,22 +400,24 @@ class Tank:
         # Gets the next node in the waypoint queue and removes it and stores it in seperate variable
         self.current_node = self.waypoint_queue.pop()
         
-    
     def left_turn(self, p: tuple, q: tuple, r: tuple) -> bool:
         # Check if coord r is to left of right of line p-q
         return (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]) >= 0
         
-        
-
 
 class TankAI:
-    def __init__(self, tank: Tank, personality):
+    def __init__(self, tank: Tank, personality, valid_nodes: list[tuple], units: list[Tank]):
         self.tank = tank  # The tank instance this AI controls
         self.personality = personality
-        self.state = "idle"  # Default state
+        self.state = States.KEEP_DISTANCE  # Default state
         self.target = None  # Target for attack/movement
-
-    def update(self, game_state):
+        self.valid_nodes = valid_nodes
+        
+        # Other units on map without the controlled tank
+        self.units = units
+        self.units.remove(self.tank) # skal rettes, fjern egen tank fra listen
+        
+    def update(self):
         """Update AI behavior based on state."""
         if self.state ==  States.IDLE:
             self.idle_behavior()
@@ -411,22 +427,27 @@ class TankAI:
             self.chase_behavior()
         elif self.state == States.ATTACKING:
             self.attack_behavior()
+        elif self.state == States.RANDOM:
+            self.random_behavior()
+        elif self.state == States.KEEP_DISTANCE:
+            self.keep_distance_behavior2()
     
     def idle_behavior(self):
         """Do nothing or look around."""
-        
-        # Test:
-        test = False
-        if test:
-            self.tank.rotate(random.randint(-1,2))
-            
-            self.tank.move("forward")
-            
-            if random.randint(0,1000) == 1:
-                self.tank.shoot()
-            
-        pass
 
+        for unit in self.units:
+            x1, y1 = unit.pos
+            x2, y2 = self.tank.pos
+            dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            max_dist = 200
+            min_dist = 100
+            if min_dist > dist and self.tank.go_to_waypoint == False:
+                self.state = States.KEEP_DISTANCE
+            elif max_dist < dist and self.tank.go_to_waypoint == False:
+                self.state = States.KEEP_DISTANCE
+        
+        
+            
     def patrol_behavior(self):
         """Move around randomly or along a set path."""
         pass
@@ -438,6 +459,84 @@ class TankAI:
     def attack_behavior(self):
         """Shoot at the player or another enemy."""
         self.tank.shoot()
+        
+    def random_behavior(self):
+        """Move to a random location but only if the previous path is completed."""
+        if self.tank.go_to_waypoint == True:  # If already following a path, don't pick a new one
+            return
+        
+        rand_index = random.randint(0, len(self.valid_nodes) - 1)  # Fix out-of-bounds error
+        valid_node = self.valid_nodes[rand_index]
+
+        self.tank.find_waypoint(valid_node)
+        
+        self.state = States.IDLE
+
+    def keep_distance_behavior1(self, min_dist=100, max_dist=150):
+        """Move to a location that keeps the tank within the min and max distance from the player."""
+        if self.tank.go_to_waypoint:
+            return  # If already moving, do nothing
+
+        player_tank = self.units[0]  # Assuming the first unit is the player
+        px, py = player_tank.pos
+        
+        # Filter valid nodes based on distance criteria
+        possible_nodes = []
+        for node in self.valid_nodes:
+            nx, ny = node
+            dist = np.sqrt((nx - px) ** 2 + (ny - py) ** 2)
+            if min_dist <= dist <= max_dist:
+                possible_nodes.append(node)
+        
+        # If there are valid choices, move to a random one
+        if possible_nodes:
+            chosen_node = random.choice(possible_nodes)
+            self.tank.find_waypoint(chosen_node)
+
+        self.state = States.IDLE
+        
+        
+    def keep_distance_behavior2(self, min_dist=100, max_dist=200):
+        """Move to a location that keeps the tank within the min and max distance from the player.
+        If the player moves too far away, approach them."""
+        if self.tank.go_to_waypoint:
+            return  # If already moving, do nothing
+
+        player_tank = self.units[0]  # Assuming the first unit is the player
+        px, py = player_tank.pos
+        tx, ty = self.tank.pos
+        
+        # Calculate current distance
+        current_dist = np.sqrt((tx - px) ** 2 + (ty - py) ** 2)
+        
+        # If too far, move closer; if too close, move away
+        if current_dist > max_dist:
+            move_closer = True
+        elif current_dist < min_dist:
+            move_closer = False
+        else:
+            move_closer = None
+        
+        # Filter valid nodes based on distance criteria
+        possible_nodes = []
+        for node in self.valid_nodes:
+            nx, ny = node
+            dist = np.sqrt((nx - px) ** 2 + (ny - py) ** 2)
+            
+            if move_closer is True and dist < current_dist:  # Move closer if too far
+                possible_nodes.append(node)
+            elif move_closer is False and dist > current_dist:  # Move away if too close
+                possible_nodes.append(node)
+            elif move_closer is None and min_dist <= dist <= max_dist:
+                possible_nodes.append(node)
+        
+        # If there are valid choices, move to a random one
+        if possible_nodes:
+            chosen_node = random.choice(possible_nodes)
+            self.tank.find_waypoint(chosen_node)
+
+        self.state = States.IDLE
+
 
     def change_state(self, new_state):
         """Change the AI state."""
@@ -448,6 +547,8 @@ class States:
     PATROLLING = "patrolling"
     CHASING = "chasing"
     ATTACKING = "attacking"
+    RANDOM = "random"
+    KEEP_DISTANCE = "keepdistance"
     
     
 class MovementState:

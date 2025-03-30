@@ -31,49 +31,6 @@ def unit_vector(from_point: tuple, to_point: tuple) -> tuple:
     
     return (dx / length, dy / length)
 
-def load_map_data2(map_name):
-    """Load the map and polygons/units from the text file. Returns: (polygons, units)"""
-    polygons = []
-    units = []
-
-    try:
-        with open(map_name, "r") as f:
-            lines = f.readlines()
-
-            # Parse the lines to find the relevant sections
-            current_section = None
-            for line in lines:
-                line = line.strip()
-
-                # Skip empty lines
-                if not line:
-                    continue
-                
-                # Identify the section headers
-                if line == "Polygons:":
-                    current_section = "polygons"
-                    continue
-                elif line == "Units:":
-                    current_section = "units"
-                    continue
-                elif line == "Nodespacing:":
-                    current_section = "Nodespacing"
-                
-                # Depending on the current section, parse the appropriate data
-                if current_section == "polygons" and line.startswith('['):
-                    polygon_points = ast.literal_eval(line)
-                    polygons.append(polygon_points)
-                elif current_section == "units" and line.startswith('('):
-                    unit_data = ast.literal_eval(line)
-                    units.append(unit_data)
-                elif current_section == "Nodespacing":
-                    node_spacing = int(line)
-
-    except Exception as e:
-        print(f"Error loading map data: {e}")
-
-    return polygons, units, node_spacing 
-
 def load_map_data(map_name: str) -> tuple[list,list,int]:
     """Load the map and polygons/units from the text file. 
     Returns: (polygons, units, node_spacing)

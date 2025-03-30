@@ -417,6 +417,11 @@ class TankAI:
         self.units = units
         self.units.remove(self.tank) # skal rettes, fjern egen tank fra listen
         
+        # Check if tanks has no speed
+        if self.tank.speed == 0:
+            self.movement = False 
+        self.movement = True
+        
     def update(self):
         """Update AI behavior based on state."""
         if self.state ==  States.IDLE:
@@ -445,7 +450,8 @@ class TankAI:
                 self.state = States.KEEP_DISTANCE
             elif max_dist < dist and self.tank.go_to_waypoint == False:
                 self.state = States.KEEP_DISTANCE
-        
+
+            
         
             
     def patrol_behavior(self):

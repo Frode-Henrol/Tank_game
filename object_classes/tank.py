@@ -235,14 +235,17 @@ class Tank:
             self.active_image = self.image
                
     def shoot(self, aim_pos):
+        print("SHOOT1")
         if self.dead and not self.godmode:
             return
-        
+        print("SHOOT2")
         if len(self.projectiles) >= self.projectile_limit:
             return
-        
+        print("SHOOT3")
+        print(f"cooldown: {self.cannon_cooldown}")
         if self.cannon_cooldown == 0:
-            
+            self.cannon_cooldown = self.firerate * 5
+            print("SHOOT4")
             # At the moment the distance is hard coded, IT must be bigger than hit box or tank will shot itself.
             spawn_distance_from_middle = 30
             
@@ -269,8 +272,7 @@ class Tank:
             self.projectiles.append(projectile)                                                                      
             print(self.direction)
 
-        # Firerate is now just a cooldown amount
-        self.cannon_cooldown = self.firerate
+        
 
     def __str__(self):
         return f"Pos: {self.pos} ai: {self.ai_type}"
@@ -495,9 +497,9 @@ class TankAI:
     def shooting(self):
         self.unit_target_line = self.tank.pos, self.targeted_unit.pos
         shooting_chance = random.randint(0,1000)
-        shooting_chance = 1
         
-        if shooting_chance == 1 and not self.hit_scan_check():
+        if shooting_chance < 250 and not self.hit_scan_check():
+            print("SHOOT")
             # Find the unit vector between mouse and tank. This is the projectile unit direction vector
             self.tank.shoot(self.targeted_unit.pos)
     

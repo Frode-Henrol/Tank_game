@@ -165,3 +165,10 @@ def toggle_bool(obj: Any, attr_name: str) -> None:
             raise ValueError(f"Attribute '{attr_name}' is not a boolean.")
     else:
         raise AttributeError(f"'{obj.__class__.__name__}' has no attribute '{attr_name}'")
+    
+
+def distance(coord1: tuple, coord2: tuple) -> float:
+    """Finds distance between 2 coordinates"""
+    x1, y1 = coord1
+    x2, y2 = coord2
+    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)

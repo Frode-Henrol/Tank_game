@@ -190,6 +190,7 @@ class TankGame:
                                         spawn_degress      = unit_angle,
                                         bounch_limit       = specific_unit_data["bounch_limit"] + 1,
                                         bomb_limit         = specific_unit_data["bomb_limit"],
+                                        projectile_limit   = specific_unit_data["projectile_limit"],
                                         image              = self.tank_img,
                                         death_image        = self.tank_death_img,
                                         use_turret         = True, 
@@ -205,7 +206,7 @@ class TankGame:
             
             for unit in self.units:
                 unit.set_units(self.units)  # Transfer unit list data to each tank
-                unit.init_ai()    
+                unit.init_ai(self.obstacles, self.projectiles)      # all obstacle instances (polygon) excluding the border polygon
                 
                 if unit.get_ai() == "player":
                     self.units_player_controlled.append(unit)
@@ -286,7 +287,8 @@ class TankGame:
         # Controls in game:
         keys = pg.key.get_pressed()
         mouse_buttons = pg.mouse.get_pressed()
-
+        mouse_pos = pg.mouse.get_pos()  # Mouse position
+        
         if keys[pg.K_q]:
             pg.quit()
             sys.exit()
@@ -304,22 +306,18 @@ class TankGame:
             if keys[pg.K_s]:
                 self.units_player_controlled[0].move("backward")
             if keys[pg.K_SPACE] or mouse_buttons[0]:
-                self.units_player_controlled[0].shoot()
+                self.units_player_controlled[0].shoot(mouse_pos)
                 
             if keys[pg.K_p]:
                 print(f"{self.show_pathfinding_paths=}")
-                mouse_pos = pg.mouse.get_pos()  # Mouse position
-                
                 # Only start a path search/init if the grid_dict is present
                 if self.grid_dict is not None:
                     self.units_player_controlled[0].find_waypoint(mouse_pos)
-                # -------------------------------------------
-                # Alt under er blot test og skal ikke finde sted her. Skal rettes
-                # Dette kunne laves sådan den opdaterer path og fjerner nodes.
-                # Dette vil kræve at man konstant kigger efter alle units waypoint queues ligesom under, udover
-                # Det skal ske hver frame og ikke kun når der trykkes på p
+
+            if keys[pg.K_o]:
+                self.units_player_controlled[0].abort_waypoint()
+
             if self.show_pathfinding_paths:
-                
                 self.all_unit_waypoint_queues.clear()
 
                 # Get all waypoint queues from all units
@@ -333,7 +331,6 @@ class TankGame:
                         
                         self.all_unit_waypoint_queues.append(path_lines)
                     
-                    #print(f"All waypoint paths: {self.all_unit_waypoint_queues}")
                 # -------------------------------------------
         self.update()
         self.draw()
@@ -427,6 +424,11 @@ class TankGame:
 
         # Check unit/surface collisions
         for unit in self.units:
+            
+            # Send new projectile info to ai's 
+            if unit.ai != None:
+                unit.ai.projectiles = self.projectiles
+            
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")
@@ -447,6 +449,8 @@ class TankGame:
                 other_unit.add_direction_vector(unit.get_direction_vector())  # Added this for symmetry
 
         self.projectiles = temp_projectiles
+        
+        
        
     def updateold_UNUSED(self):
         
@@ -551,6 +555,17 @@ class TankGame:
             for queue in self.all_unit_waypoint_queues:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
+        
+        # DEBUG see valid nodes skal rettes
+        for unit in self.units:
+            if unit.ai != None:
+                possible_nodes = unit.ai.possible_nodes
+                for node in possible_nodes:
+                    pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
+                if unit.ai.unit_target_line != None:
+                    
+                    pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
+            
         
         self.render_debug_info()
 

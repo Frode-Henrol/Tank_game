@@ -2,8 +2,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple, debug = False) -> tuple | None:
-    """Finds the intersection of two line segments if it exists."""
+def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | None:
+    """Finds the intersection coord of two line segments if it exists. Returns the coord or none"""
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
@@ -26,11 +26,9 @@ def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple, debug = False)
         min(x3, x4) - epsilon <= px <= max(x3, x4) + epsilon and
         min(y3, y4) - epsilon <= py <= max(y3, y4) + epsilon):
         return (px, py)  # Intersection point
-
-    if debug:
-        print(f"{denominator=}")
     
     return None  # The intersection is outside the segment
+
 
 def find_normal_vectors(start_point: tuple, end_point: tuple) -> tuple:
     """Returns two possible unit normal vectors to the line segment."""

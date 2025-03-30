@@ -1,7 +1,6 @@
 Mapname:
 -type map name-.txt
 Polygons:
-[(550, 750), (1350, 750), (1350, 300), (550, 300)]
 Units:
 ((600, 350), 90, 0)
 Nodespacing: 100

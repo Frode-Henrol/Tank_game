@@ -1,6 +1,7 @@
 import pygame as pg
 import utils.deflect as df
 from object_classes.projectile import Projectile
+from object_classes.obstacle import Obstacle
 import utils.helper_functions as helper_functions
 import numpy as np
 import random
@@ -15,6 +16,7 @@ class Tank:
                  spawn_degress: int,
                  bounch_limit: int, 
                  bomb_limit: int,
+                 projectile_limit: int,
                  image, 
                  death_image,
                  use_turret,
@@ -37,6 +39,7 @@ class Tank:
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
+        self.projectile_limit = projectile_limit
         
         # Hitbox
         self.init_hitbox(spawn_degress)    # Init the hitbox in the correct orientation
@@ -70,8 +73,8 @@ class Tank:
         
         self.units = []
         
-    def init_ai(self):
-        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy()) if self.ai_type != "player" else None
+    def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile]):
+        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles) if self.ai_type != "player" else None
     
     def set_units(self, units):
         self.units = units
@@ -231,9 +234,13 @@ class Tank:
             self.dead = False
             self.active_image = self.image
                
-    def shoot(self):
+    def shoot(self, aim_pos):
         if self.dead and not self.godmode:
             return
+        
+        if len(self.projectiles) >= self.projectile_limit:
+            return
+        
         if self.cannon_cooldown == 0:
             
             # At the moment the distance is hard coded, IT must be bigger than hit box or tank will shot itself.
@@ -242,11 +249,10 @@ class Tank:
             if self.use_turret:
                 
                 # Find the unit vector between mouse and tank. This is the projectile unit direction vector
-                mouse_pos = pg.mouse.get_pos()
-                unit_direction = helper_functions.unit_vector(self.pos, mouse_pos)
+                unit_direction = helper_functions.unit_vector(self.pos, aim_pos)
                 projectile_direction = unit_direction
                 
-                print(f"{mouse_pos=} {unit_direction=}")
+                print(f"{aim_pos=} {unit_direction=}")
             else:
                 # Calculate magnitude scalar of units direction vector
                 magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction)
@@ -322,14 +328,12 @@ class Tank:
         self.grid_dict = grid_dict
         self.valid_nodes = valid_nodes
     
-    def find_waypoint(self, destination_coord: tuple):
-
-        # Converts tank position to a node position in the node grid
-        tank_pos_grid = pathfinding.pygame_to_grid(self.pos, self.top_left, self.node_spacing)
-        destination_coord_grid = pathfinding.pygame_to_grid(destination_coord, self.top_left, self.node_spacing)
+    def find_waypoint(self, destination_coord: tuple) -> None:
+        """Starts a waypoint action. Unit will pathfind to the destination coordinate"""
         
-        # Find path
-        path = pathfinding.find_path(self.grid_dict, tank_pos_grid, destination_coord_grid)
+        # Get path to the node
+        path = self.find_path(destination_coord)
+            
         if path is None:
             print("Could not find path")
             return
@@ -344,8 +348,17 @@ class Tank:
         # Set current node:
         self.next_node()
         
-    def move_to_node(self, node_coord):
+    def find_path(self, destination_coord: tuple[int,int]) -> list[tuple[int,int]]:
+        """Finds the path from the tank to a destination coordinate"""
+        # Converts tank position to a node position in the node grid
+        tank_pos_grid = pathfinding.pygame_to_grid(self.pos, self.top_left, self.node_spacing)
+        destination_coord_grid = pathfinding.pygame_to_grid(destination_coord, self.top_left, self.node_spacing)
         
+        # Find path
+        return pathfinding.find_path(self.grid_dict, tank_pos_grid, destination_coord_grid)
+        
+    def move_to_node(self, node_coord: tuple[int, int]):
+        """Controls the tanks toward the next node in the waypoint"""
         # -------------------------------------- Computing angle differens --------------------------------------
         # Compute vector to the target
         to_target = (node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
@@ -399,6 +412,11 @@ class Tank:
     def next_node(self):
         # Gets the next node in the waypoint queue and removes it and stores it in seperate variable
         self.current_node = self.waypoint_queue.pop()
+
+    def abort_waypoint(self):
+        """Abort a way point in action"""
+        self.waypoint_queue.clear()
+        self.go_to_waypoint = False
         
     def left_turn(self, p: tuple, q: tuple, r: tuple) -> bool:
         # Check if coord r is to left of right of line p-q
@@ -406,21 +424,43 @@ class Tank:
         
 
 class TankAI:
-    def __init__(self, tank: Tank, personality, valid_nodes: list[tuple], units: list[Tank]):
+    def __init__(self, tank: Tank, personality, valid_nodes: list[tuple], units: list[Tank], obstacles: list[Obstacle], projectiles: list[Projectile]):
         self.tank = tank  # The tank instance this AI controls
         self.personality = personality
         self.state = States.KEEP_DISTANCE  # Default state
         self.target = None  # Target for attack/movement
         self.valid_nodes = valid_nodes
+        self.valid_nodes_original = valid_nodes.copy()
         
         # Other units on map without the controlled tank
         self.units = units
         self.units.remove(self.tank) # skal rettes, fjern egen tank fra listen
         
+        # All polygons/obstacles on the map: Excluding the border polygon
+        self.obstacles = obstacles
+        
+        # All projectiles from the map
+        self.projectiles = projectiles
+        
         # Check if tanks has no speed
         if self.tank.speed == 0:
             self.movement = False 
         self.movement = True
+        
+        # Tank that is under targeting
+        self.targeted_unit = None
+        self.targeted_unit = self.units[0] # TEST using player as hardcoded target
+        self.unit_target_line = None
+        self.unit_target_line_color = (255, 182, 193)
+        self.target_in_sight = False
+        
+        # Min and max distance to for keep distance behavior
+        self.max_dist = 200
+        self.min_dist = 100
+        
+        # Min distance for triggering dogde behavior
+        self.dogde_distance = 300
+        self.dodging_active = False
         
     def update(self):
         """Update AI behavior based on state."""
@@ -435,25 +475,62 @@ class TankAI:
         elif self.state == States.RANDOM:
             self.random_behavior()
         elif self.state == States.KEEP_DISTANCE:
-            self.keep_distance_behavior2()
+            self.keep_distance_behavior()       # Should maybe be renamed to chase behavior
+        
+        # Shooting logic
+        self.shooting()
+        
+        # Check for dogde:
+        # self.dodging()
+            
+            
+        self.misc_update()
+
+    def misc_update(self):
+        if self.hit_scan_check():
+            self.unit_target_line_color = (255, 182, 193)
+        else:
+            self.unit_target_line_color = (144, 238, 144)
+            
+    def shooting(self):
+        self.unit_target_line = self.tank.pos, self.targeted_unit.pos
+        shooting_chance = random.randint(0,1000)
+        shooting_chance = 1
+        
+        if shooting_chance == 1 and not self.hit_scan_check():
+            # Find the unit vector between mouse and tank. This is the projectile unit direction vector
+            self.tank.shoot(self.targeted_unit.pos)
     
+    def dodging(self):
+        
+        temp_proj_data = [] # unsuded
+        
+        # Check for projectiles close to tank
+        for proj in self.projectiles:
+            dist = helper_functions.distance(proj.pos, self.tank.pos)
+            if dist < self.dogde_distance:
+                print(f"Trying to dodge")
+                self.random_behavior()
+                
+                #self.dodging_active = False
+            
+  
     def idle_behavior(self):
         """Do nothing or look around."""
 
-        for unit in self.units:
-            x1, y1 = unit.pos
-            x2, y2 = self.tank.pos
-            dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-            max_dist = 200
-            min_dist = 100
-            if min_dist > dist and self.tank.go_to_waypoint == False:
-                self.state = States.KEEP_DISTANCE
-            elif max_dist < dist and self.tank.go_to_waypoint == False:
-                self.state = States.KEEP_DISTANCE
-
-            
+        dist = helper_functions.distance(self.tank.pos, self.targeted_unit.pos)
         
-            
+        if not self.target_in_sight:
+            if self.min_dist > dist and self.tank.go_to_waypoint == False:
+                self.state = States.KEEP_DISTANCE
+            elif self.max_dist < dist and self.tank.go_to_waypoint == False:
+                self.state = States.KEEP_DISTANCE
+        elif self.target_in_sight and self.state == States.IDLE:
+            # If target is in sight we abort current waypoint
+            self.tank.abort_waypoint()   
+
+        
+
     def patrol_behavior(self):
         """Move around randomly or along a set path."""
         pass
@@ -477,76 +554,53 @@ class TankAI:
         self.tank.find_waypoint(valid_node)
         
         self.state = States.IDLE
-
-    def keep_distance_behavior1(self, min_dist=100, max_dist=150):
-        """Move to a location that keeps the tank within the min and max distance from the player."""
-        if self.tank.go_to_waypoint:
-            return  # If already moving, do nothing
-
-        player_tank = self.units[0]  # Assuming the first unit is the player
-        px, py = player_tank.pos
-        
-        # Filter valid nodes based on distance criteria
-        possible_nodes = []
-        for node in self.valid_nodes:
-            nx, ny = node
-            dist = np.sqrt((nx - px) ** 2 + (ny - py) ** 2)
-            if min_dist <= dist <= max_dist:
-                possible_nodes.append(node)
-        
-        # If there are valid choices, move to a random one
-        if possible_nodes:
-            chosen_node = random.choice(possible_nodes)
-            self.tank.find_waypoint(chosen_node)
-
-        self.state = States.IDLE
-        
-        
-    def keep_distance_behavior2(self, min_dist=100, max_dist=200):
+  
+    def keep_distance_behavior(self):
         """Move to a location that keeps the tank within the min and max distance from the player.
         If the player moves too far away, approach them."""
         if self.tank.go_to_waypoint:
             return  # If already moving, do nothing
-
-        player_tank = self.units[0]  # Assuming the first unit is the player
-        px, py = player_tank.pos
-        tx, ty = self.tank.pos
-        
-        # Calculate current distance
-        current_dist = np.sqrt((tx - px) ** 2 + (ty - py) ** 2)
-        
-        # If too far, move closer; if too close, move away
-        if current_dist > max_dist:
-            move_closer = True
-        elif current_dist < min_dist:
-            move_closer = False
-        else:
-            move_closer = None
         
         # Filter valid nodes based on distance criteria
         possible_nodes = []
+        
         for node in self.valid_nodes:
-            nx, ny = node
-            dist = np.sqrt((nx - px) ** 2 + (ny - py) ** 2)
+            dist_node_target = helper_functions.distance(node, self.targeted_unit.pos)  # Distance from node to target tank
+            dist_node_unit = helper_functions.distance(node, self.tank.pos)    # Distance from node to current unit
+            path = self.tank.find_path(node)
             
-            if move_closer is True and dist < current_dist:  # Move closer if too far
-                possible_nodes.append(node)
-            elif move_closer is False and dist > current_dist:  # Move away if too close
-                possible_nodes.append(node)
-            elif move_closer is None and min_dist <= dist <= max_dist:
-                possible_nodes.append(node)
+            if self.max_dist > dist_node_target > self.min_dist:
+                possible_nodes.append((node,dist_node_target,dist_node_unit))
         
         # If there are valid choices, move to a random one
+        amount_nodes = 1 # How many nodes should be randomly choosen between SKAL RETTES MÅSKE PERMENENT 1?
+        possible_nodes = sorted(possible_nodes, key=lambda x: x[2])[:amount_nodes]  # Sorts all valid nodes based on what is closest to the tank
+        print(f"Test possible nodes: {possible_nodes}")
         if possible_nodes:
             chosen_node = random.choice(possible_nodes)
-            self.tank.find_waypoint(chosen_node)
-
+            self.tank.find_waypoint(chosen_node[0])
+                
+        print(f"Possible nodes for ai: {len(possible_nodes)}")
         self.state = States.IDLE
-
-
+        self.possible_nodes = [x[0] for x in possible_nodes]
+        
     def change_state(self, new_state):
         """Change the AI state."""
         self.state = new_state
+
+    def hit_scan_check(self):
+        coord1, coord2 = self.unit_target_line 
+        for obstacle in self.obstacles:
+            for corner_pair in obstacle.get_corner_pairs():
+                result = df.line_intersection(map(float,coord1), map(float,coord2), corner_pair[0], corner_pair[1])
+                #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
+                if result != None:
+                    self.target_in_sight = False
+                    return True
+        self.target_in_sight = True        
+        return False
+        
+
 
 class States:
     IDLE = "idle"

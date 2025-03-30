@@ -7,6 +7,8 @@ Spam clicking buttons makes them go towards a white color
 Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have
 Collsion between tanks i not working correct
 
+Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til cannowcooldown i json, tankgame load assets osv.
+
 AI:
 Senere skal der laves så hver ai tank tjekker alle projectiler på map, og tjekker om deres position er inden for Feks
 x afstand. For dem indenfor afstanden skal den predict deres bane og prøve at undgå dem

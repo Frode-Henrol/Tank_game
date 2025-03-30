@@ -55,7 +55,7 @@ class Projectile:
                     self.pos[1] + self.direction[1] * self.projectile_path_scale)
         
         # Find coord where projectile and line meet
-        intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point, debug=False)
+        intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point)
         
         # If there is no intersection then just keep diretion vector the same
         if intersect_coord == None:

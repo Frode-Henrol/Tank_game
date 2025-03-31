@@ -31,5 +31,16 @@
         "ai_personality": "standard",
         "image_name" : "tank1",
         "use_turret" : true
+    },
+    "tank4": {
+        "tank_speed_modifier": 0,
+        "projectile_speed_modifier": 4,
+        "firerate": 1,
+        "bounch_limit": 0,
+        "bomb_limit" : 0,
+        "projectile_limit" : 25,
+        "ai_personality": "standard",
+        "image_name" : "tank1",
+        "use_turret" : true
     }
 }

@@ -6,6 +6,8 @@ import utils.helper_functions as helper_functions
 import numpy as np
 import random
 import pathfinding
+from scipy.spatial import KDTree
+import heapq
 
 class Tank:
     def __init__(self, 
@@ -446,8 +448,11 @@ class TankAI:
         self.target_in_sight = False
         
         # Min and max distance to for keep distance behavior
-        self.max_dist = 200
-        self.min_dist = 100
+        self.max_dist_limit = 1000
+        self.min_dist_limit = 0
+        
+        self.max_dist = self.max_dist_limit 
+        self.min_dist = self.min_dist_limit
         
         # Min distance for triggering dogde behavior
         self.dogde_distance = 300
@@ -457,26 +462,44 @@ class TankAI:
         self.frame_counter = 0
         self.update_frame_count = 30
         
+        # Test optimizing:
+        self.valid_nodes = np.array(valid_nodes)  # Convert list to NumPy array
+        self.kd_tree = KDTree(self.valid_nodes)  # Build KD-Tree
+        self.possible_nodes = []
+        
     def update(self):
         self.frame_counter += 1
         """Update AI behavior based on state."""
-        if self.state ==  States.IDLE:
-            self.idle_behavior()
-        elif self.state == States.PATROLLING:
-            self.patrol_behavior()
-        elif self.state == States.CHASING:
-            self.chase_behavior()
-        elif self.state == States.ATTACKING:
-            self.attack_behavior()
-        elif self.state == States.RANDOM:
-            self.random_behavior()
-        elif self.state == States.KEEP_DISTANCE:
-            self.keep_distance_behavior()       # Should maybe be renamed to chase behavior
         
+        # Everything inside if state is ran less often
         if self.frame_counter % self.update_frame_count == 0:
+            if self.state ==  States.IDLE:
+                self.idle_behavior()
+            elif self.state == States.PATROLLING:
+                self.patrol_behavior()
+            elif self.state == States.CHASING:
+                self.chase_behavior()
+            elif self.state == States.ATTACKING:
+                self.attack_behavior()
+            elif self.state == States.RANDOM:
+                self.random_behavior()
+            elif self.state == States.KEEP_DISTANCE:
+                self.keep_distance_behavior()       # Should maybe be renamed to chase behavior
+            
+            # Run hit scan check
             self.hit_scan_check()
         
-        
+        if self.frame_counter % 60 == 0:
+            if not self.target_in_sight:
+                self.decrease_min_dist()
+            elif self.target_in_sight:
+                self.increase_min_dist()
+                
+            print(f"Min dist: {self.min_dist} Max dis: {self.max_dist}")
+
+            self.update_target_distance()
+            self.max_dist_update()
+            
         # Shooting logic
         self.shooting()
         
@@ -497,7 +520,6 @@ class TankAI:
         shooting_chance = random.randint(0,1000)
         
         if shooting_chance < 250 and self.target_in_sight:
-            print("SHOOT")
             # Find the unit vector between mouse and tank. This is the projectile unit direction vector
             self.tank.shoot(self.targeted_unit.pos)
     
@@ -527,7 +549,10 @@ class TankAI:
                 self.state = States.KEEP_DISTANCE
         elif self.target_in_sight and self.state == States.IDLE:
             # If target is in sight we abort current waypoint
-            self.tank.abort_waypoint()   
+            
+
+            self.tank.abort_waypoint()
+            
 
         
 
@@ -554,8 +579,47 @@ class TankAI:
         self.tank.find_waypoint(valid_node)
         
         self.state = States.IDLE
-  
+        
     def keep_distance_behavior(self):
+        """Move to a location that keeps the tank within the min and max distance from the player.
+        If the player moves too far away, approach them."""
+        if self.tank.go_to_waypoint:
+            return  # If already moving, do nothing
+
+        # Build a KD-tree for fast nearest-neighbor search
+        kd_tree = KDTree(self.valid_nodes)
+        
+        # Query KD-tree for nodes within min_dist and max_dist from target
+        target_pos = self.targeted_unit.pos
+        nearby_indices = kd_tree.query_ball_point(target_pos, self.max_dist)
+        
+        possible_nodes = []
+        for idx in nearby_indices:
+            node = self.valid_nodes[idx]
+            dist_node_target = helper_functions.distance(node, target_pos)
+            dist_node_unit = helper_functions.distance(node, self.tank.pos)
+
+            if self.min_dist < dist_node_target < self.max_dist:
+                possible_nodes.append((node, dist_node_target, dist_node_unit))
+
+        # If there are valid choices, move to the best one
+        amount_nodes = 1  # How many nodes should be randomly chosen (permanent 1?)
+        possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
+        
+        # for node in possible_nodes:
+        #     path = self.tank.find_path(node)
+        #     len(path) # TODO
+
+        print(f"Test possible nodes: {possible_nodes}")
+        if possible_nodes:
+            chosen_node = random.choice(possible_nodes)
+            self.tank.find_waypoint(chosen_node[0])
+
+        print(f"Possible nodes for AI: {len(possible_nodes)}")
+        self.state = States.IDLE
+        self.possible_nodes = [x[0] for x in possible_nodes]
+  
+    def keep_distance_behavior2(self):
         """Move to a location that keeps the tank within the min and max distance from the player.
         If the player moves too far away, approach them."""
         if self.tank.go_to_waypoint:
@@ -583,7 +647,19 @@ class TankAI:
         print(f"Possible nodes for ai: {len(possible_nodes)}")
         self.state = States.IDLE
         self.possible_nodes = [x[0] for x in possible_nodes]
+
+    # TEST _ MIGHT BE TRASH skal rettes 
+    def decrease_min_dist(self):
+        if self.min_dist - 50 > self.min_dist_limit:
+            self.min_dist -= 50
         
+    def increase_min_dist(self):
+        if self.min_dist + 50 < self.max_dist_limit:
+            self.min_dist += 50
+            
+    def max_dist_update(self):
+        self.max_dist = self.min_dist + 50  # The 200 is hardcoded you can call difference between min and max
+
     def change_state(self, new_state):
         """Change the AI state."""
         self.state = new_state
@@ -622,7 +698,9 @@ class TankAI:
         self.target_in_sight = True        
         return True
         
-
+    def update_target_distance(self):
+        coord1, coord2 = self.unit_target_line
+        self.target_distance = helper_functions.distance(coord1, coord2)
 
 class States:
     IDLE = "idle"

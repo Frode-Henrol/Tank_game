@@ -172,3 +172,13 @@ def distance(coord1: tuple, coord2: tuple) -> float:
     x1, y1 = coord1
     x2, y2 = coord2
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+def point_to_line_distance(lcoord1, lcoord2, pcoord3) -> int:
+    "Find shoortest distance from line to point"
+    x1, y1 = lcoord1
+    x2, y2 = lcoord2
+    x0, y0 = pcoord3
+    # Compute the perpendicular distance from (x0, y0) to the line through (x1, y1) -> (x2, y2)
+    numerator = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
+    denominator = np.sqrt((y2 - y1)**2 + (x2 - x1)**2)
+    return numerator / denominator if denominator != 0 else float('inf')

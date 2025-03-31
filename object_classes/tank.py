@@ -128,19 +128,12 @@ class Tank:
         if self.cannon_cooldown > 0:
             self.cannon_cooldown -= 1
         
-        #Draw hitbox:
-        if self.draw_hitbox:
-            for corner_pair in helper_functions.coord_to_coordlist(self.hitbox):
-                pg.draw.line(surface, "blue", corner_pair[0], corner_pair[1], 3)
-                
-                if corner_pair == (self.hitbox[1], self.hitbox[2]):                     # Skal rettes! - lav front hitbox linje rød
-                    pg.draw.line(surface, "green", corner_pair[0], corner_pair[1], 3)
-        
+
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
         
         #AI
-        if self.ai:
+        if self.ai and not self.dead:
             self.ai.update()
             
         # Pathfinding / waypoint logic if it is activated
@@ -230,22 +223,18 @@ class Tank:
             print("Tank dead")
             self.dead = True
             self.active_image = self.death_image
+            #self.hitbox = None
         else:
             self.dead = False
             self.active_image = self.image
                
     def shoot(self, aim_pos):
-        print("SHOOT1")
         if self.dead and not self.godmode:
             return
-        print("SHOOT2")
         if len(self.projectiles) >= self.projectile_limit:
             return
-        print("SHOOT3")
-        print(f"cooldown: {self.cannon_cooldown}")
         if self.cannon_cooldown == 0:
             self.cannon_cooldown = self.firerate * 5
-            print("SHOOT4")
             # At the moment the distance is hard coded, IT must be bigger than hit box or tank will shot itself.
             spawn_distance_from_middle = 30
             
@@ -464,7 +453,12 @@ class TankAI:
         self.dogde_distance = 300
         self.dodging_active = False
         
+        # Controls how often we do a update
+        self.frame_counter = 0
+        self.update_frame_count = 30
+        
     def update(self):
+        self.frame_counter += 1
         """Update AI behavior based on state."""
         if self.state ==  States.IDLE:
             self.idle_behavior()
@@ -479,6 +473,10 @@ class TankAI:
         elif self.state == States.KEEP_DISTANCE:
             self.keep_distance_behavior()       # Should maybe be renamed to chase behavior
         
+        if self.frame_counter % self.update_frame_count == 0:
+            self.hit_scan_check()
+        
+        
         # Shooting logic
         self.shooting()
         
@@ -489,7 +487,7 @@ class TankAI:
         self.misc_update()
 
     def misc_update(self):
-        if self.hit_scan_check():
+        if not self.target_in_sight:
             self.unit_target_line_color = (255, 182, 193)
         else:
             self.unit_target_line_color = (144, 238, 144)
@@ -498,7 +496,7 @@ class TankAI:
         self.unit_target_line = self.tank.pos, self.targeted_unit.pos
         shooting_chance = random.randint(0,1000)
         
-        if shooting_chance < 250 and not self.hit_scan_check():
+        if shooting_chance < 250 and self.target_in_sight:
             print("SHOOT")
             # Find the unit vector between mouse and tank. This is the projectile unit direction vector
             self.tank.shoot(self.targeted_unit.pos)
@@ -569,7 +567,7 @@ class TankAI:
         for node in self.valid_nodes:
             dist_node_target = helper_functions.distance(node, self.targeted_unit.pos)  # Distance from node to target tank
             dist_node_unit = helper_functions.distance(node, self.tank.pos)    # Distance from node to current unit
-            path = self.tank.find_path(node)
+            #path = self.tank.find_path(node)
             
             if self.max_dist > dist_node_target > self.min_dist:
                 possible_nodes.append((node,dist_node_target,dist_node_unit))
@@ -598,9 +596,31 @@ class TankAI:
                 #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
                 if result != None:
                     self.target_in_sight = False
-                    return True
+                    return False
+        
+        for unit in self.units:
+            if unit.ai == None:     # Skal rettes. Burde have seperate liste for "onde units", pt er det bare dem uden ai
+                continue
+            
+            # Cheap calculation less accurate: (problem is it check the hitray like it is infinite in bots direction
+            # meaning it checks also for tanks behind itself) BUT IT IS MUCH LESS RECKLESS
+            min_dist = helper_functions.point_to_line_distance(coord1, coord2, unit.pos)
+            tank_width = 45 # skal rettes. PT hardcoded...
+            if min_dist < tank_width:
+                self.target_in_sight = False
+                return False
+            
+            # # Expensive calculation more accurate: (need higher updaterate to functin best)
+            # for corner_pair in unit.get_hitbox_corner_pairs():
+            #     result = df.line_intersection(coord1, coord2, corner_pair[0], corner_pair[1])
+            #     #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
+            #     if result != None:
+            #         self.target_in_sight = False
+            #         return False
+                    
+            
         self.target_in_sight = True        
-        return False
+        return True
         
 
 

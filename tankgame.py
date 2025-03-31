@@ -51,10 +51,11 @@ class TankGame:
         
         # Settings menu:
         self.show_obstacle_corners = False
-        self.draw_hitbox = True # Not implemented 
-        self.godmode = False    # Not implemented 
+        self.draw_hitbox = False # Not implemented 
+        self.godmode = False    # Not used in tankgame class ATM
         self.show_pathfinding_nodes = False
         self.show_pathfinding_paths = False
+        self.show_ai_debug = False
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -80,10 +81,11 @@ class TankGame:
         self.setting_buttons = [
             Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
             Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
-            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "godmode")),
+            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "godmode"), self.godmode_toggle())),
             Button(left, 450, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
             Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
-            Button(left, 650, 300, 60, "Back", States.MENU)
+            Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
+            Button(left, 750, 300, 60, "Back", States.MENU)
         ]
         
         self.level_selection_buttons = [
@@ -98,20 +100,23 @@ class TankGame:
     def load_map(self, map_num):
         print(f"MAP {map_num} loadet")
         # not implemented
-        
-        
     
+    def godmode_toggle(self):
+        for unit in self.units_player_controlled:
+            print(f"Toggled godemode for all player tanks")
+            unit.toggle_godmode()
+        
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
             path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")
-            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death2.png")
+            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
 
             self.tank_img = pg.image.load(path_tank).convert_alpha()
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
 
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
-            self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0]*2,self.WINDOW_DIM_SCALED[1]*2))
+            self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
             
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
@@ -316,20 +321,12 @@ class TankGame:
 
             if keys[pg.K_o]:
                 self.units_player_controlled[0].abort_waypoint()
-
-            if self.show_pathfinding_paths:
-                self.all_unit_waypoint_queues.clear()
-
-                # Get all waypoint queues from all units
-                for unit in self.units:
-                    waypoint_queue = unit.get_waypoint_queue()
-                    #print(f"Waypoint queue: {waypoint_queue}")
                 
-                    if waypoint_queue != None:
-                        # Convert waypoint queue to a list of lines to be drawn
-                        path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
-                        
-                        self.all_unit_waypoint_queues.append(path_lines)
+            if keys[pg.K_f]:
+                self.units.clear()
+                self.units_player_controlled.clear()
+                self.init_game_objects()
+
                     
                 # -------------------------------------------
         self.update()
@@ -440,7 +437,11 @@ class TankGame:
 
                 if not self.are_tanks_close(unit, other_unit):
                     continue  # Skip if tanks aren't close
-
+                
+                # skip collision check with dead tanks
+                if other_unit.dead or unit.dead:
+                    continue
+                
                 for other_corner_pair in other_unit.get_hitbox_corner_pairs():
                     unit.collision(other_corner_pair, collision_type="surface")
 
@@ -532,7 +533,15 @@ class TankGame:
 
         for unit in self.units:
             unit.draw(self.screen)
-        
+            
+            #Draw hitbox:
+            if self.draw_hitbox:
+                for corner_pair in helper_functions.coord_to_coordlist(unit.hitbox):
+                    pg.draw.line(self.screen, "blue", corner_pair[0], corner_pair[1], 3)
+                    
+                    if corner_pair == (unit.hitbox[1], unit.hitbox[2]):                     # Skal rettes! - lav front hitbox linje rød
+                        pg.draw.line(self.screen, "green", corner_pair[0], corner_pair[1], 3)
+            
         for proj in self.projectiles:
             proj.draw(self.screen)
 
@@ -556,23 +565,30 @@ class TankGame:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
         
-        # DEBUG see valid nodes skal rettes
-        for unit in self.units:
-            if unit.ai != None:
-                possible_nodes = unit.ai.possible_nodes
-                for node in possible_nodes:
-                    pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
-                if unit.ai.unit_target_line != None:
-                    
-                    pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
-            
+        # Draw debug info 
+        if self.show_ai_debug:
+            for unit in self.units:
+                if unit.ai != None:
+                    possible_nodes = unit.ai.possible_nodes
+                    for node in possible_nodes:
+                        pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
+                    if unit.ai.unit_target_line != None:
+                        pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
         
+        # Draw pathfinding paths
+        if self.show_pathfinding_paths:
+            self.all_unit_waypoint_queues.clear()
+            # Get all waypoint queues from all units
+            for unit in self.units:
+                waypoint_queue = unit.get_waypoint_queue()
+                if waypoint_queue != None:
+                    # Convert waypoint queue to a list of lines to be drawn
+                    path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
+                    self.all_unit_waypoint_queues.append(path_lines)
+      
         self.render_debug_info()
-
         pg.display.update()
         self.clock.tick(self.fps)   # Controls FPS
-
-
             
     def render_debug_info(self):
         """Render debug information on the right-side bar."""

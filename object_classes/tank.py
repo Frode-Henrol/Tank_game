@@ -261,8 +261,6 @@ class Tank:
             self.projectiles.append(projectile)                                                                      
             print(self.direction)
 
-        
-
     def __str__(self):
         return f"Pos: {self.pos} ai: {self.ai_type}"
 
@@ -350,6 +348,7 @@ class Tank:
         
     def move_to_node(self, node_coord: tuple[int, int]):
         """Controls the tanks toward the next node in the waypoint"""
+        rotate_amount = 5
         # -------------------------------------- Computing angle differens --------------------------------------
         # Compute vector to the target
         to_target = (node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
@@ -370,6 +369,7 @@ class Tank:
         # Convert to degrees
         angle_diff_deg = np.degrees(angle_diff)
         
+        
         # -------------------------------------- Controlling of tank to a node --------------------------------------
         
         # Make a second point to form the direction line from the tank
@@ -384,9 +384,9 @@ class Tank:
         if distance_to_node > DISTANCE_THRESHOLD:
             if angle_diff_deg > TURN_THRESHOLD_MIN:
                 if self.left_turn(self.pos, pos_dir, node_coord):
-                    self.rotate(1) 
+                    self.rotate(rotate_amount) 
                 else:
-                    self.rotate(-1) 
+                    self.rotate(-rotate_amount) 
                     
             if TURN_THRESHOLD_MAX > angle_diff_deg:
                     self.move("forward")

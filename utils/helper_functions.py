@@ -182,3 +182,29 @@ def point_to_line_distance(lcoord1, lcoord2, pcoord3) -> int:
     numerator = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
     denominator = np.sqrt((y2 - y1)**2 + (x2 - x1)**2)
     return numerator / denominator if denominator != 0 else float('inf')
+
+
+def find_angle(x1: float, y1: float, x2: float, y2: float) -> float:
+    """
+    Calculate the angle between two points (x1, y1) and (x2, y2) with respect to the x-axis.
+    
+    Args:
+    x1 (float): The x-coordinate of the first point.
+    y1 (float): The y-coordinate of the first point.
+    x2 (float): The x-coordinate of the second point.
+    y2 (float): The y-coordinate of the second point.
+    
+    Returns:
+    float: The angle in degrees between the two points with respect to the x-axis.
+    """
+    # Calculate the difference in x and y coordinates
+    delta_x = x2 - x1
+    delta_y = y2 - y1
+
+    # Use atan2 to find the angle in radians
+    angle_radians = np.arctan2(delta_y, delta_x)
+
+    # Convert radians to degrees
+    angle_degrees = np.degrees(angle_radians)
+
+    return angle_degrees

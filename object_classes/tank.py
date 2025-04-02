@@ -19,7 +19,7 @@ class Tank:
                  bounch_limit: int, 
                  bomb_limit: int,
                  projectile_limit: int,
-                 image, 
+                 images, 
                  death_image,
                  use_turret,
                  ai_type = None,
@@ -54,9 +54,12 @@ class Tank:
         self.godmode = godmode     # Toggle godmode for all tanks
         
         # Tank images:
-        self.image = image
+        self.image = images[0]
         self.death_image = death_image
-        self.active_image = image
+        self.active_image = images[0]
+        
+        # Turret image:
+        self.turret_image = images[1]
         
         # Projectiles from current tank
         self.projectiles: list[Projectile] = []
@@ -125,6 +128,10 @@ class Tank:
         rect = rotated_image.get_rect(center=self.pos)
         surface.blit(rotated_image, rect.topleft)
         
+        mouse_coord = pg.mouse.get_pos()
+        rotation_amount = helper_functions.find_angle(self.pos[0], self.pos[1], mouse_coord[0], mouse_coord[1])
+        rotated_turret = pg.transform.rotate(self.turret_image, rotation_amount)
+        surface.blit(rotated_turret, rect.topleft)
         
         # Decrease cooldown each new draw
         if self.cannon_cooldown > 0:
@@ -471,7 +478,6 @@ class TankAI:
         """Update AI behavior based on state."""
         
         # Everything inside if state is ran less often
-    
         if self.state ==  States.IDLE:
             self.idle_behavior()
         elif self.state == States.PATROLLING:
@@ -496,7 +502,6 @@ class TankAI:
                 self.increase_min_dist()
                 
             print(f"Min dist: {self.min_dist} Max dis: {self.max_dist}")
-
             self.update_target_distance()
             self.max_dist_update()
             

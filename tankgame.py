@@ -114,11 +114,17 @@ class TankGame:
         """Load and scale game assets (e.g., images)."""
         try:
             path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")
+            path_tank_turret = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2_turret.png")
             path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
 
             self.tank_img = pg.image.load(path_tank).convert_alpha()
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
+            
+            self.tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
+            self.tank_turret_img = pg.transform.scale(self.tank_turret_img, self.WINDOW_DIM_SCALED)
 
+            self.tank_images = [self.tank_img, self.tank_turret_img]    # TODO add death images to the list
+            
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
             self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
             
@@ -200,7 +206,7 @@ class TankGame:
                                         bounch_limit       = specific_unit_data["bounch_limit"] + 1,
                                         bomb_limit         = specific_unit_data["bomb_limit"],
                                         projectile_limit   = specific_unit_data["projectile_limit"],
-                                        image              = self.tank_img,
+                                        images              = self.tank_images,
                                         death_image        = self.tank_death_img,
                                         use_turret         = True, 
                                         ai_type            = ai_type)
@@ -615,7 +621,14 @@ class TankGame:
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
 
+        # Temp way of drawning dead units first: for the future make a list with dead and alive units
         for unit in self.units:
+            if unit.dead:
+                unit.draw(self.screen)
+
+        for unit in self.units:
+            if unit.dead:
+                continue
             unit.draw(self.screen)
             
             #Draw hitbox:

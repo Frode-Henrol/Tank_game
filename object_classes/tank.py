@@ -324,7 +324,7 @@ class Tank:
         
         # Get path to the node
         path = self.find_path(destination_coord)
-            
+        
         if path is None:
             print("Could not find path")
             return
@@ -371,7 +371,6 @@ class Tank:
         # Convert to degrees
         angle_diff_deg = np.degrees(angle_diff)
         
-        
         # -------------------------------------- Controlling of tank to a node --------------------------------------
         
         # Make a second point to form the direction line from the tank
@@ -379,7 +378,7 @@ class Tank:
         
         TURN_THRESHOLD_MIN = 5  # Stop rotating under this value       
         TURN_THRESHOLD_MAX = 45 # Stop moving forward over this value
-        DISTANCE_THRESHOLD = 50 # Stop moving when within this distance to node
+        DISTANCE_THRESHOLD = 50 // rotate_amount # Stop moving when within this distance to node
         # Distance to node
         distance_to_node = np.hypot(node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
         
@@ -472,20 +471,21 @@ class TankAI:
         """Update AI behavior based on state."""
         
         # Everything inside if state is ran less often
+    
+        if self.state ==  States.IDLE:
+            self.idle_behavior()
+        elif self.state == States.PATROLLING:
+            self.patrol_behavior()
+        elif self.state == States.CHASING:
+            self.chase_behavior()
+        elif self.state == States.ATTACKING:
+            self.attack_behavior()
+        elif self.state == States.RANDOM:
+            self.random_behavior()
+        elif self.state == States.KEEP_DISTANCE:
+            self.keep_distance_behavior()       # Should maybe be renamed to chase behavior
+        
         if self.frame_counter % self.update_frame_count == 0:
-            if self.state ==  States.IDLE:
-                self.idle_behavior()
-            elif self.state == States.PATROLLING:
-                self.patrol_behavior()
-            elif self.state == States.CHASING:
-                self.chase_behavior()
-            elif self.state == States.ATTACKING:
-                self.attack_behavior()
-            elif self.state == States.RANDOM:
-                self.random_behavior()
-            elif self.state == States.KEEP_DISTANCE:
-                self.keep_distance_behavior()       # Should maybe be renamed to chase behavior
-            
             # Run hit scan check
             self.hit_scan_check()
         
@@ -553,8 +553,6 @@ class TankAI:
 
             self.tank.abort_waypoint()
             
-
-        
 
     def patrol_behavior(self):
         """Move around randomly or along a set path."""

@@ -66,6 +66,7 @@ class Tank:
         
         # Use turret?
         self.use_turret = use_turret
+        self.turret_rotation = 0
         
         # Pathfinding and waypoint logic
         self.go_to_waypoint = False     # Bool to control if tanks should follow waypoint queue
@@ -119,47 +120,6 @@ class Tank:
     
     def respawn(self):
         self.make_dead(False)
-    
-    def draw(self, surface):
-        
-        # TEMP: constant to make sure tank image points right way
-        tank_correct_orient = -90
-        rotated_image = pg.transform.rotate(self.active_image, -self.degrees+tank_correct_orient)
-        rect = rotated_image.get_rect(center=self.pos)
-        surface.blit(rotated_image, rect.topleft)
-        
-        # Tank turret
-        mouse_coord = pg.mouse.get_pos()
-        rotation_amount = -1 * helper_functions.find_angle(self.pos[0], self.pos[1], mouse_coord[0], mouse_coord[1])
-        print(f"{rotation_amount:.2f}")
-        rotated_turret = pg.transform.rotate(self.turret_image, rotation_amount)
-        
-        # Get the new rect and reposition it based on the offset
-        # rotation_center_offset = (30, 30)  # Change this to shift rotation point
-        # new_rect = rotated_turret.get_rect(center=self.pos)
-        # new_rect.topleft = (new_rect.topleft[0] - rotation_center_offset[0], 
-        #                     new_rect.topleft[1] - rotation_center_offset[1])
-        
-        new_rect = rotated_turret.get_rect(center=self.pos)
-        print(f"{new_rect=}")
-        surface.blit(rotated_turret, new_rect.topleft)
-        
-        
-        # Decrease cooldown each new draw
-        if self.cannon_cooldown > 0:
-            self.cannon_cooldown -= 1
-        
-
-        # Remove dead projectiles
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-        
-        #AI
-        if self.ai and not self.dead:
-            self.ai.update()
-            
-        # Pathfinding / waypoint logic if it is activated
-        if self.go_to_waypoint:
-            self.move_to_node(self.current_node)
             
     def draw(self, surface):
             
@@ -169,18 +129,26 @@ class Tank:
         tank_rect = rotated_tank.get_rect(center=self.pos)
         surface.blit(rotated_tank, tank_rect.topleft)
 
+        aimbot = False # Skal rettes Blot en test
+        
         if self.dead:
             return
         # Turret Rotation Logic
         if self.ai == None:
+            # Control of turret when player controlled
             target_coord = pg.mouse.get_pos()
-        else:
+            self.turret_rotation = -1 * helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1]) - 90
+        elif aimbot:
+            # No turret travel always perfect aim
             # SKAL rettes TODO i fremtiden skal turret havde travel time (rotations tid), dvs den ikke bare locker på et coordinate
             target_coord = self.ai.targeted_unit.pos
-        rotation_amount = -1 * helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1]) - 90
+            self.turret_rotation = -1 * helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1]) - 90
+        
+        # If the tank is not player controlled or aimbot is not on, turret wont be changed.
+        # skal rettes TODO aimbot delen burde flyttes til AI class.
             
         # Rotate turret image independently
-        rotated_turret = pg.transform.rotate(self.turret_image, rotation_amount)
+        rotated_turret = pg.transform.rotate(self.turret_image, self.turret_rotation)
 
         # Get turret rect centered at new turret position
         turret_rect = rotated_turret.get_rect(center=self.pos)

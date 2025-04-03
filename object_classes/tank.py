@@ -491,7 +491,7 @@ class TankAI:
         
         self.shooting_angle = 5     # Maximum angle to target before firing TODO
         self.rotation_speed = 1     # Degress pr frame
-        self.inaccuracy = 5         # 0 is perfect aim and higher values is worse
+        self.inaccuracy = 200         # 0 is perfect aim and higher values is worse
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
         # Searching
@@ -523,7 +523,8 @@ class TankAI:
         if self.targeting_state == TargetingStates.SEARCHING:
             self.searching()
         elif self.targeting_state == TargetingStates.TARGETING:
-            self.targeting()
+            if self.moving_turret == False:
+                self.targeting()
     
     # ======================= Behavior states =======================
     def idle(self):
@@ -564,9 +565,12 @@ class TankAI:
     
     def targeting(self):
         # Target 
+    
         in1, in2 = random.randint(-self.inaccuracy, self.inaccuracy), random.randint(-self.inaccuracy, self.inaccuracy)
         
-        target_pos = self.targeted_unit.pos[0], self.targeted_unit.pos[1]
+        target_pos = self.targeted_unit.pos[0] + in1, self.targeted_unit.pos[1] + in2
+        
+        
         self.move_turret_to_target(target_pos)
         self.tank.shoot(None)
     
@@ -613,6 +617,7 @@ class TankAI:
         
         self.debug_turret_v = (self.tank.pos, (turret_direction[0] * 100 + self.tank.pos[0], turret_direction[1] * 100 + self.tank.pos[1]))
         
+    
         
         
 class BehaviorStates:

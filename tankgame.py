@@ -661,18 +661,6 @@ class TankGame:
             for queue in self.all_unit_waypoint_queues:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
-        
-        # Draw debug info 
-        if self.show_ai_debug:
-            for unit in self.units:
-                if unit.ai != None:
-                    possible_nodes = unit.ai.possible_nodes
-                    for node in possible_nodes:
-                        pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
-                    if unit.ai.unit_target_line != None:
-                        pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
-                    # Draw turret line
-                    pg.draw.line(self.screen, "purple", unit.ai.debug_turret_v[0], unit.ai.debug_turret_v[1], 3)
                         
         # Draw pathfinding paths
         if self.show_pathfinding_paths:
@@ -684,6 +672,20 @@ class TankGame:
                     # Convert waypoint queue to a list of lines to be drawn
                     path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
                     self.all_unit_waypoint_queues.append(path_lines)
+                    
+                    
+        # Draw debug info 
+        if self.show_ai_debug:
+            for unit in self.units:
+                if unit.ai != None:
+                    # Draw turret line
+                    #pg.draw.line(self.screen, "purple", unit.ai.debug_turret_v[0], unit.ai.debug_turret_v[1], 3)
+                    possible_nodes = unit.ai.possible_nodes
+                    for node in possible_nodes:
+                        pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
+                    if unit.ai.unit_target_line != None:
+                        pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
+                    
       
             
         self.render_debug_info()

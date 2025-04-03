@@ -333,8 +333,9 @@ class TankGame:
                 self.units_player_controlled[0].abort_waypoint()
                 
             if keys[pg.K_f]:
-                self.units.clear()
                 self.units_player_controlled.clear()
+                self.units.clear()
+                self.obstacles.clear()
                 self.init_game_objects()
 
                     
@@ -693,7 +694,10 @@ class TankGame:
         debug_text = [
             f"FPS: {self.clock.get_fps():.2f}",
             f"Active projectiles: {len(self.projectiles)}",
-            f"Main tank angle: {self.units_player_controlled[0].degrees}"
+            f"Main tank angle: {self.units_player_controlled[0].degrees}",
+            f"Units: {len(self.units)}",
+            f"Player units: {len(self.units_player_controlled)}",
+            f"Obstacles: {len(self.obstacles)}"
         ]
         
         

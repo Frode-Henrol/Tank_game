@@ -737,9 +737,9 @@ class TankAI:
             if unit.ai == None:     # Skal rettes. Burde have seperate liste for "onde units", pt er det bare dem uden ai
                 continue
             
+            # Skip dead units
             if unit.dead:
                 continue
-            
             # Cheap calculation less accurate: (problem is it check the hitray like it is infinite in bots direction
             # meaning it checks also for tanks behind itself) BUT IT IS MUCH LESS RECKLESS
             min_dist = helper_functions.point_to_line_distance(coord1, coord2, unit.pos)

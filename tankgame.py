@@ -343,7 +343,6 @@ class TankGame:
         self.update()
         self.draw()
 
-    
     # ==================== Shared button handler for states ====================
     
     def handle_buttons(self, button_list, event_list, screen):
@@ -672,7 +671,9 @@ class TankGame:
                         pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
                     if unit.ai.unit_target_line != None:
                         pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
-        
+                    # Draw turret line
+                    pg.draw.line(self.screen, "purple", unit.ai.debug_turret_v[0], unit.ai.debug_turret_v[1], 3)
+                        
         # Draw pathfinding paths
         if self.show_pathfinding_paths:
             self.all_unit_waypoint_queues.clear()
@@ -684,6 +685,7 @@ class TankGame:
                     path_lines = [(waypoint_queue[i], waypoint_queue[i + 1]) for i in range(len(waypoint_queue) - 1)]
                     self.all_unit_waypoint_queues.append(path_lines)
       
+            
         self.render_debug_info()
         pg.display.update()
         self.clock.tick(self.fps)   # Controls FPS
@@ -697,7 +699,9 @@ class TankGame:
             f"Main tank angle: {self.units_player_controlled[0].degrees}",
             f"Units: {len(self.units)}",
             f"Player units: {len(self.units_player_controlled)}",
-            f"Obstacles: {len(self.obstacles)}"
+            f"Obstacles: {len(self.obstacles)}",
+            f"Tank 1: {self.units[1].ai.behavior_state}",
+            f"Tank 1 turret angle: {self.units[1].turret_rotation_angle}"
         ]
         
         

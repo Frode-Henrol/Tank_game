@@ -208,3 +208,35 @@ def find_angle(x1: float, y1: float, x2: float, y2: float) -> float:
     angle_degrees = np.degrees(angle_radians)
 
     return angle_degrees
+
+def vector_angle_difference(v1: tuple, v2: tuple) -> float:
+    """Compute angle between target vector: coord from unit to target.
+       v2 is a direction vector of the unit with repect to the unit position
+       Both vector should have origo in same point!
+    """
+    
+    # Normalize the target direction vector
+    to_target_mag = np.hypot(v1[0], v1[1])  # Compute magnitude
+    to_target_unit = (v1[0] / to_target_mag, v1[1] / to_target_mag)  # Normalize
+    
+    # Normalize the target direction vector
+    dir_mag = np.hypot(v2[0], v2[1])  # Compute magnitude
+    dir_mag_unit = (v2[0] / dir_mag, v2[1] / dir_mag)  # Normalize
+    
+    # Compute dot product
+    dot = dir_mag_unit[0] * to_target_unit[0] + dir_mag_unit[1] * to_target_unit[1]
+    
+    # Clamp dot product to valid range for acos (this is to prevent floating point numbers errors above 1 and below -1) since acos will give error otherwise
+    dot = np.clip(dot, -1.0, 1.0)
+    
+    # Compute angle difference (in radians)
+    angle_diff = np.arccos(dot)
+
+    # Convert to degrees
+    angle_diff_deg = np.degrees(angle_diff)
+    return angle_diff_deg
+
+
+def left_turn(p: tuple, q: tuple, r: tuple) -> bool:
+    """Check if coord r is to left of right of line p-q"""
+    return (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]) >= 0

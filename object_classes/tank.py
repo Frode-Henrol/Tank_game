@@ -128,10 +128,22 @@ class Tank:
         rect = rotated_image.get_rect(center=self.pos)
         surface.blit(rotated_image, rect.topleft)
         
+        # Tank turret
         mouse_coord = pg.mouse.get_pos()
-        rotation_amount = helper_functions.find_angle(self.pos[0], self.pos[1], mouse_coord[0], mouse_coord[1])
+        rotation_amount = -1 * helper_functions.find_angle(self.pos[0], self.pos[1], mouse_coord[0], mouse_coord[1])
+        print(f"{rotation_amount:.2f}")
         rotated_turret = pg.transform.rotate(self.turret_image, rotation_amount)
-        surface.blit(rotated_turret, rect.topleft)
+        
+        # Get the new rect and reposition it based on the offset
+        # rotation_center_offset = (30, 30)  # Change this to shift rotation point
+        # new_rect = rotated_turret.get_rect(center=self.pos)
+        # new_rect.topleft = (new_rect.topleft[0] - rotation_center_offset[0], 
+        #                     new_rect.topleft[1] - rotation_center_offset[1])
+        
+        new_rect = rotated_turret.get_rect(center=self.pos)
+        print(f"{new_rect=}")
+        surface.blit(rotated_turret, new_rect.topleft)
+        
         
         # Decrease cooldown each new draw
         if self.cannon_cooldown > 0:
@@ -148,6 +160,50 @@ class Tank:
         # Pathfinding / waypoint logic if it is activated
         if self.go_to_waypoint:
             self.move_to_node(self.current_node)
+            
+    def draw(self, surface):
+            
+        # TEMP: constant to make sure tank image points the right way
+        tank_correct_orient = -90
+        rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
+        tank_rect = rotated_tank.get_rect(center=self.pos)
+        surface.blit(rotated_tank, tank_rect.topleft)
+
+        if self.dead:
+            return
+        # Turret Rotation Logic
+        if self.ai == None:
+            target_coord = pg.mouse.get_pos()
+        else:
+            # SKAL rettes TODO i fremtiden skal turret havde travel time (rotations tid), dvs den ikke bare locker på et coordinate
+            target_coord = self.ai.targeted_unit.pos
+        rotation_amount = -1 * helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1]) - 90
+            
+        # Rotate turret image independently
+        rotated_turret = pg.transform.rotate(self.turret_image, rotation_amount)
+
+        # Get turret rect centered at new turret position
+        turret_rect = rotated_turret.get_rect(center=self.pos)
+
+        # Draw turret
+        surface.blit(rotated_turret, turret_rect.topleft)
+        
+        # ============================= Other logic ================================
+        # Decrease cooldown each new draw
+        if self.cannon_cooldown > 0:
+            self.cannon_cooldown -= 1
+        
+        # Remove dead projectiles
+        self.projectiles[:] = [p for p in self.projectiles if p.alive]
+        
+        #AI
+        if self.ai and not self.dead:
+            self.ai.update()
+            
+        # Pathfinding / waypoint logic if it is activated
+        if self.go_to_waypoint:
+            self.move_to_node(self.current_node)
+            
     
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
@@ -679,6 +735,9 @@ class TankAI:
         
         for unit in self.units:
             if unit.ai == None:     # Skal rettes. Burde have seperate liste for "onde units", pt er det bare dem uden ai
+                continue
+            
+            if unit.dead:
                 continue
             
             # Cheap calculation less accurate: (problem is it check the hitray like it is infinite in bots direction

@@ -121,7 +121,7 @@ class TankGame:
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
             
             self.tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
-            self.tank_turret_img = pg.transform.scale(self.tank_turret_img, self.WINDOW_DIM_SCALED)
+            self.tank_turret_img = pg.transform.scale(self.tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
 
             self.tank_images = [self.tank_img, self.tank_turret_img]    # TODO add death images to the list
             

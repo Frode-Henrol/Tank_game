@@ -346,7 +346,6 @@ class Tank:
     
     def find_waypoint(self, destination_coord: tuple) -> None:
         """Starts a waypoint action. Unit will pathfind to the destination coordinate"""
-        
         # Get path to the node
         path = self.find_path(destination_coord)
         
@@ -464,7 +463,7 @@ class TankAI:
         self.frame_counter = 0
         
         # Starting states
-        self.behavior_state = BehaviorStates.IDLE
+        self.behavior_state = BehaviorStates.IDLE     # NEED TO BE IDLE NORMALLY
         self.targeting_state = TargetingStates.SEARCHING
         
         # No speed means tank will stay in idle state
@@ -485,13 +484,13 @@ class TankAI:
         
         # Patrol
         self.patrol_radius = 200
-        self.dist_leave_patrol = 200
+        self.dist_leave_patrol = 500
         
         # Defend
-        self.dist_leave_defend = 500
+        self.dist_leave_defend = 800
         
         # Attack
-        self.dist_leave_attack = 500
+        self.dist_leave_attack = 200
         
         # Retreat
         # Wander
@@ -515,6 +514,11 @@ class TankAI:
         
         # Patrolling
         
+        # Wander
+        self.wander_radius = 200
+        self.defend_time = 60 * 10
+        self.timer = 0
+        
         
         # Test
         self.current_target_angle = None  # Store the randomized target angle
@@ -534,8 +538,6 @@ class TankAI:
             self.defend()
         elif self.behavior_state == BehaviorStates.ATTACKING:
             self.attack()
-        elif self.behavior_state == BehaviorStates.RETREAT:
-            self.retreat()
         elif self.behavior_state == BehaviorStates.WANDER:
             self.wander()
         elif self.behavior_state == BehaviorStates.DODGE:
@@ -557,31 +559,71 @@ class TankAI:
         # When no movement the targeting state is searching
     
     def patrol(self):
-        self.find_path_within_coord(self.spawn_coord, self.patrol_radius)
-        self.behavior_state == BehaviorStates.IDLE
+        if self.tank.go_to_waypoint == False:
+            self.find_path_within_coord(self.spawn_coord, self.patrol_radius)
+            self.behavior_state == BehaviorStates.IDLE
+            return
         
         # Leave patrol mode if target to close
         if self.dist_to_target_path < self.dist_leave_patrol:
             self.behavior_state = BehaviorStates.DEFENDING
+            return
         
         
     def defend(self):
-        self.min_dist_node = 100
-        self.max_dist_node = 200
-        
-        # Leave defend mode if target to far away
-        if self.dist_to_target_path > self.dist_leave_defend:
+        if self.timer == 0:
+            self.timer = self.defend_time 
+
+        if self.timer > 0:
+            self.timer -= 1
+            
+        if self.timer == 1:
+            print("ATTACK")
+            self.tank.abort_waypoint()
             self.behavior_state = BehaviorStates.ATTACKING
+            return
+            
+        # Leave defend mode if target to far away
+        if self.dist_to_target_direct > self.dist_leave_defend:
+            self.tank.abort_waypoint()
+            self.behavior_state = BehaviorStates.ATTACKING
+            return
+        
+        
+        self.min_dist_node = 300
+        self.max_dist_node = self.min_dist_node + 400
+        self.keep_distance_behavior()
         
     def attack(self):
-        self.min_dist_node = 100
-        self.max_dist_node = 200
-    
-    def retreat(self):
-        pass
+        # Leave attack mode if target close
+        if self.dist_to_target_direct < self.dist_leave_attack:
+            self.tank.abort_waypoint()
+            self.behavior_state = BehaviorStates.DEFENDING
+            return
+        
+        print(self.targeted_unit.pos)
+        if self.tank.go_to_waypoint == False:
+            self.find_path_within_coord(self.targeted_unit.pos, 100)
+            return
+            
+            #self.tank.find_waypoint(self.targeted_unit.pos)
+        
     
     def wander(self):
-        pass
+
+        self.find_path_within_coord(self.tank.pos, self.wander_radius)
+
+        if self.timer == 0:
+            rand = random.randint(0,100)
+            
+            if rand > 90:
+                self.tank.abort_waypoint()
+                self.behavior_state = BehaviorStates.DEFENDING
+            else:
+                self.tank.abort_waypoint()
+                self.behavior_state = BehaviorStates.ATTACKING
+            self.timer = 180
+        
     
     def dodge(self):
         pass
@@ -613,7 +655,10 @@ class TankAI:
         # CAN BE OPTIMIZED. TODO paths could be saved or threshold for when a new should be calculated could be made
         # Path distance updated every 60 frames
         if self.frame_counter % 60 == 0:
-            self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing     
+            self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing   
+        
+        if self.timer > 0:
+            self.timer -= 1  
     
     def find_path_within_coord(self, patrol_coord: tuple, patrol_radius: int):     
         if self.tank.go_to_waypoint:
@@ -669,7 +714,7 @@ class TankAI:
             else:
                 self.tank.turret_rotation_angle -= self.rotation_speed * rotation_multiplier
 
-        print(f"{rotation_multiplier=}")
+        #print(f"{rotation_multiplier=}")
         
         # Debug visualization
         self.debug_turret_v = (
@@ -700,8 +745,15 @@ class TankAI:
                 possible_nodes.append((node, dist_node_target, dist_node_unit))
 
         # If there are valid choices, move to the best one
-        amount_nodes = 1  # How many nodes should be randomly chosen (permanent 1?)
+        amount_nodes = 20  # How many nodes should be randomly chosen (permanent 1?)
         possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
+        
+        print(f"Test possible nodes: {possible_nodes}")
+        if possible_nodes:
+            chosen_node = random.choice(possible_nodes)
+            self.tank.find_waypoint(chosen_node[0])
+        
+        self.possible_nodes = [x[0] for x in possible_nodes]
         
         
 class BehaviorStates:

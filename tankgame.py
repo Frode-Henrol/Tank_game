@@ -681,8 +681,9 @@ class TankGame:
                     # Draw turret line
                     #pg.draw.line(self.screen, "purple", unit.ai.debug_turret_v[0], unit.ai.debug_turret_v[1], 3)
                     possible_nodes = unit.ai.possible_nodes
-                    for node in possible_nodes:
-                        pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
+                    if unit.ai.behavior_state == "defending":
+                        for node in possible_nodes:
+                            pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
                     if unit.ai.unit_target_line != None:
                         pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
                     
@@ -703,14 +704,16 @@ class TankGame:
             f"Player units: {len(self.units_player_controlled)}",
             f"Obstacles: {len(self.obstacles)}",
             f"Tank 1: {self.units[1].ai.behavior_state}",
-            f"Tank 1 turret angle: {self.units[1].turret_rotation_angle}"
+            f"Path dist: {self.units[1].ai.dist_to_target_path}",
+            f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
+            f"Valid nodes: {len(self.units[1].ai.valid_nodes)}"
         ]
         
         
 
         # Start position for text
-        x_start = self.WINDOW_DIM[0] - 190  
-        y_start = 10  
+        x_start = self.WINDOW_DIM[0] - 490  
+        y_start = 200  
 
         for text in debug_text:
             text_surface = font.render(text, True, (0, 0, 0))  # White text

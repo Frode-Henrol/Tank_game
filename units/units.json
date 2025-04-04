@@ -11,7 +11,7 @@
         "use_turret" : true
     },
     "tank2": {
-        "tank_speed_modifier": 0.0,
+        "tank_speed_modifier": 0.6,
         "projectile_speed_modifier": 1.4,
         "firerate": 2,
         "bounch_limit": 0,

@@ -240,3 +240,7 @@ def vector_angle_difference(v1: tuple, v2: tuple) -> float:
 def left_turn(p: tuple, q: tuple, r: tuple) -> bool:
     """Check if coord r is to left of right of line p-q"""
     return (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]) >= 0
+
+def map_x_to_y(x: float, x_min: float, x_max: float, y_min: float, y_max: float) -> float:
+    """Maps x from range [x_min, x_max] to range [y_min, y_max] using linear interpolation."""
+    return y_min + (x - x_min) * (y_max - y_min) / (x_max - x_min)

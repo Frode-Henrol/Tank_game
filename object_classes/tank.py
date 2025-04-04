@@ -440,12 +440,16 @@ class Tank:
 class TankAI:
     def __init__(self, tank: Tank, personality, valid_nodes: list[tuple], units: list[Tank], obstacles: list[Obstacle], projectiles: list[Projectile]):
         
-        self.tank = tank  # The tank instance this AI controls
+        # Generel tank information
+        self.tank = tank                # The tank instance this AI controls
         self.spawn_coord = tank.pos     # Save the spawn coordinate
-        self.personality = personality
+        self.personality = personality  # UNUSED
         
-        self.valid_nodes = valid_nodes
+        # Pathfinding nodes
         self.valid_nodes_original = valid_nodes.copy()
+        self.valid_nodes = np.array(valid_nodes)  
+        self.kd_tree = KDTree(self.valid_nodes)  
+        self.possible_nodes = []
         
         # Import all data from map
         self.units = units              # All units
@@ -459,29 +463,36 @@ class TankAI:
         # Controls how often we do a update
         self.frame_counter = 0
         
+        # Starting states
         self.behavior_state = BehaviorStates.IDLE
         self.targeting_state = TargetingStates.SEARCHING
         
+        # No speed means tank will stay in idle state
         if self.tank.speed == 0:
             self.movement = False 
         self.movement = True
         
         # Tank that is under targeting
-        self.targeted_unit = None
-        self.targeted_unit = self.units[0] # TEST using player as hardcoded target
-        self.unit_target_line = None
-        self.unit_target_line_color = (255, 182, 193)
+        self.targeted_unit = self.units[0]              # TEST using player as hardcoded target
+        self.unit_target_line = None                    # Init line between target and tank
+        self.unit_target_line_color = (255, 182, 193) 
         self.target_in_sight = False
         
-        # Test optimizing:
-        self.valid_nodes = np.array(valid_nodes)  # Convert list to NumPy array
-        self.kd_tree = KDTree(self.valid_nodes)  # Build KD-Tree
-        self.possible_nodes = []
+        self.dist_to_target_direct = 9999
+        self.dist_to_target_path = 9999
+        
+
         
         # Patrol
         self.patrol_radius = 200
+        self.dist_leave_patrol = 200
+        
         # Defend
+        self.dist_leave_defend = 500
+        
         # Attack
+        self.dist_leave_attack = 500
+        
         # Retreat
         # Wander
         # Dodge
@@ -492,6 +503,12 @@ class TankAI:
         self.shooting_angle = 5     # Maximum angle to target before firing TODO
         self.rotation_speed = 1     # Degress pr frame
         self.inaccuracy = 200         # 0 is perfect aim and higher values is worse
+        
+        self.aiming_angle = 15      # The angle which the turret will wander off from target. 
+        self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
+        self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
+        
+        self.perfect_aim = False        # Removes random turret wandering
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
         # Searching
@@ -499,12 +516,16 @@ class TankAI:
         # Patrolling
         
         
+        # Test
+        self.current_target_angle = None  # Store the randomized target angle
+        
     
     def update(self):
         self.frame_counter += 1
         self.misc_updates()
         self.targeting()
 
+        # Behavior movement
         if self.behavior_state == BehaviorStates.IDLE:
             self.idle()
         elif self.behavior_state == BehaviorStates.PATROLLING:
@@ -519,12 +540,12 @@ class TankAI:
             self.wander()
         elif self.behavior_state == BehaviorStates.DODGE:
             self.dodge()
-            
+
+        # Behavior targeting
         if self.targeting_state == TargetingStates.SEARCHING:
             self.searching()
         elif self.targeting_state == TargetingStates.TARGETING:
-            if self.moving_turret == False:
-                self.targeting()
+            self.targeting()
     
     # ======================= Behavior states =======================
     def idle(self):
@@ -536,17 +557,25 @@ class TankAI:
         # When no movement the targeting state is searching
     
     def patrol(self):
-        
         self.find_path_within_coord(self.spawn_coord, self.patrol_radius)
         self.behavior_state == BehaviorStates.IDLE
         
-
+        # Leave patrol mode if target to close
+        if self.dist_to_target_path < self.dist_leave_patrol:
+            self.behavior_state = BehaviorStates.DEFENDING
+        
         
     def defend(self):
-        pass
-    
+        self.min_dist_node = 100
+        self.max_dist_node = 200
+        
+        # Leave defend mode if target to far away
+        if self.dist_to_target_path > self.dist_leave_defend:
+            self.behavior_state = BehaviorStates.ATTACKING
+        
     def attack(self):
-        pass
+        self.min_dist_node = 100
+        self.max_dist_node = 200
     
     def retreat(self):
         pass
@@ -564,22 +593,29 @@ class TankAI:
         pass
     
     def targeting(self):
-        # Target 
+        
+        # Hardcoded target
+        target_pos = self.targeted_unit.pos[0], self.targeted_unit.pos[1]
     
-        in1, in2 = random.randint(-self.inaccuracy, self.inaccuracy), random.randint(-self.inaccuracy, self.inaccuracy)
-        
-        target_pos = self.targeted_unit.pos[0] + in1, self.targeted_unit.pos[1] + in2
-        
-        
-        self.move_turret_to_target(target_pos)
-        self.tank.shoot(None)
+        self.move_turret_to_target(target_pos, self.aiming_angle)
+            
+        #self.tank.shoot(None)
     
     # ======================= Misc functions =======================
     
     def misc_updates(self):
         self.unit_target_line = self.tank.pos, self.targeted_unit.pos
+        
+        # Direct distance updated every 10 frames
+        if self.frame_counter % 10 == 0:
+            self.dist_to_target_direct = helper_functions.distance(self.tank.pos, self.targeted_unit.pos)
+        
+        # CAN BE OPTIMIZED. TODO paths could be saved or threshold for when a new should be calculated could be made
+        # Path distance updated every 60 frames
+        if self.frame_counter % 60 == 0:
+            self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing     
     
-    def find_path_within_coord(self, patrol_coord: tuple, patrol_radius: int, ):     
+    def find_path_within_coord(self, patrol_coord: tuple, patrol_radius: int):     
         if self.tank.go_to_waypoint:
             return  # If already moving, do nothing
 
@@ -595,29 +631,77 @@ class TankAI:
         
         # Find a path to the node
         self.tank.find_waypoint(chosen_node)
-        
-    def move_turret_to_target(self, target_coord: tuple[float, float]):
-
-        # Converting target vector to start (0,0)
-        target_direction_vector = target_coord[0] - self.tank.pos[0], target_coord[1] - self.tank.pos[1]
-
-        # Update turret direction vector
-        rads = np.radians(self.tank.turret_rotation_angle)
-        turret_direction = np.cos(rads), np.sin(rads)   # Remember direction from 0,0
-        
-        # Find angle difference between the target and turret
-        self.angle_diff_deg = helper_functions.vector_angle_difference(target_direction_vector, turret_direction)
-        
-        
-        if self.angle_diff_deg > self.turret_turn_threshold:
-            if helper_functions.left_turn((0,0), turret_direction, target_direction_vector):    # (0,0) since the 2 other coords also start in (0,0)
-                self.tank.turret_rotation_angle += self.rotation_speed
-            else:
-                self.tank.turret_rotation_angle -= self.rotation_speed
-        
-        self.debug_turret_v = (self.tank.pos, (turret_direction[0] * 100 + self.tank.pos[0], turret_direction[1] * 100 + self.tank.pos[1]))
-        
     
+    def move_turret_to_target(self, target_coord: tuple[float, float], angle_inaccuracy: float):
+        # Calculate target direction vector
+        target_direction_vector = (target_coord[0] - self.tank.pos[0], 
+                                target_coord[1] - self.tank.pos[1])
+        
+        # Convert turret rotation angle to a direction vector
+        rads = np.radians(self.tank.turret_rotation_angle)
+        turret_direction = (np.cos(rads), np.sin(rads)) 
+        
+        # Compute the perfect target angle (without inaccuracy)
+        perfect_target_angle = np.degrees(np.arctan2(target_direction_vector[1], target_direction_vector[0]))
+
+        if self.perfect_aim:
+            self.current_target_angle = perfect_target_angle  # No random inaccuracy
+        else:
+            # If we don't have a randomized target angle or it's reached, generate a new one
+            if self.current_target_angle is None or abs(self.angle_diff_deg) < self.turret_turn_threshold:
+                inaccuracy_offset = random.uniform(-angle_inaccuracy, angle_inaccuracy)  # Random offset in range [-angle_inaccuracy, +angle_inaccuracy]
+                self.current_target_angle = perfect_target_angle + inaccuracy_offset  # New randomized target angle
+
+        # Compute new direction vector for the selected target angle
+        target_rads = np.radians(self.current_target_angle)
+        target_vector = (np.cos(target_rads), np.sin(target_rads))
+
+        # Compute angle difference between the turret and the selected target
+        self.angle_diff_deg = helper_functions.vector_angle_difference(target_vector, turret_direction)
+
+        # Maps angle diff to a multiplier, meaning higher angle diff gives faster rotation speed
+        rotation_multiplier = helper_functions.map_x_to_y(self.angle_diff_deg, 0, 180, self.rotation_mult_min, self.rotation_mult_max)
+
+        # Rotate turret toward the target angle
+        if self.angle_diff_deg > self.turret_turn_threshold:
+            if helper_functions.left_turn((0,0), turret_direction, target_vector):
+                self.tank.turret_rotation_angle += self.rotation_speed * rotation_multiplier
+            else:
+                self.tank.turret_rotation_angle -= self.rotation_speed * rotation_multiplier
+
+        print(f"{rotation_multiplier=}")
+        
+        # Debug visualization
+        self.debug_turret_v = (
+            self.tank.pos, 
+            (turret_direction[0] * 100 + self.tank.pos[0], turret_direction[1] * 100 + self.tank.pos[1])
+        )
+        
+    def keep_distance_behavior(self):
+        """Move to a location that keeps the tank within the min and max distance from the player.
+        If the player moves too far away, approach them."""
+        if self.tank.go_to_waypoint:
+            return  # If already moving, do nothing
+
+        # Build a KD-tree for fast nearest-neighbor search
+        kd_tree = KDTree(self.valid_nodes)
+        
+        # Query KD-tree for nodes within min_dist and max_dist from target
+        target_pos = self.targeted_unit.pos
+        nearby_indices = kd_tree.query_ball_point(target_pos, self.max_dist_node)
+        
+        possible_nodes = []
+        for idx in nearby_indices:
+            node = self.valid_nodes[idx]
+            dist_node_target = helper_functions.distance(node, target_pos)
+            dist_node_unit = helper_functions.distance(node, self.tank.pos)
+
+            if self.min_dist_node < dist_node_target < self.max_dist_node:
+                possible_nodes.append((node, dist_node_target, dist_node_unit))
+
+        # If there are valid choices, move to the best one
+        amount_nodes = 1  # How many nodes should be randomly chosen (permanent 1?)
+        possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
         
         
 class BehaviorStates:

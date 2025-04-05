@@ -434,6 +434,11 @@ class Tank:
         self.waypoint_queue.clear()
         self.go_to_waypoint = False
         
+    def convert_node_to_grid(self, coord: tuple[float, float]) -> tuple[int, int]:
+        coord = pathfinding.pygame_to_grid(coord, self.top_left, self.node_spacing)
+        return pathfinding.grid_to_pygame(coord, self.top_left, self.node_spacing)
+        
+        
         
 
 class TankAI:
@@ -480,7 +485,6 @@ class TankAI:
         self.dist_to_target_direct = 9999
         self.dist_to_target_path = 9999
         
-
         
         # Patrol
         self.patrol_radius = 200
@@ -492,9 +496,12 @@ class TankAI:
         # Attack
         self.dist_leave_attack = 200
         
-        # Retreat
-        # Wander
         # Dodge
+        self.can_dogde = True
+        self.closest_projectile = (None, 9999)
+        self.dist_start_dodge = 45
+        self.dodge_nodes = []
+        self.dodge_cooldown = 0
         
         # Shooting
         self.angle_diff_deg = 9999 # The current angle between target and turret
@@ -510,6 +517,8 @@ class TankAI:
         self.perfect_aim = False        # Removes random turret wandering
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
+        self.advandced_targeting = True # Advanced targeting
+        
         # Searching
         
         # Patrolling
@@ -519,7 +528,6 @@ class TankAI:
         self.defend_time = 60 * 10
         self.timer = 0
         
-        
         # Test
         self.current_target_angle = None  # Store the randomized target angle
         
@@ -528,8 +536,17 @@ class TankAI:
         self.frame_counter += 1
         self.misc_updates()
         self.targeting()
-
+        
+        if self.behavior_state == BehaviorStates.DODGE:
+            self.handle_dodge_state()
+            return
         # Behavior movement
+        if self.can_dogde and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
+            self.behavior_state = BehaviorStates.DODGE
+            self.dodge()
+            self.dodge_cooldown = 120  # e.g. 30 frames cooldown
+            return
+    
         if self.behavior_state == BehaviorStates.IDLE:
             self.idle()
         elif self.behavior_state == BehaviorStates.PATROLLING:
@@ -540,14 +557,7 @@ class TankAI:
             self.attack()
         elif self.behavior_state == BehaviorStates.WANDER:
             self.wander()
-        elif self.behavior_state == BehaviorStates.DODGE:
-            self.dodge()
 
-        # Behavior targeting
-        if self.targeting_state == TargetingStates.SEARCHING:
-            self.searching()
-        elif self.targeting_state == TargetingStates.TARGETING:
-            self.targeting()
     
     # ======================= Behavior states =======================
     def idle(self):
@@ -565,12 +575,13 @@ class TankAI:
             return
         
         # Leave patrol mode if target to close
-        if self.dist_to_target_path < self.dist_leave_patrol:
+        if self.target_in_sight or self.dist_to_target_path < self.dist_leave_patrol:
             self.behavior_state = BehaviorStates.DEFENDING
             return
-        
-        
+         
     def defend(self):
+        self.closest_projectile = (None, 9999)
+        
         if self.timer == 0:
             self.timer = self.defend_time 
 
@@ -596,19 +607,27 @@ class TankAI:
         
     def attack(self):
         # Leave attack mode if target close
-        if self.dist_to_target_direct < self.dist_leave_attack:
-            self.tank.abort_waypoint()
-            self.behavior_state = BehaviorStates.DEFENDING
-            return
+        if self.advandced_targeting:
+            if self.target_in_sight or self.dist_to_target_direct < 100:
+                self.tank.abort_waypoint()
+                self.behavior_state = BehaviorStates.DEFENDING
+                return
+        else:
+            if self.dist_to_target_direct < self.dist_leave_attack:
+                self.tank.abort_waypoint()
+                self.behavior_state = BehaviorStates.DEFENDING
+                return
+
         
         print(self.targeted_unit.pos)
         if self.tank.go_to_waypoint == False:
             self.find_path_within_coord(self.targeted_unit.pos, 100)
             return
+        
+        
             
             #self.tank.find_waypoint(self.targeted_unit.pos)
         
-    
     def wander(self):
 
         self.find_path_within_coord(self.tank.pos, self.wander_radius)
@@ -624,10 +643,72 @@ class TankAI:
                 self.behavior_state = BehaviorStates.ATTACKING
             self.timer = 180
         
-    
+
     def dodge(self):
-        pass
+        
+        # Peform checks that will prevent from doing the dodge
+        if not self.projectiles:
+            self.behavior_state = BehaviorStates.DEFENDING
+            return
+
+        if self.tank.go_to_waypoint == False:
+            self.behavior_state = BehaviorStates.DEFENDING
+            return
+        
+        if self.closest_projectile[1] > self.dist_start_dodge:
+            self.behavior_state = BehaviorStates.DEFENDING
+            return
+
+        self.tank.abort_waypoint() 
+        projectile = self.closest_projectile[0]
+        vx, vy = projectile.direction
+
+        # Get both perpendicular dodge directions (left and right)
+        dodge_dirs = [(-vy, vx), (vy, -vx)]
+
+        dodge_nodes_pot = []
+        # Find left and right point (vinkelret) from the closest projectil path
+        for dodge_dir in dodge_dirs:
+            norm = np.linalg.norm(dodge_dir)
+            if norm == 0:
+                continue
+            dodge_dir = (dodge_dir[0] / norm, dodge_dir[1] / norm)
+
+            for i in range(100, 200, 50):
+                target = (
+                    self.tank.pos[0] + dodge_dir[0] * i,
+                    self.tank.pos[1] + dodge_dir[1] * i
+                )
+                target = self.tank.convert_node_to_grid(target)     # Convert coords to pathfinding nodes
+                dodge_nodes_pot.append(target)
+
+        # Make sure only to use nodes that are valid on the map
+        dodge_nodes_valid = list(set(dodge_nodes_pot) & set(self.valid_nodes_original))
+        
+        dodge_nodes_valid_dist = []
+        for node in dodge_nodes_valid:
+            dist = helper_functions.distance(node, self.closest_projectile[0].pos)
+            dodge_nodes_valid_dist.append((node, dist))
+        
+        target_node = max(dodge_nodes_valid_dist, key=lambda x: x[1])[0]
+        self.dodge_nodes = [target_node]
+
+        self.tank.find_waypoint(target_node)
+        
+
+      
     
+    def handle_dodge_state(self):
+        
+        # If not projectiles exit dodge
+        if self.closest_projectile[1] > self.dist_start_dodge:
+            self.behavior_state = BehaviorStates.DEFENDING
+            return
+
+        # If not projectiles exit dodge
+        if self.tank.go_to_waypoint == False:
+            self.behavior_state = BehaviorStates.DEFENDING
+            return
     # ======================= Targeting states =======================
     
     def searching(self):
@@ -655,10 +736,18 @@ class TankAI:
         # CAN BE OPTIMIZED. TODO paths could be saved or threshold for when a new should be calculated could be made
         # Path distance updated every 60 frames
         if self.frame_counter % 60 == 0:
-            self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing   
+            self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
+            
+            self.hit_scan_check_proximty()  
         
         if self.timer > 0:
             self.timer -= 1  
+        
+        self.find_closest_projectile()
+            
+        if self.dodge_cooldown > 0:
+            self.dodge_cooldown -= 1
+        
     
     def find_path_within_coord(self, patrol_coord: tuple, patrol_radius: int):     
         if self.tank.go_to_waypoint:
@@ -754,7 +843,63 @@ class TankAI:
             self.tank.find_waypoint(chosen_node[0])
         
         self.possible_nodes = [x[0] for x in possible_nodes]
+          
+    def hit_scan_check_proximty(self):
+        coord1, coord2 = self.unit_target_line 
+        for obstacle in self.obstacles:
+            for corner_pair in obstacle.get_corner_pairs():
+                result = df.line_intersection(map(float,coord1), map(float,coord2), corner_pair[0], corner_pair[1])
+                #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
+                if result != None:
+                    self.target_in_sight = False
+                    return False
         
+        for unit in self.units:
+            if unit.ai == None:     # Skal rettes. Burde have seperate liste for "onde units", pt er det bare dem uden ai
+                continue
+            
+            # Skip dead units
+            if unit.dead:
+                continue
+            # Cheap calculation less accurate: (problem is it check the hitray like it is infinite in bots direction
+            # meaning it checks also for tanks behind itself) BUT IT IS MUCH LESS RECKLESS
+            min_dist = helper_functions.point_to_line_distance(coord1, coord2, unit.pos)
+            tank_width = 45 # skal rettes. PT hardcoded...
+            if min_dist < tank_width:
+                self.target_in_sight = False
+                return False
+            
+            # # Expensive calculation more accurate: (need higher updaterate to functin best)
+            # for corner_pair in unit.get_hitbox_corner_pairs():
+            #     result = df.line_intersection(coord1, coord2, corner_pair[0], corner_pair[1])
+            #     #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
+            #     if result != None:
+            #         self.target_in_sight = False
+            #         return False
+                    
+            
+        self.target_in_sight = True        
+        return True
+        
+    def find_closest_projectile(self):
+        closest = None
+        min_dist = float("inf")
+
+        for proj in self.projectiles:
+            
+            # dist = helper_functions.distance(proj.pos, self.tank.pos)   # Finds direct distance
+            print(proj.startpos, proj.pos, self.tank.pos)
+            dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)  # Finds distance to proj path
+            
+            if dist < min_dist:
+                min_dist = dist
+                closest = proj
+
+        if closest:
+            self.closest_projectile = (closest, min_dist)
+        else:
+            self.closest_projectile = (None, 9999)
+            
         
 class BehaviorStates:
     IDLE = "idle"
@@ -763,7 +908,7 @@ class BehaviorStates:
     ATTACKING = "attacking"
     RETREAT = "retreat"
     WANDER = "wander"
-    DODGE = "dogde"
+    DODGE = "dodge"
 
 class TargetingStates:
     SEARCHING = "searching"

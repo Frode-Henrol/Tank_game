@@ -1,11 +1,13 @@
 
 import pygame as pg
 import utils.deflect as df
+import copy
 
 class Projectile:
     
     def __init__(self, startpos: tuple, direction: tuple, speed: int, bounce_limit: int):   # Add color and more later!!!!
-        self.pos = startpos
+        self.startpos = startpos
+        self.pos = copy.copy(startpos)
         self.direction = direction
         self.degrees = 0
         self.speed = speed  
@@ -60,6 +62,8 @@ class Projectile:
         # If there is no intersection then just keep diretion vector the same
         if intersect_coord == None:
             return self.direction
+        
+        self.startpos = intersect_coord     # Update startpos for ai dodge mechanic
         print(f"Projectile hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
         print(f"Projectile has coord        : ({float(self.pos[0]):.1f},  {float(self.pos[1]):.1f})")
         

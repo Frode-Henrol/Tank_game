@@ -661,6 +661,7 @@ class TankGame:
             for queue in self.all_unit_waypoint_queues:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
+    
                         
         # Draw pathfinding paths
         if self.show_pathfinding_paths:
@@ -684,9 +685,14 @@ class TankGame:
                     if unit.ai.behavior_state == "defending":
                         for node in possible_nodes:
                             pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
+                            
+                    if unit.ai.behavior_state == "dodge":
+                        for node in unit.ai.dodge_nodes:
+                            pg.draw.circle(self.screen, "red", node, 5)  # Draw nodes as circles
+                            
                     if unit.ai.unit_target_line != None:
                         pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
-                    
+
       
             
         self.render_debug_info()
@@ -706,7 +712,8 @@ class TankGame:
             f"Tank 1: {self.units[1].ai.behavior_state}",
             f"Path dist: {self.units[1].ai.dist_to_target_path}",
             f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
-            f"Valid nodes: {len(self.units[1].ai.valid_nodes)}"
+            f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
+            f"Closets proj: {self.units[1].ai.closest_projectile[1]}"
         ]
         
         

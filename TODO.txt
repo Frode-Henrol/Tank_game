@@ -10,8 +10,7 @@ Collsion between tanks i not working correct
 Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til cannowcooldown i json, tankgame load assets osv.
 
 AI:
-Senere skal der laves så hver ai tank tjekker alle projectiler på map, og tjekker om deres position er inden for Feks
-x afstand. For dem indenfor afstanden skal den predict deres bane og prøve at undgå dem
-
-For alle polygons på mappet skal der generest punkter langs de lines de udgør. Disse punkter skal blot være coordinater i en liste. 
-På den måde kan man tjekke om projetilen er inden for feks 10 units afstand og så kun køre line intersect logic under denne afstand
+Dodge burde måske opgraderes til at kunne forudse deflection?
+Shooting state skal laves til func og dens skal laves so den laver linje med deflect svarende til tank type.
+Hvis den så ramme en fjentlig tank så skyder den.
+Der skal også laves et predict element hvor der tages højde for target tanks hastighed

@@ -741,7 +741,7 @@ class TankAI:
         if self.frame_counter % 60 == 0:
             self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
             
-            self.hit_scan_check_proximty()  
+            self.hit_scan_check_proximity()  
         
         if self.timer > 0:
             self.timer -= 1  
@@ -847,7 +847,7 @@ class TankAI:
         
         self.possible_nodes = [x[0] for x in possible_nodes]
           
-    def hit_scan_check_proximty(self):
+    def hit_scan_check_proximtyold(self):
         coord1, coord2 = self.unit_target_line 
         for obstacle in self.obstacles:
             for corner_pair in obstacle.get_corner_pairs():
@@ -882,6 +882,48 @@ class TankAI:
                     
             
         self.target_in_sight = True        
+        return True
+        
+    def hit_scan_check_proximity_aintworking(self):     # Fejl ved coord1, coord2  se hvordan den gamle func klarede det
+        # Get turret's direction as a unit vector
+        turret_direction_x = np.cos(np.radians(self.tank.turret_rotation_angle))
+        turret_direction_y = np.sin(np.radians(self.tank.turret_rotation_angle))
+
+        # Define a maximum distance for the hit scan (how far you want to check in front of the turret)
+        max_hit_scan_distance = 100  # This can be adjusted based on your game needs
+        
+        # Calculate the end point of the hit scan line in front of the turret
+        coord1 = self.tank.pos  # Starting point is the tank's position
+        coord2 = (self.tank.pos[0] + turret_direction_x * max_hit_scan_distance, 
+                self.tank.pos[1] + turret_direction_y * max_hit_scan_distance)  # End point is a fixed distance in turret's direction
+        
+        # Check for intersections with obstacles
+        for obstacle in self.obstacles:
+            for corner_pair in obstacle.get_corner_pairs():
+                result = df.line_intersection(map(float, coord1), map(float, coord2), corner_pair[0], corner_pair[1])
+                if result is not None:
+                    self.target_in_sight = False
+                    return False
+
+        # Check for intersections with other units
+        for unit in self.units:
+            if unit.ai is None:  # Skip units without AI
+                continue
+
+            # Skip dead units
+            if unit.dead:
+                continue
+            
+            # Calculate minimum distance from the line to the unit (using the unit's position)
+            min_dist = helper_functions.point_to_line_distance(coord1, coord2, unit.pos)
+            tank_width = 45  # Width of the tank (may need to adjust for your game)
+            
+            if min_dist < tank_width:
+                self.target_in_sight = False
+                return False
+        
+        # If no obstacles or units block the path
+        self.target_in_sight = True
         return True
         
     def find_closest_projectile(self):

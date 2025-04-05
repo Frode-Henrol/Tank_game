@@ -511,14 +511,16 @@ class TankAI:
         self.rotation_speed = 1     # Degress pr frame
         self.inaccuracy = 200         # 0 is perfect aim and higher values is worse
         
-        self.aiming_angle = 15      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 50      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
-        self.perfect_aim = True        # Removes random turret wandering
+        self.perfect_aim = False        # Removes random turret wandering
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
         self.advanced_targeting = True # Advanced targeting
+        
+        self.shoot_threshold = 50
         
         # Searching
         
@@ -531,9 +533,13 @@ class TankAI:
         
         # Test
         self.current_target_angle = None  # Store the randomized target angle
-        
+
+        # Ray predict data
+        self.max_bounces = self.tank.bounch_limit - 1 # Temp remove one since 1 is added for projectile logic to work properly
+        self.ray_path = [((0,0),(0,0)),((0,0),(0,0))]
     
     def update(self):
+        print(f"BOUNCH LIMIT: {self.tank.bounch_limit}")
         self.frame_counter += 1
         self.misc_updates()
         self.targeting()
@@ -559,8 +565,8 @@ class TankAI:
         elif self.behavior_state == BehaviorStates.WANDER:
             self.wander()
             
-        if self.target_in_sight:
-            self.tank.shoot(None)
+        if self.frame_counter % 10 == 0:
+            self.ray_path = self.deflect_ray()
 
     # ======================= Behavior states =======================
     def idle(self):
@@ -668,7 +674,7 @@ class TankAI:
         # Get both perpendicular dodge directions (left and right)
         dodge_dirs = [(-vy, vx), (vy, -vx)]
 
-        dodge_nodes_pot = []
+        dodge_nodes_pot = set()
         # Find left and right point (vinkelret) from the closest projectil path
         for dodge_dir in dodge_dirs:
             norm = np.linalg.norm(dodge_dir)
@@ -676,16 +682,16 @@ class TankAI:
                 continue
             dodge_dir = (dodge_dir[0] / norm, dodge_dir[1] / norm)
 
-            for i in range(100, 200, 50):
+            for i in range(50, 150, 50):
                 target = (
                     self.tank.pos[0] + dodge_dir[0] * i,
                     self.tank.pos[1] + dodge_dir[1] * i
                 )
                 target = self.tank.convert_node_to_grid(target)     # Convert coords to pathfinding nodes
-                dodge_nodes_pot.append(target)
+                dodge_nodes_pot.add(target)
 
         # Make sure only to use nodes that are valid on the map
-        dodge_nodes_valid = list(set(dodge_nodes_pot) & set(self.valid_nodes_original))
+        dodge_nodes_valid = list(dodge_nodes_pot & set(self.valid_nodes_original))
         
         # Exit if no valid move
         if not dodge_nodes_valid:
@@ -717,16 +723,49 @@ class TankAI:
     def searching(self):
         # Random movement scanning the surroundings
         pass
-    
-    def targeting(self):
         
+    def targeting(self):
         # Hardcoded target
         target_pos = self.targeted_unit.pos[0], self.targeted_unit.pos[1]
-    
         self.move_turret_to_target(target_pos, self.aiming_angle)
+        
+        # Check each segment of the ray path for proximity to target
+        for line_segment in self.ray_path:
+            start, end = line_segment
             
-        #self.tank.shoot(None)
-    
+            # First check if target is between start and end points of this segment
+            if self.is_point_between_segment(start, end, target_pos):
+                # Then check perpendicular distance
+                dist = helper_functions.point_to_line_distance(start, end, target_pos)
+                if dist < self.shoot_threshold:
+                    self.tank.shoot(None)
+                    break  # Only need to hit once
+
+    def is_point_between_segment(self, segment_start, segment_end, point):
+        """Check if point lies between the start and end points of a segment"""
+        # Vector from segment start to end
+        segment_vec = (segment_end[0] - segment_start[0], segment_end[1] - segment_start[1])
+        
+        # Vector from segment start to point
+        point_vec = (point[0] - segment_start[0], point[1] - segment_start[1])
+        
+        # Dot product to check if point is in segment's "forward" direction
+        dot_product = (segment_vec[0] * point_vec[0] + segment_vec[1] * point_vec[1])
+        
+        # If dot product is negative, point is behind segment start
+        if dot_product < 0:
+            return False
+        
+        # Check if point is within segment length
+        segment_length_sq = (segment_vec[0]**2 + segment_vec[1]**2)
+        point_length_sq = (point_vec[0]**2 + point_vec[1]**2)
+        
+        # If point is further than segment length, it's beyond the segment
+        if point_length_sq > segment_length_sq:
+            return False
+        
+        return True
+        
     # ======================= Misc functions =======================
     
     def misc_updates(self):
@@ -750,6 +789,13 @@ class TankAI:
             
         if self.dodge_cooldown > 0:
             self.dodge_cooldown -= 1
+            
+            
+        # BLOT TEST:
+        if not self.target_in_sight:
+            self.unit_target_line_color = (255, 182, 193)
+        else:
+            self.unit_target_line_color = (144, 238, 144)
         
     
     def find_path_within_coord(self, patrol_coord: tuple, patrol_radius: int):     
@@ -778,6 +824,7 @@ class TankAI:
         rads = np.radians(self.tank.turret_rotation_angle)
         turret_direction = (np.cos(rads), np.sin(rads)) 
         
+        
         # Compute the perfect target angle (without inaccuracy)
         perfect_target_angle = np.degrees(np.arctan2(target_direction_vector[1], target_direction_vector[0]))
 
@@ -805,14 +852,15 @@ class TankAI:
                 self.tank.turret_rotation_angle += self.rotation_speed * rotation_multiplier
             else:
                 self.tank.turret_rotation_angle -= self.rotation_speed * rotation_multiplier
-
-        #print(f"{rotation_multiplier=}")
         
         # Debug visualization
         self.debug_turret_v = (
             self.tank.pos, 
             (turret_direction[0] * 100 + self.tank.pos[0], turret_direction[1] * 100 + self.tank.pos[1])
         )
+        
+        self.turret_direction = turret_direction
+        
         
     def keep_distance_behavior(self):
         """Move to a location that keeps the tank within the min and max distance from the player.
@@ -839,16 +887,17 @@ class TankAI:
         # If there are valid choices, move to the best one
         amount_nodes = 20  # How many nodes should be randomly chosen (permanent 1?)
         possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
-        
-        print(f"Test possible nodes: {possible_nodes}")
+
         if possible_nodes:
             chosen_node = random.choice(possible_nodes)
             self.tank.find_waypoint(chosen_node[0])
         
         self.possible_nodes = [x[0] for x in possible_nodes]
-          
-    def hit_scan_check_proximtyold(self):
+            
+    def hit_scan_check_proximity(self):     # Fejl ved coord1, coord2  se hvordan den gamle func klarede det
+        # Check for intersections with obstacles
         coord1, coord2 = self.unit_target_line 
+        
         for obstacle in self.obstacles:
             for corner_pair in obstacle.get_corner_pairs():
                 result = df.line_intersection(map(float,coord1), map(float,coord2), corner_pair[0], corner_pair[1])
@@ -856,35 +905,7 @@ class TankAI:
                 if result != None:
                     self.target_in_sight = False
                     return False
-        
-        for unit in self.units:
-            if unit.ai == None:     # Skal rettes. Burde have seperate liste for "onde units", pt er det bare dem uden ai
-                continue
-            
-            # Skip dead units
-            if unit.dead:
-                continue
-            # Cheap calculation less accurate: (problem is it check the hitray like it is infinite in bots direction
-            # meaning it checks also for tanks behind itself) BUT IT IS MUCH LESS RECKLESS
-            min_dist = helper_functions.point_to_line_distance(coord1, coord2, unit.pos)
-            tank_width = 45 # skal rettes. PT hardcoded...
-            if min_dist < tank_width:
-                self.target_in_sight = False
-                return False
-            
-            # # Expensive calculation more accurate: (need higher updaterate to functin best)
-            # for corner_pair in unit.get_hitbox_corner_pairs():
-            #     result = df.line_intersection(coord1, coord2, corner_pair[0], corner_pair[1])
-            #     #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
-            #     if result != None:
-            #         self.target_in_sight = False
-            #         return False
-                    
-            
-        self.target_in_sight = True        
-        return True
-        
-    def hit_scan_check_proximity_aintworking(self):     # Fejl ved coord1, coord2  se hvordan den gamle func klarede det
+                
         # Get turret's direction as a unit vector
         turret_direction_x = np.cos(np.radians(self.tank.turret_rotation_angle))
         turret_direction_y = np.sin(np.radians(self.tank.turret_rotation_angle))
@@ -897,14 +918,7 @@ class TankAI:
         coord2 = (self.tank.pos[0] + turret_direction_x * max_hit_scan_distance, 
                 self.tank.pos[1] + turret_direction_y * max_hit_scan_distance)  # End point is a fixed distance in turret's direction
         
-        # Check for intersections with obstacles
-        for obstacle in self.obstacles:
-            for corner_pair in obstacle.get_corner_pairs():
-                result = df.line_intersection(map(float, coord1), map(float, coord2), corner_pair[0], corner_pair[1])
-                if result is not None:
-                    self.target_in_sight = False
-                    return False
-
+        
         # Check for intersections with other units
         for unit in self.units:
             if unit.ai is None:  # Skip units without AI
@@ -950,6 +964,64 @@ class TankAI:
             self.closest_projectile = (closest, min_dist)
         else:
             self.closest_projectile = (None, 9999)
+        
+    def deflect_ray(self):        
+        lines = []
+        current_point = self.tank.pos
+        direction = self.turret_direction
+        bounce_count = 0
+        max_distance = 2000
+        
+        while bounce_count <=  self.max_bounces:
+            # Calculate end point of this ray segment
+            end_point = (
+                current_point[0] + direction[0] * max_distance,
+                current_point[1] + direction[1] * max_distance
+            )
+            
+            closest_intersection = None
+            closest_distance = float('inf')
+            closest_normal = None
+            
+            # Find closest intersection with any obstacle
+            for obstacle in self.obstacles:
+                for corner_pair in obstacle.get_corner_pairs():
+                    intersect = df.line_intersection(corner_pair[0], corner_pair[1], current_point, end_point)
+                    
+                    if intersect:
+                        # Calculate distance and ensure we don't pick the same point
+                        dist = helper_functions.distance(current_point, intersect)
+                        if dist < closest_distance and dist > 1:  # Small threshold to avoid self-intersection
+                            closest_distance = dist
+                            closest_intersection = intersect
+                            # Get both possible normals using your function
+                            normal1, normal2 = df.find_normal_vectors(corner_pair[0], corner_pair[1])
+                            # Choose the normal facing the incoming ray using dot product
+                            dot1 = normal1[0]*direction[0] + normal1[1]*direction[1]
+                            closest_normal = normal1 if dot1 < 0 else normal2
+            
+            # If no intersection found, draw the remaining ray and exit
+            if not closest_intersection:
+                lines.append((tuple(current_point), tuple(end_point)))
+                break
+                
+            # Add this segment to the path (ensure tuples for consistency)
+            lines.append((tuple(current_point), tuple(closest_intersection)))
+            
+            # Calculate new direction using your deflection function
+            if closest_normal:
+                direction = df.find_deflect_vector(closest_normal, direction)
+                # Move the start point slightly away from the intersection to prevent self-collision
+                current_point = (
+                    closest_intersection[0] + direction[0] * 0.1,
+                    closest_intersection[1] + direction[1] * 0.1
+                )
+            else:
+                current_point = closest_intersection
+                
+            bounce_count += 1
+        
+        return lines
         
 class BehaviorStates:
     IDLE = "idle"

@@ -14,3 +14,9 @@ Dodge burde måske opgraderes til at kunne forudse deflection?
 Shooting state skal laves til func og dens skal laves so den laver linje med deflect svarende til tank type.
 Hvis den så ramme en fjentlig tank så skyder den.
 Der skal også laves et predict element hvor der tages højde for target tanks hastighed
+
+AI feature ideer:
+lav bool der gør at tank har change for at skyde efter punkt hvor fjerne sidst var set
+
+Add:
+for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntimer, hvor den ikke kan bounce inden for timeren

@@ -502,6 +502,7 @@ class TankAI:
         self.dist_start_dodge = 45
         self.dodge_nodes = []
         self.dodge_cooldown = 0
+        self.dodge_cooldown_val = 30
         
         # Shooting
         self.angle_diff_deg = 9999 # The current angle between target and turret
@@ -514,10 +515,10 @@ class TankAI:
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
-        self.perfect_aim = False        # Removes random turret wandering
+        self.perfect_aim = True        # Removes random turret wandering
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
-        self.advandced_targeting = True # Advanced targeting
+        self.advanced_targeting = True # Advanced targeting
         
         # Searching
         
@@ -544,7 +545,7 @@ class TankAI:
         if self.can_dogde and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
             self.dodge()
-            self.dodge_cooldown = 120  # e.g. 30 frames cooldown
+            self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
             return
     
         if self.behavior_state == BehaviorStates.IDLE:
@@ -557,8 +558,10 @@ class TankAI:
             self.attack()
         elif self.behavior_state == BehaviorStates.WANDER:
             self.wander()
+            
+        if self.target_in_sight:
+            self.tank.shoot(None)
 
-    
     # ======================= Behavior states =======================
     def idle(self):
         if self.movement:
@@ -607,7 +610,7 @@ class TankAI:
         
     def attack(self):
         # Leave attack mode if target close
-        if self.advandced_targeting:
+        if self.advanced_targeting:
             if self.target_in_sight or self.dist_to_target_direct < 100:
                 self.tank.abort_waypoint()
                 self.behavior_state = BehaviorStates.DEFENDING
@@ -642,7 +645,6 @@ class TankAI:
                 self.tank.abort_waypoint()
                 self.behavior_state = BehaviorStates.ATTACKING
             self.timer = 180
-        
 
     def dodge(self):
         
@@ -685,6 +687,10 @@ class TankAI:
         # Make sure only to use nodes that are valid on the map
         dodge_nodes_valid = list(set(dodge_nodes_pot) & set(self.valid_nodes_original))
         
+        # Exit if no valid move
+        if not dodge_nodes_valid:
+            return
+        
         dodge_nodes_valid_dist = []
         for node in dodge_nodes_valid:
             dist = helper_functions.distance(node, self.closest_projectile[0].pos)
@@ -695,9 +701,6 @@ class TankAI:
 
         self.tank.find_waypoint(target_node)
         
-
-      
-    
     def handle_dodge_state(self):
         
         # If not projectiles exit dodge
@@ -886,20 +889,25 @@ class TankAI:
         min_dist = float("inf")
 
         for proj in self.projectiles:
-            
-            # dist = helper_functions.distance(proj.pos, self.tank.pos)   # Finds direct distance
-            print(proj.startpos, proj.pos, self.tank.pos)
-            dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)  # Finds distance to proj path
-            
-            if dist < min_dist:
-                min_dist = dist
-                closest = proj
+            # Calculate the direction of the projectile
+            direction_vector = np.array(proj.pos) - np.array(proj.startpos)  # From start to current position
+            to_tank_vector = np.array(self.tank.pos) - np.array(proj.pos)     # From projectile to tank
+
+            # Compute the dot product to check if the projectile is moving towards the tank
+            dot_product = np.dot(direction_vector, to_tank_vector)
+
+            if dot_product > 0:  # Positive dot product means projectile is moving towards the tank
+                # Calculate the distance from the projectile's path to the tank
+                dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)
+
+                if dist < min_dist:
+                    min_dist = dist
+                    closest = proj
 
         if closest:
             self.closest_projectile = (closest, min_dist)
         else:
             self.closest_projectile = (None, 9999)
-            
         
 class BehaviorStates:
     IDLE = "idle"

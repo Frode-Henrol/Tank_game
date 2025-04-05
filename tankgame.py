@@ -713,7 +713,8 @@ class TankGame:
             f"Path dist: {self.units[1].ai.dist_to_target_path}",
             f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
             f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
-            f"Closets proj: {self.units[1].ai.closest_projectile[1]}"
+            f"Closets proj: {self.units[1].ai.closest_projectile[1]}",
+            f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}"
         ]
         
         

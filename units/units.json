@@ -16,7 +16,7 @@
         "firerate": 2,
         "bounch_limit": 0,
         "bomb_limit" : 0,
-        "projectile_limit" : 1,
+        "projectile_limit" : 5,
         "ai_personality": "standard",
         "image_name" : "tank1",
         "use_turret" : true

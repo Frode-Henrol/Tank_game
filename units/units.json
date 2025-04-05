@@ -11,10 +11,10 @@
         "use_turret" : true
     },
     "tank2": {
-        "tank_speed_modifier": 0.0,
-        "projectile_speed_modifier": 1.4,
+        "tank_speed_modifier": 0.4,
+        "projectile_speed_modifier": 3,
         "firerate": 2,
-        "bounch_limit": 1,
+        "bounch_limit": 4,
         "bomb_limit" : 0,
         "projectile_limit" : 5,
         "ai_personality": "standard",
@@ -22,21 +22,21 @@
         "use_turret" : true
     },
     "tank3": {
-        "tank_speed_modifier": 0.0,
+        "tank_speed_modifier": 0,
         "projectile_speed_modifier": 2.5,
         "firerate": 1,
         "bounch_limit": 2,
         "bomb_limit" : 0,
-        "projectile_limit" : 2,
+        "projectile_limit" : 1,
         "ai_personality": "standard",
         "image_name" : "tank1",
         "use_turret" : true
     },
     "tank4": {
-        "tank_speed_modifier": 0.0,
-        "projectile_speed_modifier": 4,
+        "tank_speed_modifier": 0.8,
+        "projectile_speed_modifier": 2.5,
         "firerate": 1,
-        "bounch_limit": 0,
+        "bounch_limit": 1,
         "bomb_limit" : 0,
         "projectile_limit" : 25,
         "ai_personality": "standard",

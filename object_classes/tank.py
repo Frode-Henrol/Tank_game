@@ -472,9 +472,7 @@ class TankAI:
         self.targeting_state = TargetingStates.SEARCHING
         
         # No speed means tank will stay in idle state
-        if self.tank.speed == 0:
-            self.movement = False 
-        self.movement = True
+        self.movement = self.tank.speed != 0
         
         # Tank that is under targeting
         self.targeted_unit = self.units[0]              # TEST using player as hardcoded target
@@ -484,7 +482,6 @@ class TankAI:
         
         self.dist_to_target_direct = 9999
         self.dist_to_target_path = 9999
-        
         
         # Patrol
         self.patrol_radius = 200
@@ -511,7 +508,7 @@ class TankAI:
         self.rotation_speed = 1     # Degress pr frame
         self.inaccuracy = 200         # 0 is perfect aim and higher values is worse
         
-        self.aiming_angle = 50      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 70      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
@@ -520,7 +517,8 @@ class TankAI:
         
         self.advanced_targeting = True # Advanced targeting
         
-        self.shoot_threshold = 50
+        self.shoot_threshold = 10   # Smaller value means more precise shots are taken
+        self.safe_threshold = 50    # Increase value to prevent hitting itself
         
         # Searching
         
@@ -533,20 +531,26 @@ class TankAI:
         
         # Test
         self.current_target_angle = None  # Store the randomized target angle
+        self.can_shoot = False
 
         # Ray predict data
+        self.update_rate = 1
         self.max_bounces = self.tank.bounch_limit - 1 # Temp remove one since 1 is added for projectile logic to work properly
         self.ray_path = [((0,0),(0,0)),((0,0),(0,0))]
     
     def update(self):
-        print(f"BOUNCH LIMIT: {self.tank.bounch_limit}")
         self.frame_counter += 1
-        self.misc_updates()
         self.targeting()
+        
+        if self.movement == False:
+            return
+        
+        self.misc_updates()
         
         if self.behavior_state == BehaviorStates.DODGE:
             self.handle_dodge_state()
             return
+        
         # Behavior movement
         if self.can_dogde and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
@@ -565,8 +569,7 @@ class TankAI:
         elif self.behavior_state == BehaviorStates.WANDER:
             self.wander()
             
-        if self.frame_counter % 10 == 0:
-            self.ray_path = self.deflect_ray()
+
 
     # ======================= Behavior states =======================
     def idle(self):
@@ -725,21 +728,49 @@ class TankAI:
         pass
         
     def targeting(self):
-        # Hardcoded target
-        target_pos = self.targeted_unit.pos[0], self.targeted_unit.pos[1]
-        self.move_turret_to_target(target_pos, self.aiming_angle)
+        # Move turret
+        self.move_turret_to_target(self.targeted_unit.pos, self.aiming_angle)
         
-        # Check each segment of the ray path for proximity to target
+        if self.frame_counter % self.update_rate == 0:
+            self.ray_path = self.deflect_ray()
+                
+        self.can_shoot = True
+        
+        # First pass check for friendly fire and self harm
         for line_segment in self.ray_path:
             start, end = line_segment
             
-            # First check if target is between start and end points of this segment
-            if self.is_point_between_segment(start, end, target_pos):
-                # Then check perpendicular distance
-                dist = helper_functions.point_to_line_distance(start, end, target_pos)
-                if dist < self.shoot_threshold:
+            # 1. Check self-collision first (most important)
+            if self.can_shoot and self.is_point_within_segment_and_threshold(start, end, self.tank.pos, self.safe_threshold):
+                self.can_shoot = False
+                return
+                
+            # 2. Check for ally collisions (all units except target)
+            for unit in self.units:
+                if unit != self.targeted_unit and not unit.dead:
+                    if self.is_point_within_segment_and_threshold(start, end, unit.pos, self.safe_threshold):
+                        self.can_shoot = False
+                        return
+            
+        # Second pass check if valid target is in range
+        for line_segment in self.ray_path:
+            start, end = line_segment
+            # 3. Only shot target if it's safe to shoot
+            if self.can_shoot:
+                if self.is_point_within_segment_and_threshold(start, end, self.targeted_unit.pos, self.shoot_threshold):
                     self.tank.shoot(None)
-                    break  # Only need to hit once
+                    return
+
+
+    def is_point_within_segment_and_threshold(self, segment_start, segment_end, point, threshold):
+        """Check if point is between segment points and within shoot threshold"""
+        if not self.is_point_between_segment(segment_start, segment_end, point):
+            return False
+            
+        dist = helper_functions.point_to_line_distance(segment_start, segment_end, point)
+        return dist < threshold
+                
+
 
     def is_point_between_segment(self, segment_start, segment_end, point):
         """Check if point lies between the start and end points of a segment"""
@@ -774,8 +805,7 @@ class TankAI:
         # Direct distance updated every 10 frames
         if self.frame_counter % 10 == 0:
             self.dist_to_target_direct = helper_functions.distance(self.tank.pos, self.targeted_unit.pos)
-        
-        # CAN BE OPTIMIZED. TODO paths could be saved or threshold for when a new should be calculated could be made
+  
         # Path distance updated every 60 frames
         if self.frame_counter % 60 == 0:
             self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
@@ -859,8 +889,7 @@ class TankAI:
             (turret_direction[0] * 100 + self.tank.pos[0], turret_direction[1] * 100 + self.tank.pos[1])
         )
         
-        self.turret_direction = turret_direction
-        
+        self.turret_direction = turret_direction 
         
     def keep_distance_behavior(self):
         """Move to a location that keeps the tank within the min and max distance from the player.
@@ -967,8 +996,9 @@ class TankAI:
         
     def deflect_ray(self):        
         lines = []
-        current_point = self.tank.pos
         direction = self.turret_direction
+        offset_start = 30
+        current_point = (self.tank.pos[0] + direction[0] * offset_start, self.tank.pos[1] + direction[1] * offset_start)
         bounce_count = 0
         max_distance = 2000
         

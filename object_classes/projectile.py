@@ -17,11 +17,15 @@ class Projectile:
         self.bounce_count = 0
         self.bounce_limit = bounce_limit
         
+        self.spawn_timer = 60
+        
     def update(self):
         self.pos[0] += self.direction[0]*self.speed
         self.pos[1] += self.direction[1]*self.speed
         
         self.lifespan -= 1
+        if self.spawn_timer > 0:
+            self.spawn_timer -= 1
         
         if self.lifespan <= 0:
             self.alive = False
@@ -41,7 +45,7 @@ class Projectile:
     def draw(self, surface):
         #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
         line_start, line_end = self.get_line()
-        pg.draw.line(surface, "blue", (line_start[0], line_start[1]), (line_end[0], line_end[1]), 3)
+        pg.draw.line(surface, "blue", (line_start[0], line_start[1]), (line_end[0], line_end[1]), 6)
         
     def collision(self, line):
         """line should be a tuple of 2 coords"""

@@ -20,3 +20,6 @@ lav bool der gør at tank har change for at skyde efter punkt hvor fjerne sidst 
 
 Add:
 for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntimer, hvor den ikke kan bounce inden for timeren
+
+Add:
+Tank skal skyde mod skud?

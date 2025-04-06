@@ -31,6 +31,11 @@ class Tank:
         self.degrees = spawn_degress
         self.speed = speed  # Used to control speed so it wont be fps bound
         
+        self.is_moving = False  # True if moving: 1 = forward, -1 = backward
+        self.is_moving_dir = 0
+        self.is_moving_false_time_start = 5
+        self.is_moving_false_time = 0
+        
         # Projectile
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
         self.bounch_limit = bounch_limit
@@ -104,6 +109,10 @@ class Tank:
             dir = 1
         elif direction == "backward":
             dir = -1
+        
+        self.is_moving_false_time = self.is_moving_false_time_start
+        self.is_moving_dir = dir
+        self.is_moving = True
             
         # Move tank image
         self.pos[0] = self.pos[0] + dir * self.direction[0] * self.speed
@@ -127,7 +136,6 @@ class Tank:
         rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
         tank_rect = rotated_tank.get_rect(center=self.pos)
         surface.blit(rotated_tank, tank_rect.topleft)
-
 
         if self.dead:
             return
@@ -162,8 +170,12 @@ class Tank:
         if self.go_to_waypoint:
             self.move_to_node(self.current_node)
             
-
-    
+        if self.is_moving_false_time > 0:
+            self.is_moving_false_time -= 1
+        
+        if self.is_moving_false_time == 0: 
+            self.is_moving = False
+            
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
             return
@@ -467,9 +479,8 @@ class TankAI:
         # Controls how often we do a update
         self.frame_counter = 0
         
-        # Starting states
-        self.behavior_state = BehaviorStates.IDLE     # NEED TO BE IDLE NORMALLY
-        self.targeting_state = TargetingStates.SEARCHING
+        # Starting state
+        self.behavior_state = BehaviorStates.IDLE
         
         # No speed means tank will stay in idle state
         self.movement = self.tank.speed != 0
@@ -495,41 +506,38 @@ class TankAI:
         
         # Dodge
         self.can_dogde = True
-        self.closest_projectile = (None, 9999)
         self.dist_start_dodge = 45
-        self.dodge_nodes = []
-        self.dodge_cooldown = 0
         self.dodge_cooldown_val = 30
+        
+        self.dodge_cooldown = 0      
+        self.dodge_nodes = []
+        self.closest_projectile = (None, 9999)
         
         # Shooting
         self.angle_diff_deg = 9999 # The current angle between target and turret
         
         self.shooting_angle = 5     # Maximum angle to target before firing TODO
         self.rotation_speed = 1     # Degress pr frame
-        self.inaccuracy = 200         # 0 is perfect aim and higher values is worse
         
-        self.aiming_angle = 70      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 20      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
         self.perfect_aim = False        # Removes random turret wandering
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
-        self.advanced_targeting = True # Advanced targeting
+        self.advanced_targeting = True # Advanced targeting (True: line of fire check. False: Only distance check)
+        self.predictive_targeting = False # Try to lead the shots
         
-        self.shoot_threshold = 10   # Smaller value means more precise shots are taken
+        self.shoot_threshold = 100   # Smaller value means more precise shots are taken
         self.safe_threshold = 50    # Increase value to prevent hitting itself
-        
-        # Searching
-        
-        # Patrolling
         
         # Wander
         self.wander_radius = 200
         self.defend_time = 60 * 10
         self.timer = 0
         
-        # Test
+        # Misc
         self.current_target_angle = None  # Store the randomized target angle
         self.can_shoot = False
 
@@ -637,9 +645,6 @@ class TankAI:
             return
         
         
-            
-            #self.tank.find_waypoint(self.targeted_unit.pos)
-        
     def wander(self):
 
         self.find_path_within_coord(self.tank.pos, self.wander_radius)
@@ -722,14 +727,18 @@ class TankAI:
             self.behavior_state = BehaviorStates.DEFENDING
             return
     # ======================= Targeting states =======================
-    
-    def searching(self):
-        # Random movement scanning the surroundings
-        pass
         
     def targeting(self):
+        
+        if self.predictive_targeting and self.targeted_unit.is_moving:
+            target_pos = self.intercept_point()
+        else:
+            target_pos = self.targeted_unit.pos
+        
+        print(f"Target POS: {target_pos}")
+        
         # Move turret
-        self.move_turret_to_target(self.targeted_unit.pos, self.aiming_angle)
+        self.move_turret_to_target(target_pos, self.aiming_angle)
         
         if self.frame_counter % self.update_rate == 0:
             self.ray_path = self.deflect_ray()
@@ -757,11 +766,11 @@ class TankAI:
             start, end = line_segment
             # 3. Only shot target if it's safe to shoot
             if self.can_shoot:
-                if self.is_point_within_segment_and_threshold(start, end, self.targeted_unit.pos, self.shoot_threshold):
+                if self.is_point_within_segment_and_threshold(start, end, target_pos, self.shoot_threshold):
                     self.tank.shoot(None)
                     return
 
-
+    # ======================= Target filtering =====================
     def is_point_within_segment_and_threshold(self, segment_start, segment_end, point, threshold):
         """Check if point is between segment points and within shoot threshold"""
         if not self.is_point_between_segment(segment_start, segment_end, point):
@@ -769,8 +778,6 @@ class TankAI:
             
         dist = helper_functions.point_to_line_distance(segment_start, segment_end, point)
         return dist < threshold
-                
-
 
     def is_point_between_segment(self, segment_start, segment_end, point):
         """Check if point lies between the start and end points of a segment"""
@@ -827,7 +834,6 @@ class TankAI:
         else:
             self.unit_target_line_color = (144, 238, 144)
         
-    
     def find_path_within_coord(self, patrol_coord: tuple, patrol_radius: int):     
         if self.tank.go_to_waypoint:
             return  # If already moving, do nothing
@@ -853,7 +859,6 @@ class TankAI:
         # Convert turret rotation angle to a direction vector
         rads = np.radians(self.tank.turret_rotation_angle)
         turret_direction = (np.cos(rads), np.sin(rads)) 
-        
         
         # Compute the perfect target angle (without inaccuracy)
         perfect_target_angle = np.degrees(np.arctan2(target_direction_vector[1], target_direction_vector[0]))
@@ -923,7 +928,7 @@ class TankAI:
         
         self.possible_nodes = [x[0] for x in possible_nodes]
             
-    def hit_scan_check_proximity(self):     # Fejl ved coord1, coord2  se hvordan den gamle func klarede det
+    def hit_scan_check_proximity(self):
         # Check for intersections with obstacles
         coord1, coord2 = self.unit_target_line 
         
@@ -998,11 +1003,13 @@ class TankAI:
         lines = []
         direction = self.turret_direction
         offset_start = 30
-        current_point = (self.tank.pos[0] + direction[0] * offset_start, self.tank.pos[1] + direction[1] * offset_start)
+        
+        current_point = (self.tank.pos[0] + direction[0] * offset_start, 
+                         self.tank.pos[1] + direction[1] * offset_start)
         bounce_count = 0
         max_distance = 2000
         
-        while bounce_count <=  self.max_bounces:
+        while bounce_count <= self.max_bounces:
             # Calculate end point of this ray segment
             end_point = (
                 current_point[0] + direction[0] * max_distance,
@@ -1052,6 +1059,62 @@ class TankAI:
             bounce_count += 1
         
         return lines
+        
+        
+    def intercept_point(self):
+        # Calculate relative vector from shooter to target
+        rel_vec = (
+            self.targeted_unit.pos[0] - self.tank.pos[0],
+            self.targeted_unit.pos[1] - self.tank.pos[1]
+        )
+
+        # Target's movement speed
+        target_speed = self.targeted_unit.speed
+
+        # Projectile speed
+        proj_speed = self.tank.speed_projectile
+
+        # Direction modifier: 1 = forward, -1 = reverse
+        dir = self.targeted_unit.is_moving_dir
+
+        # Movement direction vector (multiplied by direction modifier)
+        d = (
+            self.targeted_unit.direction[0] * dir,
+            self.targeted_unit.direction[1] * dir
+        )
+
+        # Convert to NumPy array and normalize to unit vector
+        d = np.array(d)
+        d = d / np.linalg.norm(d)
+
+        # Coefficients for the quadratic equation: A*t² + B*t + C = 0
+        A = target_speed**2 - proj_speed**2
+        B = 2 * target_speed * np.dot(rel_vec, d)
+        C = np.dot(rel_vec, rel_vec)
+
+        # Discriminant of the quadratic
+        discriminant = B**2 - 4 * A * C
+
+        # If the discriminant is negative, no real solution: can't intercept
+        if discriminant < 0:
+            return self.targeted_unit.pos
+
+        # Solve the quadratic
+        sqrt_disc = np.sqrt(discriminant)
+        t1 = (-B + sqrt_disc) / (2 * A)
+        t2 = (-B - sqrt_disc) / (2 * A)
+
+        # Pick the smallest positive time (i.e., earliest future intercept)
+        t = min([t for t in [t1, t2] if t > 0], default=None)
+
+        # If there's no valid (positive) time, return target's current position
+        if t is None:
+            return self.targeted_unit.pos
+
+        # Calculate intercept point: target's position at time t
+        P = self.targeted_unit.pos + target_speed * d * t
+        return P
+
         
 class BehaviorStates:
     IDLE = "idle"

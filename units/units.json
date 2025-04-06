@@ -11,12 +11,12 @@
         "use_turret" : true
     },
     "tank2": {
-        "tank_speed_modifier": 0.4,
-        "projectile_speed_modifier": 3,
+        "tank_speed_modifier": 0,
+        "projectile_speed_modifier": 2.4,
         "firerate": 2,
-        "bounch_limit": 4,
+        "bounch_limit": 2,
         "bomb_limit" : 0,
-        "projectile_limit" : 5,
+        "projectile_limit" : 2,
         "ai_personality": "standard",
         "image_name" : "tank1",
         "use_turret" : true

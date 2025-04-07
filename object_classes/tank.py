@@ -516,10 +516,9 @@ class TankAI:
         # Shooting
         self.angle_diff_deg = 9999 # The current angle between target and turret
         
-        self.shooting_angle = 5     # Maximum angle to target before firing TODO
         self.rotation_speed = 1     # Degress pr frame
         
-        self.aiming_angle = 20      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 5      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
@@ -527,7 +526,12 @@ class TankAI:
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
         self.advanced_targeting = True # Advanced targeting (True: line of fire check. False: Only distance check)
-        self.predictive_targeting = False # Try to lead the shots
+        self.predictive_targeting = True # Try to lead the shots
+        self.predictive_targeting_chance = 50 # 0 - 100%
+        
+        self.shot_last_seen_postion = True
+        self.shot_last_seen_postion_chance = 100
+        self.last_seen_position = (0,0)
         
         self.shoot_threshold = 10   # Smaller value means more precise shots are taken
         self.safe_threshold = 50    # Increase value to prevent hitting itself
@@ -730,12 +734,19 @@ class TankAI:
         
     def targeting(self):
         
-        if self.predictive_targeting and self.targeted_unit.is_moving:
+        target_pos = self.targeted_unit.pos
+        
+        # Predictive targeting
+        chance = random.randint(0,100)
+        if self.predictive_targeting and self.targeted_unit.is_moving and chance < self.predictive_targeting_chance:
             target_pos = self.intercept_point()
         else:
-            target_pos = self.targeted_unit.pos
-        
-        print(f"Target POS: {target_pos}")
+            # Target last scene pos
+            if self.shot_last_seen_postion:
+                chance = random.randint(0,100)
+                if chance < self.shot_last_seen_postion_chance:
+                    target_pos = self.last_seen_position
+                
         
         # Move turret
         self.move_turret_to_target(target_pos, self.aiming_angle)
@@ -815,7 +826,10 @@ class TankAI:
   
         # Path distance updated every 60 frames
         if self.frame_counter % 60 == 0:
-            self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
+            try:
+                self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
+            except:
+                print("Tank blocked in")
             
             self.hit_scan_check_proximity()  
         
@@ -826,6 +840,10 @@ class TankAI:
             
         if self.dodge_cooldown > 0:
             self.dodge_cooldown -= 1
+        
+        # Save position of tank while in sight
+        if self.target_in_sight:
+            self.last_seen_position = self.targeted_unit.pos
             
             
         # BLOT TEST:

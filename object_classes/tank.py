@@ -529,7 +529,7 @@ class TankAI:
         self.advanced_targeting = True # Advanced targeting (True: line of fire check. False: Only distance check)
         self.predictive_targeting = False # Try to lead the shots
         
-        self.shoot_threshold = 100   # Smaller value means more precise shots are taken
+        self.shoot_threshold = 10   # Smaller value means more precise shots are taken
         self.safe_threshold = 50    # Increase value to prevent hitting itself
         
         # Wander

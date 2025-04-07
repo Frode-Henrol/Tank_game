@@ -529,10 +529,6 @@ class TankAI:
         self.predictive_targeting = True # Try to lead the shots
         self.predictive_targeting_chance = 50 # 0 - 100%
         
-        self.shot_last_seen_postion = True
-        self.shot_last_seen_postion_chance = 100
-        self.last_seen_position = (0,0)
-        
         self.shoot_threshold = 10   # Smaller value means more precise shots are taken
         self.safe_threshold = 50    # Increase value to prevent hitting itself
         
@@ -734,18 +730,14 @@ class TankAI:
         
     def targeting(self):
         
-        target_pos = self.targeted_unit.pos
+
         
         # Predictive targeting
         chance = random.randint(0,100)
         if self.predictive_targeting and self.targeted_unit.is_moving and chance < self.predictive_targeting_chance:
             target_pos = self.intercept_point()
         else:
-            # Target last scene pos
-            if self.shot_last_seen_postion:
-                chance = random.randint(0,100)
-                if chance < self.shot_last_seen_postion_chance:
-                    target_pos = self.last_seen_position
+            target_pos = self.targeted_unit.pos
                 
         
         # Move turret
@@ -840,10 +832,6 @@ class TankAI:
             
         if self.dodge_cooldown > 0:
             self.dodge_cooldown -= 1
-        
-        # Save position of tank while in sight
-        if self.target_in_sight:
-            self.last_seen_position = self.targeted_unit.pos
             
             
         # BLOT TEST:

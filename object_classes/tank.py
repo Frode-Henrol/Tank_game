@@ -518,7 +518,7 @@ class TankAI:
         
         self.rotation_speed = 1     # Degress pr frame
         
-        self.aiming_angle = 45      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 90      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         

@@ -36,7 +36,7 @@
         "tank_speed_modifier": 0.6,
         "projectile_speed_modifier": 2.5,
         "firerate": 1,
-        "bounch_limit": 3,
+        "bounch_limit": 1,
         "bomb_limit" : 0,
         "projectile_limit" : 10,
         "ai_personality": "standard",

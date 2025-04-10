@@ -2,6 +2,7 @@ import pygame as pg
 import utils.deflect as df
 from object_classes.projectile import Projectile
 from object_classes.obstacle import Obstacle
+from object_classes.mine import Mine
 import utils.helper_functions as helper_functions
 import numpy as np
 import random
@@ -17,7 +18,7 @@ class Tank:
                  speed_projectile: float,
                  spawn_degress: int,
                  bounch_limit: int, 
-                 bomb_limit: int,
+                 mine_limit: int,
                  projectile_limit: int,
                  images, 
                  death_image,
@@ -40,8 +41,9 @@ class Tank:
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
         self.bounch_limit = bounch_limit
         
-        # Bombs (not implemented)
-        self.bomb_limit = bomb_limit
+        # Mines
+        self.mine_limit = mine_limit
+        self.mine_list = []
 
         self.current_speed = [0,0]
         self.firerate = firerate
@@ -299,6 +301,10 @@ class Tank:
         projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile, bounce_limit=self.bounch_limit)
         self.projectiles.append(projectile)                                                                      
         print(self.direction)
+
+    def lay_mine(self):
+        
+        self.mine_list.append(Mine(self.pos,explode_radius=100))
 
     def __str__(self):
         return f"Pos: {self.pos} ai: {self.ai_type}"

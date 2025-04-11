@@ -11,6 +11,8 @@ from scipy.spatial import KDTree
 import heapq
 
 class Tank:
+    _id_counter = 0 
+    
     def __init__(self, 
                  startpos: tuple,
                  speed: float,
@@ -19,6 +21,7 @@ class Tank:
                  spawn_degress: int,
                  bounch_limit: int, 
                  mine_limit: int,
+                 global_mine_list: list[Mine],
                  projectile_limit: int,
                  images, 
                  death_image,
@@ -31,6 +34,7 @@ class Tank:
         self.direction = (0,0)  # Skal rettes
         self.degrees = spawn_degress
         self.speed = speed  # Used to control speed so it wont be fps bound
+        self.speed_original = speed
         
         self.is_moving = False  # True if moving: 1 = forward, -1 = backward
         self.is_moving_dir = 0
@@ -43,12 +47,19 @@ class Tank:
         
         # Mines
         self.mine_limit = mine_limit
-        self.mine_list = []
+        self.mine_cooldown_amount = 60 * 2
+        self.mine_cooldown = 0
+        self.global_mine_list = global_mine_list
 
         self.current_speed = [0,0]
         self.firerate = firerate
         self.cannon_cooldown = 0
         self.projectile_limit = projectile_limit
+        
+        # Slowdown effect when shooting
+        self.shot_slowness_cooldown_amount = 6  # Duration in frames of the slowdown
+        self.shot_slowness_cooldown = 0
+        self.slowdown_amount = 0.1      # Procentage of the original speed to keep when slowed
         
         # Hitbox
         self.init_hitbox(spawn_degress)    # Init the hitbox in the correct orientation
@@ -79,6 +90,10 @@ class Tank:
         self.go_to_waypoint = False     # Bool to control if tanks should follow waypoint queue
         self.waypoint_queue = []    # Tank starts with empty waypoint queue
 
+        # Tank id
+        self.id = Tank._id_counter
+        Tank._id_counter += 1  # increment for next tank
+        
         # AI
         # TEST DIC
         self.ai_type = ai_type  
@@ -147,6 +162,13 @@ class Tank:
             target_coord = pg.mouse.get_pos()
             self.turret_rotation_angle = helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1])
             
+        # Control shooting slowness effect
+        if self.shot_slowness_cooldown > 0:
+            self.shot_slowness_cooldown -= 1
+            self.speed = self.speed_original * self.slowdown_amount  # Slowdown amount
+        else: 
+            self.speed = self.speed_original
+        
         # Rotate turret image independently
         rotated_turret = pg.transform.rotate(self.turret_image, -1 * self.turret_rotation_angle - 90)
 
@@ -160,6 +182,9 @@ class Tank:
         # Decrease cooldown each new draw
         if self.cannon_cooldown > 0:
             self.cannon_cooldown -= 1
+        
+        if self.mine_cooldown > 0:
+            self.mine_cooldown -= 1
         
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
@@ -279,6 +304,8 @@ class Tank:
         # At the moment the distance is hard coded, IT must be bigger than hit box or tank will shot itself.
         spawn_distance_from_middle = 30
         
+        self.shot_slowness_cooldown = self.shot_slowness_cooldown_amount
+        
         if self.use_turret:
             if self.ai == None:
                 # Find the unit vector between mouse and tank. This is the projectile unit direction vector
@@ -303,8 +330,9 @@ class Tank:
         print(self.direction)
 
     def lay_mine(self):
-        
-        self.mine_list.append(Mine(self.pos,explode_radius=100))
+        if self.mine_cooldown == 0:
+            self.mine_cooldown = self.mine_cooldown_amount
+            self.global_mine_list.append(Mine(spawn_point=self.pos, explode_radius=100, owner_id=self.id))
 
     def __str__(self):
         return f"Pos: {self.pos} ai: {self.ai_type}"

@@ -9,6 +9,7 @@ from object_classes.projectile import Projectile
 from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
 from object_classes.button import Button 
+from object_classes.mine import Mine 
 import json
 import pathfinding
 from scipy.spatial import KDTree
@@ -34,6 +35,7 @@ class TankGame:
         
         self.projectiles: list[Projectile] = []
         self.obstacles: list[Obstacle] = []
+        self.mines: list[Mine] = []
         
         # Projectile collision distance
         self.projectile_collision_dist = 10
@@ -56,7 +58,7 @@ class TankGame:
         self.godmode = True    # Not used in tankgame class ATM
         self.show_pathfinding_nodes = False
         self.show_pathfinding_paths = False
-        self.show_ai_debug = True
+        self.show_ai_debug = False
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -204,9 +206,10 @@ class TankGame:
                                         speed_projectile   = temp_speed * specific_unit_data["projectile_speed_modifier"],
                                         spawn_degress      = unit_angle,
                                         bounch_limit       = specific_unit_data["bounch_limit"] + 1,
-                                        bomb_limit         = specific_unit_data["bomb_limit"],
+                                        mine_limit         = specific_unit_data["mine_limit"],
+                                        global_mine_list   = self.mines,
                                         projectile_limit   = specific_unit_data["projectile_limit"],
-                                        images              = self.tank_images,
+                                        images             = self.tank_images,
                                         death_image        = self.tank_death_img,
                                         use_turret         = True, 
                                         ai_type            = ai_type)
@@ -320,8 +323,10 @@ class TankGame:
                 self.units_player_controlled[0].move("forward")
             if keys[pg.K_s]:
                 self.units_player_controlled[0].move("backward")
-            if keys[pg.K_SPACE] or mouse_buttons[0]:
+            if mouse_buttons[0]:
                 self.units_player_controlled[0].shoot(mouse_pos)
+            if keys[pg.K_SPACE]:
+                self.units_player_controlled[0].lay_mine()
                 
             if keys[pg.K_p]:
                 print(f"{self.show_pathfinding_paths=}")
@@ -458,149 +463,16 @@ class TankGame:
                 # Mutual influence on movement
                 unit.add_direction_vector(other_unit.get_direction_vector())
                 other_unit.add_direction_vector(unit.get_direction_vector())  # Ensure symmetry
-
+            
+            # Mine logic
+            for mine in self.mines:
+                mine.get_unit_list(self.units)
+                mine.check_for_tank(unit)
+                
+                if mine.is_exploded:
+                    self.mines.remove(mine)
+            
         self.projectiles = [proj for proj in temp_projectiles if proj.alive]
-            
-    def update2(self):
-        # Temp list is created and all units projectiles are added to a single list
-        temp_projectiles = []
-        for unit in self.units:
-            temp_projectiles.extend(unit.get_projectile_list())
-
-        # Update projectiles and handle collisions
-        for unit in self.units:
-            to_remove = set()  # Store indices of projectiles to remove
-            for i, proj in enumerate(unit.get_projectile_list()):
-                for obstacle in self.obstacles:
-                    for corner_pair in obstacle.get_corner_pairs():
-                        proj.collision(corner_pair)
-
-                # Check projectile collision with other units
-                projectile_line = proj.get_line()
-                for other_unit in self.units:
-                    if other_unit.get_death_status():
-                        continue  # Ignore dead units
-
-                    if other_unit.collision(projectile_line, collision_type="projectile"):
-                        to_remove.add(i)  # Mark for removal
-
-                proj.update()
-
-            # Remove marked projectiles (in reverse order)
-            for index in sorted(to_remove, reverse=True):
-                if index < len(unit.projectiles):  
-                    del unit.projectiles[index]
-
-        # Remove projectiles that are too close to each other
-        projectile_remove_set = set()
-        for i, proj1 in enumerate(temp_projectiles):
-            for j, proj2 in enumerate(temp_projectiles):
-                if i >= j:  # Avoid duplicate checks
-                    continue
-                x1, y1 = proj1.get_pos()
-                x2, y2 = proj2.get_pos()
-                dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                if dist < self.projectile_collision_dist:  # Threshold for collision
-                    projectile_remove_set.add(proj1)
-                    projectile_remove_set.add(proj2)
-                    
-
-        # Keep only projectiles not marked for removal
-        for proj in projectile_remove_set:
-            proj.alive = False
-
-        # Check unit/surface collisions
-        for unit in self.units:
-            
-            # Send new projectile info to ai's 
-            if unit.ai != None:
-                unit.ai.projectiles = self.projectiles
-            
-            for obstacle in self.obstacles:
-                for corner_pair in obstacle.get_corner_pairs():
-                    unit.collision(corner_pair, collision_type="surface")
-
-            # Check for unit-unit collision 
-            for other_unit in self.units:
-                if unit == other_unit or other_unit.get_death_status():
-                    continue  # Skip self and dead units
-
-                if not self.are_tanks_close(unit, other_unit):
-                    continue  # Skip if tanks aren't close
-                
-                # skip collision check with dead tanks
-                if other_unit.dead or unit.dead:
-                    continue
-                
-                for other_corner_pair in other_unit.get_hitbox_corner_pairs():
-                    unit.collision(other_corner_pair, collision_type="surface")
-
-                # Mutual influence on movement
-                unit.add_direction_vector(other_unit.get_direction_vector())
-                other_unit.add_direction_vector(unit.get_direction_vector())  # Added this for symmetry
-
-        self.projectiles = temp_projectiles
-        
-        
-       
-    def updateold_UNUSED(self):
-        
-        # Temp list is created and all units projectiles are added to a single list
-        temp_projectiles= []
-        for unit in self.units:
-            # Add projectiles from this unit to the list
-            temp_projectiles.extend(unit.get_projectile_list())
-            
-        # The temp list is all active projetiles
-        self.projectiles = temp_projectiles
-        
-        #Update game state: projectiles, units, and collisions.
-        # Update all projectiles from all tanks
-        for unit in self.units:
-            for i, proj in enumerate(unit.get_projectile_list()):
-                for obstacle in self.obstacles:
-                    for corner_pair in obstacle.get_corner_pairs():
-                        proj.collision(corner_pair)
-                
-                # For each projectile from unit, we check if it hits any other_unit and remove it if it hits
-                projectile_line = proj.get_line()
-                for other_unit in self.units:
-                    
-                    # Make sure to skip dead units (makes projectiles pass through dead tanks)
-                    if other_unit.get_death_status():
-                        continue
-                    if other_unit.collision(projectile_line, collision_type="projectile"):
-                        if unit.projectiles:
-                            unit.projectiles.pop(i)
-                    
-                proj.update()
-
-        # Remove dead projectiles
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-
-        # Check unit/surface collisions
-        for unit in self.units:
-            for obstacle in self.obstacles:
-                for corner_pair in obstacle.get_corner_pairs():
-                    unit.collision(corner_pair, collision_type="surface")
-            
-            # Check for unit unit collision 
-            for other_unit in self.units:
-                if other_unit == unit:
-                    continue
-                if not self.are_tanks_close(unit, other_unit):
-                    continue
-                if other_unit.get_death_status():
-                    continue
-                
-                #front_cornerpairs = other_unit.get_hitbox_corner_pairs()[1:2][0] - front
-                for other_corner_pair in other_unit.get_hitbox_corner_pairs():
-                    unit.collision(other_corner_pair, collision_type="surface")
-                    
-                    other_unit.add_direction_vector(unit.get_direction_vector())
-                # SKAL RETTES
-                # Next add so that you direction vector gets added to theirs
-                
             
             
     def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=50) -> bool:
@@ -621,6 +493,9 @@ class TankGame:
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
 
+        for mine in self.mines:
+            mine.draw(self.screen)
+        
         # Temp way of drawning dead units first: for the future make a list with dead and alive units
         for unit in self.units:
             if unit.dead:

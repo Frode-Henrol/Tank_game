@@ -341,6 +341,7 @@ class TankGame:
                 self.units_player_controlled.clear()
                 self.units.clear()
                 self.obstacles.clear()
+                self.mines.clear()
                 self.init_game_objects()
 
                     
@@ -464,13 +465,14 @@ class TankGame:
                 unit.add_direction_vector(other_unit.get_direction_vector())
                 other_unit.add_direction_vector(unit.get_direction_vector())  # Ensure symmetry
             
-            # Mine logic
-            for mine in self.mines:
-                mine.get_unit_list(self.units)
-                mine.check_for_tank(unit)
-                
-                if mine.is_exploded:
-                    self.mines.remove(mine)
+            if not unit.dead:
+                # Mine logic
+                for mine in self.mines:          
+                    if mine.is_exploded:
+                        self.mines.remove(mine)
+                    mine.get_unit_list(self.units)
+                    mine.check_for_tank(unit)
+
             
         self.projectiles = [proj for proj in temp_projectiles if proj.alive]
             
@@ -493,13 +495,16 @@ class TankGame:
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
 
-        for mine in self.mines:
-            mine.draw(self.screen)
-        
+
         # Temp way of drawning dead units first: for the future make a list with dead and alive units
         for unit in self.units:
             if unit.dead:
                 unit.draw(self.screen)
+                
+        # Drawing mines
+        for mine in self.mines:
+            mine.draw(self.screen)
+        
 
         for unit in self.units:
             if unit.dead:

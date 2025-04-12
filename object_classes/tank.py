@@ -98,6 +98,7 @@ class Tank:
         # AI
         # TEST DIC
         self.ai_type = ai_type  
+        self.pos_dir = (0,0)
         
         self.units = []
         
@@ -440,56 +441,68 @@ class Tank:
         # Find path
         return pathfinding.find_path(self.grid_dict, tank_pos_grid, destination_coord_grid)
     
-    
     def move_to_node(self, node_coord: tuple[int, int]):
-        """Controls the tanks toward the next node in the waypoint."""
-        rotate_amount = 5  # base rotation speed
-        max_rotation_speed = 15  # max rotation speed when far from target
-        
-        # -------------------------------------- Computing angle difference --------------------------------------
-        # Compute vector to the target
+        """Controls the tank's movement toward the next node in the waypoint."""
+
+        # ---------- Vector to Target ----------
         to_target = (node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
+        to_target_mag = np.hypot(to_target[0], to_target[1])
 
-        # Normalize the target direction vector
-        to_target_mag = np.hypot(to_target[0], to_target[1])  # Compute magnitude
-        to_target_unit = (to_target[0] / to_target_mag, to_target[1] / to_target_mag)  # Normalize
+        if to_target_mag == 0:
+            return  # Already at the target
 
-        # Compute dot product
-        dot = self.direction[0] * to_target_unit[0] + self.direction[1] * to_target_unit[1]
+        to_target_unit = (to_target[0] / to_target_mag, to_target[1] / to_target_mag)
 
-        # Clamp dot product to valid range for acos (to prevent errors)
+        # ---------- Forward or Reverse Logic ----------
+        # Determine if it's shorter to reverse
+        dot_forward = self.direction[0] * to_target_unit[0] + self.direction[1] * to_target_unit[1]
+        dot_forward = np.clip(dot_forward, -1.0, 1.0)
+
+        angle_diff_deg = np.degrees(np.arccos(dot_forward))
+
+        if angle_diff_deg > 90:
+            use_reverse = True
+            effective_direction = (-self.direction[0], -self.direction[1])
+        else:
+            use_reverse = False
+            effective_direction = self.direction
+
+        # ---------- Recalculate with Effective Direction ----------
+        dot = effective_direction[0] * to_target_unit[0] + effective_direction[1] * to_target_unit[1]
         dot = np.clip(dot, -1.0, 1.0)
+        angle_diff_deg = np.degrees(np.arccos(dot))
 
-        # Compute angle difference (in radians)
-        angle_diff = np.arccos(dot)
+        # ---------- Distance & Rotation ----------
+        distance_to_node = to_target_mag
+        pos_dir = (self.pos[0] + effective_direction[0], self.pos[1] + effective_direction[1])
 
-        # Convert to degrees
-        angle_diff_deg = np.degrees(angle_diff)
+        TURN_THRESHOLD_MIN = 5      # Degrees before we skip rotating
+        TURN_THRESHOLD_MAX = 45     # Degrees above which we rotate without moving
+        DISTANCE_THRESHOLD = 50     # Distance in pixels before node is considered reached
 
-        # -------------------------------------- Controlling of tank to a node --------------------------------------
-        # Make a second point to form the direction line from the tank
-        pos_dir = (self.pos[0] + self.direction[0], self.pos[1] + self.direction[1])
-
-        TURN_THRESHOLD_MIN = 5  # Stop rotating under this value
-        TURN_THRESHOLD_MAX = 45  # Stop moving forward over this value
-        DISTANCE_THRESHOLD = 50  # Stop moving when within this distance to node
-
-        # Distance to node
-        distance_to_node = np.hypot(node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
+        # Rotation speed scaling
+        rotate_amount = 5
+        max_rotation_speed = 15
+        min_rotation_speed = 0.01
+        rotation_speed = min(max_rotation_speed, rotate_amount * (angle_diff_deg / 90))
+        rotation_speed = max(rotation_speed, min_rotation_speed)
 
         if distance_to_node > DISTANCE_THRESHOLD:
+            # Rotate if needed
             if angle_diff_deg > TURN_THRESHOLD_MIN:
-                # Calculate rotation speed based on angle difference (larger angle -> faster rotation)
-                rotation_speed = min(max_rotation_speed, rotate_amount * (angle_diff_deg / 90))  # Scale rotation speed
-
                 if helper_functions.left_turn(self.pos, pos_dir, node_coord):
-                    self.rotate(rotation_speed)  # Rotate left with adjusted speed
+                    self.rotate(rotation_speed)
                 else:
-                    self.rotate(-rotation_speed)  # Rotate right with adjusted speed
+                    self.rotate(-rotation_speed)
 
-            if TURN_THRESHOLD_MAX > angle_diff_deg:
-                self.move("forward")  # Move forward when angle difference is small enough
+            # Move only if we're reasonably aligned
+            if angle_diff_deg < TURN_THRESHOLD_MAX:
+                if use_reverse:
+                    self.move("backward")
+                else:
+                    self.move("forward")
         else:
+            # Move to next node or end
             if self.waypoint_queue:
                 self.next_node()
                 print("Node finished.")
@@ -497,7 +510,7 @@ class Tank:
                 print("Waypoint queue finished")
                 self.go_to_waypoint = False
 
-    
+
     def next_node(self):
         # Gets the next node in the waypoint queue and removes it and stores it in seperate variable
         self.current_node = self.waypoint_queue.pop()
@@ -585,7 +598,7 @@ class TankAI:
         
         self.rotation_speed = 1     # Degress pr frame
         
-        self.aiming_angle = 90      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 2      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
@@ -593,11 +606,14 @@ class TankAI:
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
         self.advanced_targeting = True # Advanced targeting (True: line of fire check. False: Only distance check)
-        self.predictive_targeting = True # Try to lead the shots
-        self.predictive_targeting_chance = 50 # 0 - 100%
+        self.predictive_targeting = True # Try to lead the shots for units
+        self.predictive_targeting_chance = 50 # 0 - 100%    
         
-        self.shoot_threshold = 10   # Smaller value means more precise shots are taken
-        self.safe_threshold = 50    # Increase value to prevent hitting itself
+        self.shoot_threshold = 10   # Smaller value means more precise shots are taken.  
+        self.safe_threshold = 50    # Increase value to prevent hitting itself.  
+        
+        self.shoot_enemy_projectiles = True
+        self.shoot_enemy_projectiles_range = 100
         
         # Wander
         self.wander_radius = 200
@@ -805,15 +821,17 @@ class TankAI:
         
     def targeting(self):
         
-
-        
-        # Predictive targeting
-        chance = random.randint(0,100)
-        if self.predictive_targeting and self.targeted_unit.is_moving and chance < self.predictive_targeting_chance:
-            target_pos = self.intercept_point()
+        # Predictive targeting projectiles
+        if self.closest_projectile[1] != None and self.closest_projectile[1] < self.shoot_enemy_projectiles_range:
+            target_pos = self.intercept_point(target_object=self.closest_projectile[0], projectile=True)
         else:
-            target_pos = self.targeted_unit.pos
-                
+            # Predictive targeting unit
+            chance = random.randint(0,100)
+            if self.predictive_targeting and self.targeted_unit.is_moving and chance < self.predictive_targeting_chance:
+                target_pos = self.intercept_point(target_object=self.targeted_unit)
+            else:
+                target_pos = self.targeted_unit.pos
+                  
         
         # Move turret
         self.move_turret_to_target(target_pos, self.aiming_angle)
@@ -1001,7 +1019,7 @@ class TankAI:
 
         # If there are valid choices, move to the best one. The node that is closest to the tanks current position
         # This prevents the tank chosing node behind the enemy.
-        amount_nodes = 20  # How many nodes should be randomly chosen (permanent 1?)
+        amount_nodes = 20  # How many nodes should be randomly chosen
         possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
 
         if possible_nodes:
@@ -1196,26 +1214,30 @@ class TankAI:
         
         return lines
             
-    def intercept_point(self):
+    def intercept_point(self, target_object, projectile = False):
+        """Finds predictive coord for the unit and some target (other unit or projectile)"""
         # Calculate relative vector from shooter to target
         rel_vec = (
-            self.targeted_unit.pos[0] - self.tank.pos[0],
-            self.targeted_unit.pos[1] - self.tank.pos[1]
+            target_object.pos[0] - self.tank.pos[0],
+            target_object.pos[1] - self.tank.pos[1]
         )
 
         # Target's movement speed
-        target_speed = self.targeted_unit.speed
+        target_speed = target_object.speed
 
         # Projectile speed
         proj_speed = self.tank.speed_projectile
 
-        # Direction modifier: 1 = forward, -1 = reverse
-        dir = self.targeted_unit.is_moving_dir
+        if not projectile:
+            # Direction modifier: 1 = forward, -1 = reverse
+            dir = target_object.is_moving_dir
+        else:
+            dir = 1
 
         # Movement direction vector (multiplied by direction modifier)
         d = (
-            self.targeted_unit.direction[0] * dir,
-            self.targeted_unit.direction[1] * dir
+            target_object.direction[0] * dir,
+            target_object.direction[1] * dir
         )
 
         # Convert to NumPy array and normalize to unit vector
@@ -1232,7 +1254,7 @@ class TankAI:
 
         # If the discriminant is negative, no real solution: can't intercept
         if discriminant < 0:
-            return self.targeted_unit.pos
+            return target_object.pos
 
         # Solve the quadratic
         sqrt_disc = np.sqrt(discriminant)
@@ -1244,11 +1266,12 @@ class TankAI:
 
         # If there's no valid (positive) time, return target's current position
         if t is None:
-            return self.targeted_unit.pos
+            return target_object.pos
 
         # Calculate intercept point: target's position at time t
-        P = self.targeted_unit.pos + target_speed * d * t
+        P = target_object.pos + target_speed * d * t
         return P
+
 
         
 class BehaviorStates:

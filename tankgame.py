@@ -583,13 +583,7 @@ class TankGame:
                         color = "red"
                     
                     for line in unit.ai.ray_path:
-                        
                         pg.draw.line(self.screen, color, line[0], line[1], 3)
-                    
-                    # for data in unit.ai.debug_line:
-                    #     line = data[0]
-                    #     color = data[1]
-                    #     pg.draw.line(self.screen, color, line[0], line[1], 3)
             
         
         self.render_debug_info()

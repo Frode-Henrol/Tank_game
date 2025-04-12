@@ -47,9 +47,10 @@ class Tank:
         
         # Mines
         self.mine_limit = mine_limit
-        self.mine_cooldown_amount = 60 * 2
+        self.mine_cooldown_amount = 60 
         self.mine_cooldown = 0
         self.global_mine_list = global_mine_list
+        self.unit_mine_list = []
 
         self.current_speed = [0,0]
         self.firerate = firerate
@@ -330,9 +331,21 @@ class Tank:
         print(self.direction)
 
     def lay_mine(self):
-        if self.mine_cooldown == 0:
+        
+        # Remove exploded mines
+        temp_mine = []
+        for mine in self.unit_mine_list:
+            if not mine.is_exploded:
+                temp_mine.append(mine)
+        self.unit_mine_list = temp_mine
+        
+        if self.mine_cooldown == 0 and len(self.unit_mine_list) < self.mine_limit:
+            mine = Mine(spawn_point=self.pos, explode_radius=100, owner_id=self.id)
+            
             self.mine_cooldown = self.mine_cooldown_amount
-            self.global_mine_list.append(Mine(spawn_point=self.pos, explode_radius=100, owner_id=self.id))
+            
+            self.unit_mine_list.append(mine)
+            self.global_mine_list.append(mine)
 
     def __str__(self):
         return f"Pos: {self.pos} ai: {self.ai_type}"
@@ -352,21 +365,30 @@ class Tank:
     def get_ai(self):
         print(f"AI type: {self.ai_type}")
         return self.ai_type
-    
-    def add_direction_vector(self, vec_dir):
-        # SKAL RETTES - meget logic burde kunne overføres til move method
-        x1, y1 = vec_dir
-        x2, y2 = self.pos 
-        self.pos = list((x1+x2, y1+y2))
         
-        # Move hit box:
+    def apply_repulsion(self, other_unit, push_strength=1.0):
+        """Pushes colliding tanks in correct direction"""
+        
+        # Vector from other_unit to this tank
+        dx = self.pos[0] - other_unit.pos[0]
+        dy = self.pos[1] - other_unit.pos[1]
+        dist_sq = dx ** 2 + dy ** 2
+
+        if dist_sq == 0:
+            return  # Avoid division by zero
+
+        dist = dist_sq ** 0.5
+        repulsion_vector = (dx / dist * push_strength, dy / dist * push_strength)
+
+        # Move this tank slightly away
+        self.pos[0] += repulsion_vector[0]
+        self.pos[1] += repulsion_vector[1]
+
+        # Also move hitbox accordingly
         for i in range(len(self.hitbox)):
-            x, y = self.hitbox[i]  # Unpack the point
-            
-            moved_x = x + x1
-            moved_y = y + y1
-            self.hitbox[i] = (moved_x, moved_y)
-        
+            x, y = self.hitbox[i]
+            self.hitbox[i] = (x + repulsion_vector[0], y + repulsion_vector[1])
+
     def get_death_status(self):
         return self.dead
 
@@ -694,8 +716,7 @@ class TankAI:
         if self.tank.go_to_waypoint == False:
             self.find_path_within_coord(self.targeted_unit.pos, 100)
             return
-        
-        
+               
     def wander(self):
 
         self.find_path_within_coord(self.tank.pos, self.wander_radius)

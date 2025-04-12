@@ -463,13 +463,10 @@ class TankGame:
                 # Skip collision check with dead tanks
                 if other_unit.dead or unit.dead:
                     continue
-
-                for other_corner_pair in other_unit.get_hitbox_corner_pairs():
-                    unit.collision(other_corner_pair, collision_type="surface")
-
-                # Mutual influence on movement
-                unit.add_direction_vector(other_unit.get_direction_vector())
-                other_unit.add_direction_vector(unit.get_direction_vector())  # Ensure symmetry
+                
+                # Push tanks when colliding
+                unit.apply_repulsion(other_unit, push_strength=0.5)
+                other_unit.apply_repulsion(unit, push_strength=0.5)  # Ensure symmetry
             
             if not unit.dead:
                 # Mine logic
@@ -483,14 +480,14 @@ class TankGame:
         self.projectiles = [proj for proj in temp_projectiles if proj.alive]
             
             
-    def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=50) -> bool:
+    def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=40) -> bool:
         """Proximity check: if tanks' centers are close enough based on their radius."""
         # Get the center coordinates of both tanks
-        x1, y1 = tank1.get_pos()  # Assuming get_pos() returns the center (x, y)
-        x2, y2 = tank2.get_pos()
+        pos1 = tank1.get_pos()  # Assuming get_pos() returns the center (x, y)
+        pos2 = tank2.get_pos()
 
         # Calculate the distance between the two centers
-        distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        distance = helper_functions.distance(pos1, pos2)
 
         # Check if the distance is less than or equal to the threshold (radius)
         return distance <= threshold  

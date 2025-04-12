@@ -100,8 +100,8 @@ class Tank:
         
         self.units = []
         
-    def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile]):
-        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles) if self.ai_type != "player" else None
+    def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine]):
+        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines) if self.ai_type != "player" else None
     
     def set_units(self, units):
         self.units = units
@@ -488,7 +488,14 @@ class Tank:
         
 
 class TankAI:
-    def __init__(self, tank: Tank, personality, valid_nodes: list[tuple], units: list[Tank], obstacles: list[Obstacle], projectiles: list[Projectile]):
+    def __init__(self, 
+                 tank: Tank, 
+                 personality, 
+                 valid_nodes: list[tuple], 
+                 units: list[Tank], 
+                 obstacles: list[Obstacle], 
+                 projectiles: list[Projectile],
+                 mines: list[Mine]):
         
         # Generel tank information
         self.tank = tank                # The tank instance this AI controls
@@ -506,6 +513,7 @@ class TankAI:
         self.units.remove(self.tank)    # Remove itself from the units list
         self.obstacles = obstacles      # All obstacles
         self.projectiles = projectiles  # All projectiles
+        self.mines = mines              # All mines
         
         # Tank that is under targeting
         self.targeted_unit = None
@@ -574,6 +582,9 @@ class TankAI:
         # Misc
         self.current_target_angle = None  # Store the randomized target angle
         self.can_shoot = False
+        
+        # Mine
+        self.closest_mine = (None, 0)
 
         # Ray predict data
         self.update_rate = 1
@@ -593,12 +604,18 @@ class TankAI:
             self.handle_dodge_state()
             return
         
-        # Behavior movement
+        # Avoid projectiles
         if self.can_dogde and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
             self.dodge()
             self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
             return
+        
+        # Avoid mines
+        if self.can_dogde and self.mines and self.closest_mine[0] != None and self.dodge_cooldown == 0:
+            if self.closest_mine[1] < self.closest_mine[0].explode_radius:
+                self.avoid_mine()
+                self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
     
         if self.behavior_state == BehaviorStates.IDLE:
             self.idle()
@@ -863,10 +880,10 @@ class TankAI:
             self.timer -= 1  
         
         self.find_closest_projectile()
+        self.find_closest_mine()
             
         if self.dodge_cooldown > 0:
             self.dodge_cooldown -= 1
-            
             
         # BLOT TEST:
         if not self.target_in_sight:
@@ -958,7 +975,8 @@ class TankAI:
             if self.min_dist_node < dist_node_target < self.max_dist_node:
                 possible_nodes.append((node, dist_node_target, dist_node_unit))
 
-        # If there are valid choices, move to the best one
+        # If there are valid choices, move to the best one. The node that is closest to the tanks current position
+        # This prevents the tank chosing node behind the enemy.
         amount_nodes = 20  # How many nodes should be randomly chosen (permanent 1?)
         possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
 
@@ -967,7 +985,62 @@ class TankAI:
             self.tank.find_waypoint(chosen_node[0])
         
         self.possible_nodes = [x[0] for x in possible_nodes]
+
+
+    def find_closest_mine(self):
+        if not self.mines:
+            self.closest_mine = None
+            return
             
+        mines_data = []
+        for mine in self.mines:
+            mine_dist = helper_functions.distance(self.tank.pos, mine.pos)
+            mines_data.append((mine, mine_dist))
+        
+        self.closest_mine = min(mines_data, key=lambda x: x[1])
+        print(f"Closest mine {self.closest_mine[1]}")
+
+    def avoid_mine(self):
+        # Return if unit is not within mine explosion distance.
+        # Also create list of all mines and there distance to unit
+        
+        # Update valid nodes to exclude dangerous nodes
+        temp_nodes = []
+        for node in self.valid_nodes:
+            for mine in self.mines:
+                if helper_functions.distance(node, mine.pos) > mine.explode_radius:
+                    temp_nodes.append(node)
+        valid_nodes = np.array(temp_nodes)
+
+        # Build a KD-tree for fast nearest-neighbor search
+        kd_tree = KDTree(valid_nodes)
+        
+        # Query KD-tree for nodes within min_dist and max_dist from target
+        self.mine_avoid_max_dist = 400  # Could be moved to init if it should be different per unit
+        target_pos = self.closest_mine[0].pos
+        nearby_indices = kd_tree.query_ball_point(target_pos, self.mine_avoid_max_dist)
+        
+        possible_nodes = []
+        for idx in nearby_indices:
+            node = valid_nodes[idx]
+            dist_node_target = helper_functions.distance(node, target_pos)
+            dist_node_unit = helper_functions.distance(node, self.tank.pos)
+            
+            # Remove nodes within explosion distance + 50 in safety margin
+            if self.closest_mine[0].explode_radius + 50 < dist_node_target < self.mine_avoid_max_dist:
+                possible_nodes.append((node, dist_node_target, dist_node_unit))
+
+        # If there are valid choices, move to the best one. The node that is closest to the tanks current position
+        # This prevents the tank chosing node behind the enemy.
+        amount_nodes = 20  # How many nodes should be randomly chosen (permanent 1?)
+        possible_nodes = heapq.nsmallest(amount_nodes, possible_nodes, key=lambda x: x[2])
+
+        if possible_nodes:
+            chosen_node = random.choice(possible_nodes)
+            self.tank.find_waypoint(chosen_node[0])
+        
+        self.possible_nodes = [x[0] for x in possible_nodes]
+        
     def hit_scan_check_proximity(self):
         # Check for intersections with obstacles
         coord1, coord2 = self.unit_target_line 
@@ -1099,8 +1172,7 @@ class TankAI:
             bounce_count += 1
         
         return lines
-        
-        
+            
     def intercept_point(self):
         # Calculate relative vector from shooter to target
         rel_vec = (

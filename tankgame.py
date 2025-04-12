@@ -224,7 +224,7 @@ class TankGame:
             
             for unit in self.units:
                 unit.set_units(self.units)  # Transfer unit list data to each tank
-                unit.init_ai(self.obstacles, self.projectiles)      # all obstacle instances (polygon) excluding the border polygon
+                unit.init_ai(self.obstacles, self.projectiles, self.mines)      # all obstacle instances (polygon) excluding the border polygon
                 
                 if unit.get_ai() == "player":
                     self.units_player_controlled.append(unit)
@@ -432,6 +432,12 @@ class TankGame:
                         projectile_remove_set.add(temp_projectiles[i])
                         projectile_remove_set.add(temp_projectiles[j])
 
+                # Check for mine hit
+                for mine in self.mines:
+                     if helper_functions.distance(mine.pos, proj.pos) < 10:
+                         mine.explode()
+                         projectile_remove_set.add(temp_projectiles[i])
+                
             # Mark projectiles for removal
             for proj in projectile_remove_set:
                 proj.alive = False

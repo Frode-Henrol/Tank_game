@@ -347,25 +347,6 @@ class Tank:
             self.unit_mine_list.append(mine)
             self.global_mine_list.append(mine)
 
-    def __str__(self):
-        return f"Pos: {self.pos} ai: {self.ai_type}"
-
-    def get_projectile_list(self):
-        return self.projectiles
-    
-    def get_pos(self):
-        return self.pos
-
-    def get_hitbox_corner_pairs(self):
-        return helper_functions.coord_to_coordlist(self.hitbox)
-    
-    def get_hitbox_front_pair(self):
-        return self.hitbox[0], self.hitbox[1]
-    
-    def get_ai(self):
-        print(f"AI type: {self.ai_type}")
-        return self.ai_type
-        
     def apply_repulsion(self, other_unit, push_strength=1.0):
         """Pushes colliding tanks in correct direction"""
         
@@ -389,6 +370,25 @@ class Tank:
             x, y = self.hitbox[i]
             self.hitbox[i] = (x + repulsion_vector[0], y + repulsion_vector[1])
 
+    def __str__(self):
+        return f"Pos: {self.pos} ai: {self.ai_type}"
+
+    def get_projectile_list(self):
+        return self.projectiles
+    
+    def get_pos(self):
+        return self.pos
+
+    def get_hitbox_corner_pairs(self):
+        return helper_functions.coord_to_coordlist(self.hitbox)
+    
+    def get_hitbox_front_pair(self):
+        return self.hitbox[0], self.hitbox[1]
+    
+    def get_ai(self):
+        print(f"AI type: {self.ai_type}")
+        return self.ai_type
+        
     def get_death_status(self):
         return self.dead
 
@@ -439,52 +439,56 @@ class Tank:
         
         # Find path
         return pathfinding.find_path(self.grid_dict, tank_pos_grid, destination_coord_grid)
-        
+    
+    
     def move_to_node(self, node_coord: tuple[int, int]):
-        """Controls the tanks toward the next node in the waypoint"""
-        rotate_amount = 5
-        # -------------------------------------- Computing angle differens --------------------------------------
+        """Controls the tanks toward the next node in the waypoint."""
+        rotate_amount = 5  # base rotation speed
+        max_rotation_speed = 15  # max rotation speed when far from target
+        
+        # -------------------------------------- Computing angle difference --------------------------------------
         # Compute vector to the target
         to_target = (node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
-        
+
         # Normalize the target direction vector
         to_target_mag = np.hypot(to_target[0], to_target[1])  # Compute magnitude
         to_target_unit = (to_target[0] / to_target_mag, to_target[1] / to_target_mag)  # Normalize
-        
+
         # Compute dot product
         dot = self.direction[0] * to_target_unit[0] + self.direction[1] * to_target_unit[1]
-        
-        # Clamp dot product to valid range for acos (this is to prevent floating point numbers errors above 1 and below -1) since acos will give error otherwise
+
+        # Clamp dot product to valid range for acos (to prevent errors)
         dot = np.clip(dot, -1.0, 1.0)
-        
+
         # Compute angle difference (in radians)
         angle_diff = np.arccos(dot)
 
         # Convert to degrees
         angle_diff_deg = np.degrees(angle_diff)
-        
+
         # -------------------------------------- Controlling of tank to a node --------------------------------------
-        
         # Make a second point to form the direction line from the tank
         pos_dir = (self.pos[0] + self.direction[0], self.pos[1] + self.direction[1])
-        
-        TURN_THRESHOLD_MIN = 5  # Stop rotating under this value       
-        TURN_THRESHOLD_MAX = 45 # Stop moving forward over this value
-        DISTANCE_THRESHOLD = 50 // rotate_amount # Stop moving when within this distance to node
+
+        TURN_THRESHOLD_MIN = 5  # Stop rotating under this value
+        TURN_THRESHOLD_MAX = 45  # Stop moving forward over this value
+        DISTANCE_THRESHOLD = 50  # Stop moving when within this distance to node
+
         # Distance to node
         distance_to_node = np.hypot(node_coord[0] - self.pos[0], node_coord[1] - self.pos[1])
-        
+
         if distance_to_node > DISTANCE_THRESHOLD:
             if angle_diff_deg > TURN_THRESHOLD_MIN:
+                # Calculate rotation speed based on angle difference (larger angle -> faster rotation)
+                rotation_speed = min(max_rotation_speed, rotate_amount * (angle_diff_deg / 90))  # Scale rotation speed
+
                 if helper_functions.left_turn(self.pos, pos_dir, node_coord):
-                    self.rotate(rotate_amount) 
+                    self.rotate(rotation_speed)  # Rotate left with adjusted speed
                 else:
-                    self.rotate(-rotate_amount) 
-                    
+                    self.rotate(-rotation_speed)  # Rotate right with adjusted speed
+
             if TURN_THRESHOLD_MAX > angle_diff_deg:
-                    self.move("forward")
-                    #print(f"{distance_to_node=}")
-        
+                self.move("forward")  # Move forward when angle difference is small enough
         else:
             if self.waypoint_queue:
                 self.next_node()
@@ -492,6 +496,7 @@ class Tank:
             else:
                 print("Waypoint queue finished")
                 self.go_to_waypoint = False
+
     
     def next_node(self):
         # Gets the next node in the waypoint queue and removes it and stores it in seperate variable
@@ -505,8 +510,6 @@ class Tank:
     def convert_node_to_grid(self, coord: tuple[float, float]) -> tuple[int, int]:
         coord = pathfinding.pygame_to_grid(coord, self.top_left, self.node_spacing)
         return pathfinding.grid_to_pygame(coord, self.top_left, self.node_spacing)
-        
-        
         
 
 class TankAI:
@@ -637,7 +640,7 @@ class TankAI:
         if self.can_dogde and self.mines and self.closest_mine[0] != None and self.dodge_cooldown == 0:
             if self.closest_mine[1] < self.closest_mine[0].explode_radius:
                 self.avoid_mine()
-                self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
+                self.dodge_cooldown = self.dodge_cooldown_val # e.g. 30 frames cooldown
     
         if self.behavior_state == BehaviorStates.IDLE:
             self.idle()
@@ -1007,7 +1010,6 @@ class TankAI:
         
         self.possible_nodes = [x[0] for x in possible_nodes]
 
-
     def find_closest_mine(self):
         if not self.mines:
             self.closest_mine = None
@@ -1019,7 +1021,6 @@ class TankAI:
             mines_data.append((mine, mine_dist))
         
         self.closest_mine = min(mines_data, key=lambda x: x[1])
-        print(f"Closest mine {self.closest_mine[1]}")
 
     def avoid_mine(self):
         # Return if unit is not within mine explosion distance.
@@ -1058,6 +1059,7 @@ class TankAI:
 
         if possible_nodes:
             chosen_node = random.choice(possible_nodes)
+            print(f"Tank: {self.tank.id} is avoiding mine, finding path")
             self.tank.find_waypoint(chosen_node[0])
         
         self.possible_nodes = [x[0] for x in possible_nodes]

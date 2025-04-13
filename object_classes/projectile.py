@@ -45,7 +45,7 @@ class Projectile:
     def draw(self, surface):
         #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
         line_start, line_end = self.get_line()
-        pg.draw.line(surface, "blue", (line_start[0], line_start[1]), (line_end[0], line_end[1]), 6)
+        pg.draw.line(surface, "grey", (line_start[0], line_start[1]), (line_end[0], line_end[1]), 6)
         
     def collision(self, line):
         """line should be a tuple of 2 coords"""

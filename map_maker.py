@@ -66,25 +66,33 @@ class PolygonDrawer:
         self.node_spacing = 50
         self.show_pathfinding_nodes = False
         
+        # Units:
+        self.tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
+        
         
         # Assets to load last
         self.load_gui()
         self.load_assets()
+    
+    
+    def load_unit_images(self, name: str):
         
+        path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
+        turret_name = name.split("_")[0]
+        path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
+        
+        tank_img = pg.image.load(path_tank).convert_alpha()
+        tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
+        
+        tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
+        tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
+        
+        return [tank_img, tank_turret_img]
         
 
     def load_assets(self):
-        """Load and scale game assets (e.g., images)."""
-        try:
-            path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")       # Skal rettes - burde kobles op på tankl type, dvs der skal loades en list af alle tank billeder
-
-            self.tank_img = pg.image.load(path_tank).convert_alpha()
-            self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
-            
-        except FileNotFoundError:
-            print("Error: Image not found! Check your path.")
-            sys.exit()
-            
+        self.tank_images = [self.load_unit_images(self.tank_mappings[i]) for i  in range(len(self.tank_mappings))]
+        
     
     def load_gui(self):
         x_mid = self.WINDOW_W // 2
@@ -151,16 +159,15 @@ class PolygonDrawer:
         width = 120
         self.buttons_units = [
             Button(left+offset, 150, width, 60, "Player", action=lambda: self.tank_button(0), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 250, width, 60, "Tank 2", action=lambda: self.tank_button(1), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 350, width, 60, "Tank 3", action=lambda: self.tank_button(2), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 450, width, 60, "Tank 4", action=lambda: self.tank_button(3), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 550, width, 60, "Tank 5", action=lambda: self.tank_button(4), color_normal=standard_green_color, semi_disabled=True),
-
-            Button(left+offset_x, 150, width, 60, "Tank 6", action=lambda: self.tank_button(5), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 250, width, 60, "Tank 7", action=lambda: self.tank_button(6), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 350, width, 60, "Tank 8", action=lambda: self.tank_button(7), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 450, width, 60, "Tank 9", action=lambda: self.tank_button(8), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 550, width, 60, "Tank 10", action=lambda: self.tank_button(9), color_normal=standard_green_color, semi_disabled=True)
+            Button(left+offset, 250, width, 60, "Brown", action=lambda: self.tank_button(1), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 350, width, 60, "Ash", action=lambda: self.tank_button(2), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 450, width, 60, "Marine", action=lambda: self.tank_button(3), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 550, width, 60, "Yellow", action=lambda: self.tank_button(4), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 150, width, 60, "Pink", action=lambda: self.tank_button(5), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 250, width, 60, "Green", action=lambda: self.tank_button(6), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 350, width, 60, "Violet", action=lambda: self.tank_button(7), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 450, width, 60, "White", action=lambda: self.tank_button(8), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 550, width, 60, "Black", action=lambda: self.tank_button(9), color_normal=standard_green_color, semi_disabled=True)
         ]
                 
     # ===============================================================
@@ -516,10 +523,16 @@ class PolygonDrawer:
 
         # Draw the units images in unit mode
         for unit in self.units:
-            unit_pos = unit[0]
-            unit_rotation = unit[1]
+            unit_pos, unit_rotation, unit_type, _ = unit
+           
+            tank_body_image, tank_turret_image = self.tank_images[unit_type]
             
-            rotated_unit_image = pg.transform.rotate(self.tank_img, unit_rotation)
+            
+            rotated_unit_image = pg.transform.rotate(tank_body_image, unit_rotation)
+            rect = rotated_unit_image.get_rect(center=unit_pos)
+            self.screen.blit(rotated_unit_image, rect.topleft)
+            
+            rotated_unit_image = pg.transform.rotate(tank_turret_image, unit_rotation)
             rect = rotated_unit_image.get_rect(center=unit_pos)
             self.screen.blit(rotated_unit_image, rect.topleft)
             

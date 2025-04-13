@@ -116,17 +116,8 @@ class TankGame:
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
-            path_tank = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2.png")
-            path_tank_turret = os.path.join(os.getcwd(),r"units\lvl1_tank", "tank2_turret.png")
+           
             path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
-
-            self.tank_img = pg.image.load(path_tank).convert_alpha()
-            self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
-
-            self.tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
-            self.tank_turret_img = pg.transform.scale(self.tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
-
-            self.tank_images = [self.tank_img, self.tank_turret_img]    # TODO add death images to the list
             
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
             self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
@@ -135,7 +126,21 @@ class TankGame:
             print("Error: Image not found! Check your path.")
             sys.exit()
             
-            
+    def load_unit_images(self, name: str):
+        
+        path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
+        turret_name = name.split("_")[0]
+        path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
+        
+        tank_img = pg.image.load(path_tank).convert_alpha()
+        tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
+        
+        tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
+        tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
+        
+        return [tank_img, tank_turret_img]
+        
+        
 
     def init_game_objects(self):
         """Initialize tanks and obstacles."""
@@ -161,7 +166,7 @@ class TankGame:
         
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
-        tank_mappings = {0 : "tank1", 1 : "tank2", 2 : "tank3", 3 : "tank4", 4 : "tank5"}
+        tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
         
         # Load ai config
         with open(r"units\ai.json", 'r') as json_file:
@@ -198,7 +203,7 @@ class TankGame:
                                     mine_limit         = specific_unit_data["mine_limit"],
                                     global_mine_list   = self.mines,
                                     projectile_limit   = specific_unit_data["projectile_limit"],
-                                    images             = self.tank_images,
+                                    images             = self.load_unit_images(unit_type_json_format),
                                     death_image        = self.tank_death_img,
                                     use_turret         = True,
                                     team               = unit_team, 

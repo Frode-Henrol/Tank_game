@@ -111,7 +111,8 @@ class TankGame:
         for unit in self.units_player_controlled:
             print(f"Toggled godemode for all player tanks")
             unit.toggle_godmode()
-        
+    
+    
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
@@ -121,7 +122,7 @@ class TankGame:
 
             self.tank_img = pg.image.load(path_tank).convert_alpha()
             self.tank_img = pg.transform.scale(self.tank_img, self.WINDOW_DIM_SCALED)
-            
+
             self.tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
             self.tank_turret_img = pg.transform.scale(self.tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
 
@@ -133,26 +134,11 @@ class TankGame:
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()
+            
+            
 
     def init_game_objects(self):
         """Initialize tanks and obstacles."""
-        
-        # ============== all this i temp! should be map based! ================================
-        speed = 144 / self.fps        # 144 is just a const based on the speed i first tested game at
-        firerate = 2
-        speed_projectile = 2
-        speed_projectile *= speed
-        spawn_point  = (800, 500)
-        spawn_degrees = 45
-        bounch_limit = 1
-        bomb_limit = 0
-        
-        #player_tank = Tank(spawn_point, speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
-        #self.units.append(player_tank)
-        
-        # SKAL RETTES - test tank for teste ai
-        #player_tank = Tank((600,500), speed, firerate, speed_projectile, spawn_degrees, bounch_limit, bomb_limit, self.tank_img, self.tank_death_img, use_turret=True)
-        #self.units.append(player_tank)
 
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
@@ -176,8 +162,6 @@ class TankGame:
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
         tank_mappings = {0 : "tank1", 1 : "tank2", 2 : "tank3", 3 : "tank4", 4 : "tank5"}
-        # Same with ai
-        ai_mappings = {0 : "ai1", 1 : "ai2", 2 : "ai3", 3 : "ai4", 4 : "ai5"}
         
         # Load ai config
         with open(r"units\ai.json", 'r') as json_file:

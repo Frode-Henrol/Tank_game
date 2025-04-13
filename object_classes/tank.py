@@ -58,7 +58,8 @@ class Tank:
         self.projectile_limit = projectile_limit
         
         # Slowdown effect when shooting
-        self.shot_slowness_cooldown_amount = 6  # Duration in frames of the slowdown
+        self.shot_slowness_cooldown_amount = 0
+        # self.shot_slowness_cooldown_amount = 6  # Duration in frames of the slowdown
         self.shot_slowness_cooldown = 0
         self.slowdown_amount = 0.1      # Procentage of the original speed to keep when slowed
         
@@ -598,7 +599,7 @@ class TankAI:
         
         self.rotation_speed = 1     # Degress pr frame
         
-        self.aiming_angle = 2      # The angle which the turret will wander off from target. 
+        self.aiming_angle = 25      # The angle which the turret will wander off from target. 
         self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
         self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
         
@@ -613,7 +614,7 @@ class TankAI:
         self.safe_threshold = 50    # Increase value to prevent hitting itself.  
         
         self.shoot_enemy_projectiles = True
-        self.shoot_enemy_projectiles_range = 100
+        self.shoot_enemy_projectiles_range = 100   # The perpendicular distance to project path
         
         # Wander
         self.wander_radius = 200
@@ -653,7 +654,7 @@ class TankAI:
             return
         
         # Avoid mines
-        if self.can_dogde and self.mines and self.closest_mine[0] != None and self.dodge_cooldown == 0:
+        if self.can_dogde and self.mines and self.closest_mine != None and self.dodge_cooldown == 0:
             if self.closest_mine[1] < self.closest_mine[0].explode_radius:
                 self.avoid_mine()
                 self.dodge_cooldown = self.dodge_cooldown_val # e.g. 30 frames cooldown
@@ -822,8 +823,10 @@ class TankAI:
     def targeting(self):
         
         # Predictive targeting projectiles
-        if self.closest_projectile[1] != None and self.closest_projectile[1] < self.shoot_enemy_projectiles_range:
-            target_pos = self.intercept_point(target_object=self.closest_projectile[0], projectile=True)
+        # Check for the projectiles with closest distance not radial but path intersect with tank pos
+        print(f"Clost proj: {self.closest_projectile} < {self.shoot_enemy_projectiles_range}? ")
+        if (self.closest_projectile[0] != None and self.closest_projectile[1] < self.shoot_enemy_projectiles_range):
+            target_pos = self.closest_projectile[0].pos
         else:
             # Predictive targeting unit
             chance = random.randint(0,100)
@@ -831,7 +834,8 @@ class TankAI:
                 target_pos = self.intercept_point(target_object=self.targeted_unit)
             else:
                 target_pos = self.targeted_unit.pos
-                  
+        
+        self.debug_target_pos = target_pos          
         
         # Move turret
         self.move_turret_to_target(target_pos, self.aiming_angle)
@@ -915,7 +919,6 @@ class TankAI:
                 self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
             except:
                 print("Tank blocked in")
-            
             self.hit_scan_check_proximity()  
         
         if self.timer > 0:
@@ -927,6 +930,12 @@ class TankAI:
         if self.dodge_cooldown > 0:
             self.dodge_cooldown -= 1
             
+        # SKAL RETTES PT TEST AF MINE lægning
+        if self.tank.mine_limit > 0:
+            randint = random.randint(0, 100)
+            if randint == 1:
+                self.tank.lay_mine()
+                        
         # BLOT TEST:
         if not self.target_in_sight:
             self.unit_target_line_color = (255, 182, 193)
@@ -1152,7 +1161,7 @@ class TankAI:
             self.closest_projectile = (closest, min_dist)
         else:
             self.closest_projectile = (None, 9999)
-        
+
     def deflect_ray(self):        
         lines = []
         direction = self.turret_direction

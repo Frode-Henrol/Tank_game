@@ -576,7 +576,6 @@ class TankGame:
                     if unit.ai.unit_target_line != None:
                         pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)
                     
-                    
                     if unit.ai.can_shoot:
                         color = "green"
                     else:
@@ -584,6 +583,9 @@ class TankGame:
                     
                     for line in unit.ai.ray_path:
                         pg.draw.line(self.screen, color, line[0], line[1], 3)
+                        
+                    pg.draw.circle(self.screen, "red", unit.ai.debug_target_pos, 5)
+                    print(f"{unit.ai.debug_target_pos=}")
             
         
         self.render_debug_info()

@@ -23,3 +23,5 @@ for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntim
 
 Add:
 Tank skal skyde mod skud?
+
+Alle miner skal klassifceres ud fra det hold de kommer fra

@@ -173,61 +173,73 @@ class TankGame:
         for polygon_conrners in self.polygon_list:
             self.obstacles.extend([Obstacle(polygon_conrners)])
         
-        # Open unit json to get unit info
-        all_units_data_json_path = r"units\units.json"
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
         tank_mappings = {0 : "tank1", 1 : "tank2", 2 : "tank3", 3 : "tank4", 4 : "tank5"}
+        # Same with ai
+        ai_mappings = {0 : "ai1", 1 : "ai2", 2 : "ai3", 3 : "ai4", 4 : "ai5"}
         
-        with open(all_units_data_json_path, "r") as json_file:
-                
-            all_units_data_json = json.load(json_file)
+        # Load ai config
+        with open(r"units\ai.json", 'r') as json_file:
+            all_ai_data_json: dict = json.load(json_file)
+            print(f"Loaded ai dict: {all_ai_data_json}")
+        
+        # Load unit config
+        with open(r"units\units.json", "r") as json_file:
+            all_units_data_json: dict = json.load(json_file)
             print(f"Loaded unit dict: {all_units_data_json}")
         
-            # Unpack each unit map data
-            for unit in unit_list:
-                unit_pos, unit_angle, unit_type = unit
-                
-                # Get unit type in json format
-                unit_type_json_format = tank_mappings[unit_type]
-                
-                # Fetch specific unit data 
-                specific_unit_data = all_units_data_json[unit_type_json_format]
-                
-                temp_speed = 144 / self.fps 
-                # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
-                
-                ai_type = specific_unit_data["ai_personality"]
-                    
-                try:
-                    unit_to_add = Tank(startpos            = unit_pos,
-                                        speed              = temp_speed * specific_unit_data["tank_speed_modifier"], 
-                                        firerate           = specific_unit_data["firerate"],
-                                        speed_projectile   = temp_speed * specific_unit_data["projectile_speed_modifier"],
-                                        spawn_degress      = unit_angle,
-                                        bounch_limit       = specific_unit_data["bounch_limit"] + 1,
-                                        mine_limit         = specific_unit_data["mine_limit"],
-                                        global_mine_list   = self.mines,
-                                        projectile_limit   = specific_unit_data["projectile_limit"],
-                                        images             = self.tank_images,
-                                        death_image        = self.tank_death_img,
-                                        use_turret         = True, 
-                                        ai_type            = ai_type)
-                    
-                    # Init waypoint processing for tank
-                    unit_to_add.init_waypoint(self.grid_dict, self.border_polygon[3], self.node_spacing, self.valid_nodes)
-                
-                    self.units.append(unit_to_add)
-                        
-                except Exception as e:
-                    print(f"Error: {e}")
+        # Unpack each unit map data
+        for unit in unit_list:
+            unit_pos, unit_angle, unit_type, unit_team = unit
             
-            for unit in self.units:
-                unit.set_units(self.units)  # Transfer unit list data to each tank
-                unit.init_ai(self.obstacles, self.projectiles, self.mines)      # all obstacle instances (polygon) excluding the border polygon
+            # Get unit type in json format
+            unit_type_json_format = tank_mappings[unit_type]
+            
+            # Fetch specific unit data 
+            specific_unit_data = all_units_data_json[unit_type_json_format]
+            
+            temp_speed = 144 / self.fps 
+            # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
+            
+            ai_type = specific_unit_data["ai_personality"]
                 
-                if unit.get_ai() == "player":
-                    self.units_player_controlled.append(unit)
+            try:
+                unit_to_add = Tank(startpos            = unit_pos,
+                                    speed              = temp_speed * specific_unit_data["tank_speed_modifier"], 
+                                    firerate           = specific_unit_data["firerate"],
+                                    speed_projectile   = temp_speed * specific_unit_data["projectile_speed_modifier"],
+                                    spawn_degress      = unit_angle,
+                                    bounch_limit       = specific_unit_data["bounch_limit"] + 1,
+                                    mine_limit         = specific_unit_data["mine_limit"],
+                                    global_mine_list   = self.mines,
+                                    projectile_limit   = specific_unit_data["projectile_limit"],
+                                    images             = self.tank_images,
+                                    death_image        = self.tank_death_img,
+                                    use_turret         = True,
+                                    team               = unit_team, 
+                                    ai_type            = ai_type
+                                    )
+                
+                # Init waypoint processing for tank
+                unit_to_add.init_waypoint(self.grid_dict, self.border_polygon[3], self.node_spacing, self.valid_nodes)
+            
+                self.units.append(unit_to_add)
+                    
+            except Exception as e:
+                print(f"Error: {e}")
+            
+        for unit in self.units:
+            unit.set_units(self.units)  # Transfer unit list data to each tank
+            
+            # Get specific data for the choosen ai
+            ai_data = all_ai_data_json.get(unit.ai_type)
+            print(f"Choosen ai: {unit.ai_type}")
+            
+            unit.init_ai(self.obstacles, self.projectiles, self.mines, ai_data)     
+            
+            if unit.ai_type == "player":
+                self.units_player_controlled.append(unit)
                     
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
@@ -364,7 +376,6 @@ class TankGame:
             button.draw(screen)
             
     # ============================================ ------------- ============================================
-    # ============================================ ------------- ============================================
 
     def handle_events(self, event_list):
         """Handle player inputs and game events."""
@@ -477,21 +488,7 @@ class TankGame:
                     mine.check_for_tank(unit)
 
             
-        self.projectiles = [proj for proj in temp_projectiles if proj.alive]
-            
-            
-    def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=40) -> bool:
-        """Proximity check: if tanks' centers are close enough based on their radius."""
-        # Get the center coordinates of both tanks
-        pos1 = tank1.get_pos()  # Assuming get_pos() returns the center (x, y)
-        pos2 = tank2.get_pos()
-
-        # Calculate the distance between the two centers
-        distance = helper_functions.distance(pos1, pos2)
-
-        # Check if the distance is less than or equal to the threshold (radius)
-        return distance <= threshold  
-
+        self.projectiles = [proj for proj in temp_projectiles if proj.alive]  
 
     def draw(self):
         """Render all objects on the screen."""
@@ -621,7 +618,17 @@ class TankGame:
             self.screen.blit(text_surface, (x_start, y_start))
             y_start += 25  # Spacing between lines
             
+    def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=40) -> bool:
+        """Proximity check: if tanks' centers are close enough based on their radius."""
+        # Get the center coordinates of both tanks
+        pos1 = tank1.get_pos()  # Assuming get_pos() returns the center (x, y)
+        pos2 = tank2.get_pos()
 
+        # Calculate the distance between the two centers
+        distance = helper_functions.distance(pos1, pos2)
+
+        # Check if the distance is less than or equal to the threshold (radius)
+        return distance <= threshold  
 
 class States:
     MENU = "menu"

@@ -26,6 +26,7 @@ class Tank:
                  images, 
                  death_image,
                  use_turret,
+                 team,
                  ai_type = None,
                  godmode = False,
                  draw_hitbox = True):
@@ -40,6 +41,9 @@ class Tank:
         self.is_moving_dir = 0
         self.is_moving_false_time_start = 5
         self.is_moving_false_time = 0
+        
+        # Team
+        self.team = team
         
         # Projectile
         self.speed_projectile = speed_projectile # Scale the tanks projectile speed
@@ -103,8 +107,8 @@ class Tank:
         
         self.units = []
         
-    def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine]):
-        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines) if self.ai_type != "player" else None
+    def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
+        self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None
     
     def set_units(self, units):
         self.units = units
@@ -342,7 +346,7 @@ class Tank:
         self.unit_mine_list = temp_mine
         
         if self.mine_cooldown == 0 and len(self.unit_mine_list) < self.mine_limit:
-            mine = Mine(spawn_point=self.pos, explode_radius=100, owner_id=self.id)
+            mine = Mine(spawn_point=self.pos, explode_radius=100, owner_id=self.id, team=self.team)
             
             self.mine_cooldown = self.mine_cooldown_amount
             
@@ -534,7 +538,8 @@ class TankAI:
                  units: list[Tank], 
                  obstacles: list[Obstacle], 
                  projectiles: list[Projectile],
-                 mines: list[Mine]):
+                 mines: list[Mine],
+                 config: dict):
         
         # Generel tank information
         self.tank = tank                # The tank instance this AI controls
@@ -567,7 +572,7 @@ class TankAI:
         self.movement = self.tank.speed != 0
         
         # Tank that is under targeting
-        self.targeted_unit = self.units[0]              # TEST using player as hardcoded target
+        self.targeted_unit = self.units[0] if self.units else None              # TEST using player as hardcoded target
         self.unit_target_line = None                    # Init line between target and tank
         self.unit_target_line_color = (255, 182, 193) 
         self.target_in_sight = False
@@ -576,19 +581,19 @@ class TankAI:
         self.dist_to_target_path = 9999
         
         # Patrol
-        self.patrol_radius = 200
-        self.dist_leave_patrol = 500
+        self.patrol_radius = config.get("patrol_radius", 200)
+        self.dist_leave_patrol = config.get("dist_leave_patrol", 500)
         
         # Defend
-        self.dist_leave_defend = 800
+        self.dist_leave_defend = config.get("dist_leave_defend", 800)
         
         # Attack
-        self.dist_leave_attack = 200
+        self.dist_leave_attack = config.get("dist_leave_attack", 200)
         
         # Dodge
-        self.can_dogde = True
-        self.dist_start_dodge = 45
-        self.dodge_cooldown_val = 30
+        self.can_dodge = config.get("can_dodge", True)
+        self.dist_start_dodge = config.get("dist_start_dodge", 45)
+        self.dodge_cooldown_val = config.get("dodge_cooldown_val", 30)
         
         self.dodge_cooldown = 0      
         self.dodge_nodes = []
@@ -597,28 +602,28 @@ class TankAI:
         # Shooting
         self.angle_diff_deg = 9999 # The current angle between target and turret
         
-        self.rotation_speed = 1     # Degress pr frame
+        self.rotation_speed = config.get("rotation_speed", 1)     # Degress pr frame
         
-        self.aiming_angle = 25      # The angle which the turret will wander off from target. 
-        self.rotation_mult_max = 2  # Maxium rotation multiplier when angledifference is 180 degress
-        self.rotation_mult_min = 0.8    # Minimum rotation multiplier when angledifference is 0 degress
+        self.aiming_angle = config.get("aiming_angle", 25)      # The angle which the turret will wander off from target. 
+        self.rotation_mult_max = config.get("rotation_mult_max", 2)  # Maxium rotation multiplier when angledifference is 180 degress
+        self.rotation_mult_min = config.get("rotation_mult_min", 0.8)    # Minimum rotation multiplier when angledifference is 0 degress
         
-        self.perfect_aim = False        # Removes random turret wandering
+        self.perfect_aim = config.get("perfect_aim", False)       # Removes random turret wandering
         self.turret_turn_threshold = 2  # Under this angle from target the turret stop moving
         
-        self.advanced_targeting = True # Advanced targeting (True: line of fire check. False: Only distance check)
-        self.predictive_targeting = True # Try to lead the shots for units
-        self.predictive_targeting_chance = 50 # 0 - 100%    
+        self.advanced_targeting = config.get("advanced_targeting", True)  # Advanced targeting (True: line of fire check. False: Only distance check)
+        self.predictive_targeting = config.get("predictive_targeting", True) # Try to lead the shots for units
+        self.predictive_targeting_chance = config.get("predictive_targeting_chance", 50) # 0 - 100%    
         
-        self.shoot_threshold = 10   # Smaller value means more precise shots are taken.  
-        self.safe_threshold = 50    # Increase value to prevent hitting itself.  
+        self.shoot_threshold = config.get("shoot_threshold", 10)   # Smaller value means more precise shots are taken.  
+        self.safe_threshold = config.get("safe_threshold", 50)     # Increase value to prevent hitting itself.  
         
-        self.shoot_enemy_projectiles = True
-        self.shoot_enemy_projectiles_range = 100   # The perpendicular distance to project path
+        self.shoot_enemy_projectiles = config.get("shoot_enemy_projectiles", True)
+        self.shoot_enemy_projectiles_range = config.get("shoot_enemy_projectiles_range", 100)   # The perpendicular distance to project path
         
         # Wander
-        self.wander_radius = 200
-        self.defend_time = 60 * 10
+        self.wander_radius = config.get("wander_radius", 200)
+        self.defend_time = config.get("defend_time", 600)
         self.timer = 0
         
         # Misc
@@ -626,6 +631,7 @@ class TankAI:
         self.can_shoot = False
         
         # Mine
+        self.mine_chance = config.get("mine_chance", 10000)
         self.closest_mine = (None, 0)
 
         # Ray predict data
@@ -647,14 +653,14 @@ class TankAI:
             return
         
         # Avoid projectiles
-        if self.can_dogde and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
+        if self.can_dodge and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
             self.dodge()
             self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
             return
         
         # Avoid mines
-        if self.can_dogde and self.mines and self.closest_mine != None and self.dodge_cooldown == 0:
+        if self.can_dodge and self.mines and self.closest_mine != None and self.dodge_cooldown == 0:
             if self.closest_mine[1] < self.closest_mine[0].explode_radius:
                 self.avoid_mine()
                 self.dodge_cooldown = self.dodge_cooldown_val # e.g. 30 frames cooldown
@@ -670,8 +676,6 @@ class TankAI:
         elif self.behavior_state == BehaviorStates.WANDER:
             self.wander()
             
-
-
     # ======================= Behavior states =======================
     def idle(self):
         if self.movement:
@@ -849,12 +853,19 @@ class TankAI:
         for line_segment in self.ray_path:
             start, end = line_segment
             
-            # 1. Check self-collision first (most important)
+            # 1. Dont shoot mines that are close enough to kill the unit
+            for mine in self.mines:
+                if (helper_functions.distance(mine.pos, self.tank.pos) < mine.explode_radius
+                    and self.is_point_within_segment_and_threshold(start, end, mine.pos, self.safe_threshold)):
+                    self.can_shoot = False
+                    return
+            
+            # 2. Check self-collision first 
             if self.can_shoot and self.is_point_within_segment_and_threshold(start, end, self.tank.pos, self.safe_threshold):
                 self.can_shoot = False
                 return
                 
-            # 2. Check for ally collisions (all units except target)
+            # 3. Check for ally collisions (all units except target)
             for unit in self.units:
                 if unit != self.targeted_unit and not unit.dead:
                     if self.is_point_within_segment_and_threshold(start, end, unit.pos, self.safe_threshold):
@@ -932,7 +943,7 @@ class TankAI:
             
         # SKAL RETTES PT TEST AF MINE lægning
         if self.tank.mine_limit > 0:
-            randint = random.randint(0, 100)
+            randint = random.randint(0, self.mine_chance)
             if randint == 1:
                 self.tank.lay_mine()
                         

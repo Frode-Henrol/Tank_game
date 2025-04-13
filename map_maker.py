@@ -391,8 +391,14 @@ class PolygonDrawer:
                     # Quick fix to prevent tank showing at (0,0) do to the self.snapped_pos being a class value initialized as (0,0) (Skal rettes)
                     if self.snapped_pos == (0, 0):  
                         return    
-                    # Unit position, angle and type is saved
-                    self.units.append((self.snapped_pos, int(angle_deg), self.selected_tank))
+                    
+                    # For now teams are player vs other
+                    if self.selected_tank > 0:
+                        team = 2
+                    else:
+                        team = 1
+                    # Unit position, angle, type team saved is saved
+                    self.units.append((self.snapped_pos, int(angle_deg), self.selected_tank, team))
                     print(f"Added unit at {self.snapped_pos} with angle {angle_deg} to the units list.")
                 
 # ===============================================================================================================================================

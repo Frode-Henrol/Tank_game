@@ -1,3 +1,48 @@
 {
-    ""
+    "ai1": {
+        "patrol_radius": 250,
+        "dist_leave_patrol": 450,
+        "dist_leave_defend": 800,
+        "dist_leave_attack": 250,
+    
+        "can_dodge": true,
+        "dist_start_dodge": 50,
+        "dodge_cooldown_val": 25,
+    
+        "rotation_speed": 1.2,
+        "aiming_angle": 20,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+    
+        "perfect_aim": false,
+        "advanced_targeting": true,
+        "predictive_targeting": true,
+        "predictive_targeting_chance": 60,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 90,
+    
+        "wander_radius": 150,
+        "defend_time": 500,
+
+        "mine_chance": 10000
+    },
+    "ai2": {
+        "rotation_speed": 1,
+        "aiming_angle": 90,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+
+        "advanced_targeting": true,
+        "predictive_targeting": true,
+        "predictive_targeting_chance": 50,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 90
+
+    }
 }

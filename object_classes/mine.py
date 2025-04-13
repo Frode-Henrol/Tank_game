@@ -3,10 +3,11 @@ import utils.deflect as df
 
 
 class Mine:
-    def __init__(self, spawn_point: tuple, explode_radius: int, owner_id: int):
+    def __init__(self, spawn_point: tuple, explode_radius: int, owner_id: int, team: int):
         self.pos = tuple(spawn_point)
         self.explode_radius = explode_radius
         self.owner_id = owner_id
+        self.team = team
         self.is_exploded = False
         self.color = "yellow"
         self.unit_list = []
@@ -45,7 +46,7 @@ class Mine:
                 self.explode()
 
     def check_for_tank(self, unit, check_for_owner=True):
-        if check_for_owner and unit.id == self.owner_id:
+        if check_for_owner and unit.team == self.team:
             return False
 
         if self._is_in_radius(unit.pos):

@@ -591,7 +591,8 @@ class TankAI:
         self.dist_leave_attack = config.get("dist_leave_attack", 200)
         
         # Dodge
-        self.can_dodge = config.get("can_dodge", True)
+        self.can_dodge_proj = config.get("can_dodge_proj", True)
+        self.can_dodge_mine = config.get("can_dodge_mine", True)
         self.dist_start_dodge = config.get("dist_start_dodge", 45)
         self.dodge_cooldown_val = config.get("dodge_cooldown_val", 30)
         
@@ -621,6 +622,10 @@ class TankAI:
         self.shoot_enemy_projectiles = config.get("shoot_enemy_projectiles", True)
         self.shoot_enemy_projectiles_range = config.get("shoot_enemy_projectiles_range", 100)   # The perpendicular distance to project path
         
+        # Salvo
+        self.salvo_cooldown_amount = config.get("salvo_cooldown_amount", 120) 
+        self.salvo_cooldown = 0
+        
         # Wander
         self.wander_radius = config.get("wander_radius", 200)
         self.defend_time = config.get("defend_time", 600)
@@ -643,24 +648,24 @@ class TankAI:
         self.frame_counter += 1
         self.targeting()
         
+        self.misc_updates()
+        
         if self.movement == False:
             return
-        
-        self.misc_updates()
         
         if self.behavior_state == BehaviorStates.DODGE:
             self.handle_dodge_state()
             return
         
         # Avoid projectiles
-        if self.can_dodge and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
+        if self.can_dodge_proj and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
             self.dodge()
             self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
             return
         
         # Avoid mines
-        if self.can_dodge and self.mines and self.closest_mine != None and self.dodge_cooldown == 0:
+        if self.can_dodge_mine and self.mines and self.closest_mine != None and self.dodge_cooldown == 0:
             if self.closest_mine[1] < self.closest_mine[0].explode_radius:
                 self.avoid_mine()
                 self.dodge_cooldown = self.dodge_cooldown_val # e.g. 30 frames cooldown
@@ -678,6 +683,9 @@ class TankAI:
             
     # ======================= Behavior states =======================
     def idle(self):
+        
+        
+        
         if self.movement:
             self.behavior_state = BehaviorStates.PATROLLING
             self.targeting_state = TargetingStates.TARGETING
@@ -828,8 +836,7 @@ class TankAI:
         
         # Predictive targeting projectiles
         # Check for the projectiles with closest distance not radial but path intersect with tank pos
-        print(f"Clost proj: {self.closest_projectile} < {self.shoot_enemy_projectiles_range}? ")
-        if (self.closest_projectile[0] != None and self.closest_projectile[1] < self.shoot_enemy_projectiles_range):
+        if (self.shoot_enemy_projectiles == True and self.closest_projectile[0] != None and self.closest_projectile[1] < self.shoot_enemy_projectiles_range):
             target_pos = self.closest_projectile[0].pos
         else:
             # Predictive targeting unit
@@ -843,6 +850,10 @@ class TankAI:
         
         # Move turret
         self.move_turret_to_target(target_pos, self.aiming_angle)
+        
+        # If salvo cooldown has not been reached the unit wont shot
+        if self.salvo_cooldown > 0:
+            return
         
         if self.frame_counter % self.update_rate == 0:
             self.ray_path = self.deflect_ray()
@@ -941,12 +952,24 @@ class TankAI:
         if self.dodge_cooldown > 0:
             self.dodge_cooldown -= 1
             
-        # SKAL RETTES PT TEST AF MINE lægning
+        # Mine laying
         if self.tank.mine_limit > 0:
             randint = random.randint(0, self.mine_chance)
             if randint == 1:
-                self.tank.lay_mine()
-                        
+                if self.mines:
+                    for mine in self.mines:
+                        if helper_functions.distance(mine.pos, self.tank.pos) > mine.explode_radius*1.5:
+                            self.tank.lay_mine()
+                else:
+                    self.tank.lay_mine()
+        
+        # Cooldown after salvo
+        if len(self.tank.projectiles) == self.tank.projectile_limit:
+            self.salvo_cooldown = self.salvo_cooldown_amount
+        
+        if self.salvo_cooldown > 0:
+            self.salvo_cooldown -= 1
+        
         # BLOT TEST:
         if not self.target_in_sight:
             self.unit_target_line_color = (255, 182, 193)

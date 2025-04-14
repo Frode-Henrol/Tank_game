@@ -3,6 +3,7 @@ import pygame as pg
 import utils.deflect as df
 import copy
 import random
+from object_classes.animation import Animation
 
 class Projectile:
     
@@ -21,14 +22,17 @@ class Projectile:
         self.spawn_timer = 60
         self.hit_timer_amount = 0 # Frames. (0 right now which means maximum amount of collision checks)
         self.hit_timer = 0
+    
         
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
         self.hit_sounds = sound_effects[9:13]
         self.projexp_sounds = self.sound_effects[13:19]
-        
+    
+    
     def update(self):
+        
         if self.hit_timer > 0:
             self.hit_timer -= 1
         
@@ -43,9 +47,13 @@ class Projectile:
             self.alive = False
             
         if self.bounce_count >= self.bounce_limit:
-            random.choice(self.projexp_sounds).play()
+            self.play_explosion()
             self.alive = False
-            
+    
+    def play_explosion(self):
+        # Play projectile explosion animation if active
+        random.choice(self.projexp_sounds).play()
+        
     def get_pos(self):
         return self.pos
     
@@ -59,6 +67,7 @@ class Projectile:
         #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
         line_start, line_end = self.get_line()
         pg.draw.line(surface, "grey", (line_start[0], line_start[1]), (line_end[0], line_end[1]), 6)
+        
         
     def collision(self, line):
         """line should be a tuple of 2 coords"""
@@ -108,7 +117,6 @@ class Projectile:
         # print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f} BOUNCE COUNT: {self.bounce_count} and bounce limit: {self.bounce_limit} and state alive: {self.alive}")
         # Now do the reflection/deflection with chosen_normal
         self.direction = df.find_deflect_vector(chosen_normal, self.direction)
-        
         random.choice(self.hit_sounds).play()
         
         self.bounce_count +=1

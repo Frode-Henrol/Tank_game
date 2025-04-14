@@ -1,9 +1,9 @@
 {
     "player_tank": {
         "tank_speed_modifier": 0.8,
-        "projectile_speed_modifier": 4,
+        "projectile_speed_modifier": 2,
         "firerate": 1,
-        "bounch_limit": 0,
+        "bounch_limit": 1,
         "mine_limit" : 5,
         "projectile_limit" : 10,
         "ai_personality": "player",

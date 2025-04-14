@@ -6,7 +6,7 @@ import os
 import utils.helper_functions as helper_functions
 import time
 from object_classes.projectile import Projectile
-from object_classes.tank import Tank
+from object_classes.tank_old import Tank
 from object_classes.obstacle import Obstacle
 
 class TankGame:

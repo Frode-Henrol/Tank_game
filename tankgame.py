@@ -6,15 +6,17 @@ import os
 import utils.helper_functions as helper_functions
 import time
 from object_classes.projectile import Projectile
-from object_classes.tank import Tank
+from object_classes.tank_old import Tank
 from object_classes.obstacle import Obstacle
 from object_classes.button import Button 
 from object_classes.mine import Mine 
 from object_classes.track import Track
+from object_classes.animation import Animation
 import json
 import pathfinding
 from scipy.spatial import KDTree
 import random
+import re
 
 class TankGame:
     def __init__(self):
@@ -68,11 +70,16 @@ class TankGame:
         # Pathfinding
         self.all_unit_waypoint_queues = []
         
+        # ====================== Visuals ==============================
         # Tank tracks
         self.load_misc_images()
         self.tracks = []  # List to store all track marks
         self.track_interval = 8  # Add track every 10 frames
         self.track_counter = 0
+        
+        # Projectile explosion
+        self.proj_explosion_animation = None
+        
         
         if self.godmode:
             self.godmode_toggle()
@@ -137,23 +144,36 @@ class TankGame:
             print("Error: Image not found! Check your path.")
             sys.exit()
 
+
+
     def load_and_transform_images(self, folder_path: str) -> list[pg.Surface]:
-        """Load and scale all images in a folder using Pygame."""
+        """Load and scale all images in a folder using Pygame, sorted numerically."""
         pg.init()
         supported_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
         image_list: list[pg.Surface] = []
 
-        for filename in os.listdir(folder_path):
-            if filename.lower().endswith(supported_exts):
-                track_path = os.path.join(folder_path, filename)
-                try:
-                    track_img = pg.image.load(track_path).convert_alpha()
-                    scaled_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
-                    image_list.append(scaled_img)
-                except Exception as e:
-                    print(f"Failed to load {filename}: {e}")
+        # Helper to extract numeric value from filename
+        def extract_number(filename):
+            match = re.search(r'\d+', filename)
+            return int(match.group()) if match else float('inf')
+
+        # Sort filenames by extracted number
+        sorted_filenames = sorted(
+            [f for f in os.listdir(folder_path) if f.lower().endswith(supported_exts)],
+            key=extract_number
+        )
+
+        for filename in sorted_filenames:
+            track_path = os.path.join(folder_path, filename)
+            try:
+                track_img = pg.image.load(track_path).convert_alpha()
+                scaled_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
+                image_list.append(scaled_img)
+            except Exception as e:
+                print(f"Failed to load {filename}: {e}")
 
         return image_list
+
     
     def load_unit_images(self, name: str):
         
@@ -174,16 +194,22 @@ class TankGame:
         track_img = pg.image.load(track_path).convert_alpha()
         self.track_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
         
-        # Animation
+        # Animations
         animation_path = os.path.join(os.getcwd(),"units","animations")
-        animation = {}
+        self.animations = {}
         
+        # Load muzzle animation
         muzzle_flash_path = os.path.join(animation_path, "muzzle_flash")
         self.muzzle_flash_list = self.load_and_transform_images(muzzle_flash_path)
-        animation["muzzle_flash"] = self.muzzle_flash_list
+        self.animations["muzzle_flash"] = self.muzzle_flash_list
+
+        # Load projectile explosion animation
+        proj_explosion_path = os.path.join(animation_path, "proj_explosion")
+        self.proj_explosion_list = self.load_and_transform_images(proj_explosion_path)
+        self.animations["proj_explosion"] = self.proj_explosion_list
  
         for unit in self.units:
-            unit.init_animations(animation)
+            unit.init_animations(self.animations)
             
         
         
@@ -464,7 +490,7 @@ class TankGame:
                         print("True mouse inside polygone")
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             
-    def update(self):
+    def update_old(self):
         
         # Track marks logic
         self.track_counter += 1
@@ -505,7 +531,7 @@ class TankGame:
 
                     if other_unit.collision(projectile_line, collision_type="projectile"):
                         to_remove.add(i)  # Mark for removal
-                        random.choice(self.projexp_sounds).play()     # Sound played when tank is hit
+                        # self.handle_projectile_explosion(proj) # Sound played when tank is hit  
 
                 proj.update()
 
@@ -536,7 +562,8 @@ class TankGame:
             # Mark projectiles for removal
             for proj in projectile_remove_set:
                 proj.alive = False
-                random.choice(self.projexp_sounds).play()   # Sound played when 2 projetiles hit
+                # self.handle_projectile_explosion(proj)  # Sound played when 2 projetiles hit
+
 
         # Check unit/surface collisions
         for unit in self.units:
@@ -572,8 +599,130 @@ class TankGame:
                     mine.get_unit_list(self.units)
                     mine.check_for_tank(unit)
 
-            
+        for proj in temp_projectiles:
+            if not proj.alive:
+                self.handle_projectile_explosion(proj)
+        
         self.projectiles = [proj for proj in temp_projectiles if proj.alive]  
+
+    def update(self):
+        # Update track marks
+        self.update_track_marks()
+        
+        # Process all projectiles
+        self.process_projectiles()
+        
+        # Handle unit collisions and physics
+        self.handle_unit_collisions()
+        
+        # Clean up dead mines
+        self.mines = [mine for mine in self.mines if not mine.is_exploded]
+
+    def update_track_marks(self):
+        self.track_counter += 1
+        if self.track_counter >= self.track_interval:
+            self.track_counter = 0
+            for unit in self.units:
+                if not unit.dead and unit.is_moving:
+                    pos = unit.get_pos()
+                    self.tracks.append(Track((pos[0], pos[1]), unit.degrees + 90, self.track_img))
+        self.tracks = [track for track in self.tracks if track.update()]
+
+    def process_projectiles(self):
+        # Update all projectiles and check collisions
+        projectiles_to_remove = set()
+        positions = []
+        
+        for unit in self.units:
+            self.projectiles.extend(unit.projectiles)
+        
+        for proj in self.projectiles:
+            proj.update()
+            positions.append(proj.get_pos())
+            
+            # Check obstacle collisions
+            if self.check_obstacle_collisions(proj):
+                projectiles_to_remove.add(proj)
+                continue
+                
+            # Check unit collisions
+            if self.check_unit_collisions(proj):
+                projectiles_to_remove.add(proj)
+                continue
+                
+            # Check mine collisions
+            if self.check_mine_collisions(proj):
+                projectiles_to_remove.add(proj)
+        
+        # Check projectile-to-projectile collisions
+        self.check_projectile_collisions(projectiles_to_remove, positions)
+        
+        # Remove dead projectiles and handle explosions
+        for proj in projectiles_to_remove:
+            self.handle_projectile_explosion(proj)
+            proj.alive = False
+        
+        self.projectiles = [p for p in self.projectiles if p.alive]
+        
+        # Update AI projectile references
+        for unit in (u for u in self.units if u.ai is not None):
+            unit.ai.projectiles = self.projectiles
+
+    def check_obstacle_collisions(self, proj):
+        for obstacle in self.obstacles:
+            for corner_pair in obstacle.get_corner_pairs():
+                if proj.collision(corner_pair):
+                    return True
+        return False
+
+    def check_unit_collisions(self, proj):
+        for unit in (u for u in self.units if not u.dead):
+            if unit.collision(proj.get_line(), "projectile"):
+                return True
+        return False
+
+    def check_mine_collisions(self, proj):
+        for mine in self.mines:
+            if helper_functions.distance(mine.pos, proj.pos) < 10:
+                mine.explode()
+                return True
+        return False
+
+    def check_projectile_collisions(self, remove_set, positions):
+        if not self.projectiles:
+            return
+            
+        tree = KDTree(np.array(positions))
+        for i, proj in enumerate(self.projectiles):
+            if proj in remove_set:
+                continue
+            neighbors = tree.query_ball_point(proj.get_pos(), self.projectile_collision_dist)
+            for j in neighbors:
+                if i != j:
+                    remove_set.add(self.projectiles[i])
+                    remove_set.add(self.projectiles[j])
+
+    def handle_unit_collisions(self):
+        for unit in self.units:
+            # Surface collisions
+            for obstacle in self.obstacles:
+                for corner_pair in obstacle.get_corner_pairs():
+                    unit.collision(corner_pair, "surface")
+
+            # Unit-unit collisions
+            for other in (u for u in self.units 
+                        if u != unit and not u.dead and not unit.dead 
+                        and self.are_tanks_close(unit, u)):
+                unit.apply_repulsion(other, 0.5)
+                other.apply_repulsion(unit, 0.5)
+            
+            # Mine interactions
+            if not unit.dead:
+                for mine in self.mines:
+                    mine.get_unit_list(self.units)
+                    mine.check_for_tank(unit)    
+    
+    
 
     def draw(self):
         """Render all objects on the screen."""
@@ -593,7 +742,7 @@ class TankGame:
         for mine in self.mines:
             mine.draw(self.screen)
         
-
+        # Draw units
         for unit in self.units:
             if unit.dead:
                 continue
@@ -606,10 +755,12 @@ class TankGame:
                     
                     if corner_pair == (unit.hitbox[1], unit.hitbox[2]):                     # Skal rettes! - lav front hitbox linje rød
                         pg.draw.line(self.screen, "green", corner_pair[0], corner_pair[1], 3)
-            
+        
+        # Draw projectiles
         for proj in self.projectiles:
             proj.draw(self.screen)
 
+        # Draw obstacles
         for obstacle in self.obstacles:
             # Debug: draw obstacle collision lines
             for corner_pair in obstacle.get_corner_pairs():
@@ -619,6 +770,10 @@ class TankGame:
                 if self.show_obstacle_corners:
                     pg.draw.circle(self.screen, "blue", center=corner_pair[0], radius=5)   
 
+
+        
+        # ======================== DEBUG VISUALS ===================================
+        
         # If path finding visuals is on draw path lines and nodes:
         if self.show_pathfinding_nodes:
             for node in self.valid_nodes:
@@ -717,6 +872,11 @@ class TankGame:
 
         # Check if the distance is less than or equal to the threshold (radius)
         return distance <= threshold  
+    
+    def handle_projectile_explosion(self, proj: Projectile):
+        proj.play_explosion()
+        print(f"IS ALIVE? {proj.alive}")
+    
 
 class States:
     MENU = "menu"

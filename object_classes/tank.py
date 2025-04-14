@@ -106,9 +106,17 @@ class Tank:
         self.pos_dir = (0,0)
         
         self.units = []
+
         
     def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
         self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None
+    
+    def init_sound_effects(self, sound_effects):
+        self.sound_effects = sound_effects
+        
+        self.cannon_sounds = sound_effects[:4]
+        self.death_sounds = sound_effects[4:9]
+
     
     def set_units(self, units):
         self.units = units
@@ -154,7 +162,7 @@ class Tank:
         self.make_dead(False)
             
     def draw(self, surface):
-            
+        
         # TEMP: constant to make sure tank image points the right way
         tank_correct_orient = -90
         rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
@@ -289,14 +297,16 @@ class Tank:
         
     def make_dead(self, active):
         
+        
         if active and not self.godmode:
             print("Tank dead")
             self.dead = True
             self.active_image = self.death_image
-            #self.hitbox = None
+            random.choice(self.death_sounds).play()
         else:
             self.dead = False
             self.active_image = self.image
+            
                
     def shoot(self, aim_pos: tuple | None):
         # Dont shoot if dead, reach projectile limit or cooldown hasnt been reached
@@ -333,8 +343,14 @@ class Tank:
         spawn_projectile_pos = [self.pos[0] + unit_direction[0]*spawn_distance_from_middle, self.pos[1] + unit_direction[1]*spawn_distance_from_middle]
 
         projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile, bounce_limit=self.bounch_limit)
-        self.projectiles.append(projectile)                                                                      
+        projectile.init_sound_effects(self.sound_effects)
+        self.projectiles.append(projectile)
+        
+        # Play sound when firing
+        random.choice(self.cannon_sounds).play()
+                                                                      
         print(self.direction)
+        
 
     def lay_mine(self):
         
@@ -644,6 +660,7 @@ class TankAI:
         self.max_bounces = self.tank.bounch_limit - 1 # Temp remove one since 1 is added for projectile logic to work properly
         self.ray_path = [((0,0),(0,0)),((0,0),(0,0))]
     
+
     def update(self):
         self.frame_counter += 1
         self.targeting()
@@ -953,7 +970,7 @@ class TankAI:
             self.dodge_cooldown -= 1
             
         # Mine laying
-        if self.tank.mine_limit > 0:
+        if self.tank.mine_limit > 0 and self.behavior_state == BehaviorStates.ATTACKING:
             randint = random.randint(0, self.mine_chance)
             if randint == 1:
                 if self.mines:

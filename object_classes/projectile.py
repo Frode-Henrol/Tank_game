@@ -2,6 +2,7 @@
 import pygame as pg
 import utils.deflect as df
 import copy
+import random
 
 class Projectile:
     
@@ -12,14 +13,25 @@ class Projectile:
         self.degrees = 0
         self.speed = speed  
         self.alive = True  
-        self.lifespan = 50000     # Projectile lifespan
+        self.lifespan = 10*60     # Projectile lifespan
         self.projectile_path_scale = 10     # Scale of projectile len
         self.bounce_count = 0
         self.bounce_limit = bounce_limit
         
         self.spawn_timer = 60
+        self.hit_timer_amount = 0 # Frames. (0 right now which means maximum amount of collision checks)
+        self.hit_timer = 0
+        
+    def init_sound_effects(self, sound_effects):
+        self.sound_effects = sound_effects
+        
+        self.hit_sounds = sound_effects[9:13]
+        self.projexp_sounds = self.sound_effects[13:21]
         
     def update(self):
+        if self.hit_timer > 0:
+            self.hit_timer -= 1
+        
         self.pos[0] += self.direction[0]*self.speed
         self.pos[1] += self.direction[1]*self.speed
         
@@ -31,6 +43,7 @@ class Projectile:
             self.alive = False
             
         if self.bounce_count >= self.bounce_limit:
+            random.choice(self.projexp_sounds).play()
             self.alive = False
             
     def get_pos(self):
@@ -49,6 +62,8 @@ class Projectile:
         
     def collision(self, line):
         """line should be a tuple of 2 coords"""
+        if self.hit_timer > 0:
+            return
         
         # Coords of the "surface" line in the polygon
         line_coord1, line_coord2 = line
@@ -90,11 +105,14 @@ class Projectile:
         #chosen_normal =  normal_vector2
 
         print(f"dot1: {dot1:.1f} dot2: {dot2:.1f} Chosen: {dot1:.1f}")
-        print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f}")
+        print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f} BOUNCE COUNT: {self.bounce_count} and bounce limit: {self.bounce_limit} and state alive: {self.alive}")
         # Now do the reflection/deflection with chosen_normal
         self.direction = df.find_deflect_vector(chosen_normal, self.direction)
         
+        random.choice(self.hit_sounds).play()
+        
         self.bounce_count +=1
+        self.hit_timer = self.hit_timer_amount
         
     def add_bounce_count(self): 
         self.bounce_count +=1       #SKAL SLETTES

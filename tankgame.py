@@ -13,6 +13,7 @@ from object_classes.mine import Mine
 import json
 import pathfinding
 from scipy.spatial import KDTree
+import random
 
 class TankGame:
     def __init__(self):
@@ -42,6 +43,9 @@ class TankGame:
         
         # Game states:
         self.state = States.MENU
+
+        # Sounds
+        self.init_sound_effects()
 
         # Load assets
         self.load_assets()
@@ -140,8 +144,33 @@ class TankGame:
         
         return [tank_img, tank_turret_img]
         
+            
+    def init_sound_effects(self):
         
-
+        self.sound_effects = []
+        for i in range(1,5):
+            cannon_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","cannon",f"cannon{i}.mp3"))
+            cannon_sound.set_volume(0.1)  # Range: 0.0 to 1.0
+            self.sound_effects.append(cannon_sound)
+        
+        for i in range(1,5):
+            death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
+            death_sounds.set_volume(0.1)  # Range: 0.0 to 1.0
+            self.sound_effects.append(death_sounds)
+        
+        for i in range(1,6):
+            hit_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","wallhit",f"hit{i}.mp3"))
+            hit_sound.set_volume(0.04)  # Range: 0.0 to 1.0
+            self.sound_effects.append(hit_sound)
+            
+        for i in range(1,8):
+            projexp_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","proj_explosion",f"projexp{i}.mp3"))
+            projexp_sound.set_volume(0.1)  # Range: 0.0 to 1.0
+            self.sound_effects.append(projexp_sound)
+            
+        self.projexp_sounds = self.sound_effects[13:21]
+        
+        
     def init_game_objects(self):
         """Initialize tanks and obstacles."""
 
@@ -229,6 +258,8 @@ class TankGame:
             
             if unit.ai_type == "player":
                 self.units_player_controlled.append(unit)
+                
+            unit.init_sound_effects(self.sound_effects)
                     
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
@@ -390,15 +421,20 @@ class TankGame:
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             
     def update(self):
+        
         # Temp list is created and all units' projectiles are added to a single list
         temp_projectiles = []
         for unit in self.units:
-            temp_projectiles.extend(unit.get_projectile_list())
+            temp_projectiles.extend(unit.projectiles)
 
         # Update projectiles and handle collisions
         for unit in self.units:
+
+            # Remove dead projectiles for each units projectile list
+            unit.projectiles = [proj for proj in unit.projectiles if proj.alive]
+            
             to_remove = set()  # Store indices of projectiles to remove
-            for i, proj in enumerate(unit.get_projectile_list()):
+            for i, proj in enumerate(unit.projectiles):
                 for obstacle in self.obstacles:
                     for corner_pair in obstacle.get_corner_pairs():
                         proj.collision(corner_pair)
@@ -411,6 +447,7 @@ class TankGame:
 
                     if other_unit.collision(projectile_line, collision_type="projectile"):
                         to_remove.add(i)  # Mark for removal
+                        random.choice(self.projexp_sounds).play()     # Sound played when tank is hit
 
                 proj.update()
 
@@ -441,6 +478,7 @@ class TankGame:
             # Mark projectiles for removal
             for proj in projectile_remove_set:
                 proj.alive = False
+                random.choice(self.projexp_sounds).play()   # Sound played when 2 projetiles hit
 
         # Check unit/surface collisions
         for unit in self.units:

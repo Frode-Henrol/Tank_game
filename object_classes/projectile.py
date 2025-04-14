@@ -26,7 +26,7 @@ class Projectile:
         self.sound_effects = sound_effects
         
         self.hit_sounds = sound_effects[9:13]
-        self.projexp_sounds = self.sound_effects[13:21]
+        self.projexp_sounds = self.sound_effects[13:19]
         
     def update(self):
         if self.hit_timer > 0:

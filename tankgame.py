@@ -10,6 +10,7 @@ from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
 from object_classes.button import Button 
 from object_classes.mine import Mine 
+from object_classes.track import Track
 import json
 import pathfinding
 from scipy.spatial import KDTree
@@ -66,6 +67,12 @@ class TankGame:
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
+        
+        # Tank tracks
+        self.load_misc_images()
+        self.tracks = []  # List to store all track marks
+        self.track_interval = 8  # Add track every 10 frames
+        self.track_counter = 0
         
         if self.godmode:
             self.godmode_toggle()
@@ -143,10 +150,17 @@ class TankGame:
         tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
         
         return [tank_img, tank_turret_img]
-        
+    
+    def load_misc_images(self):
+        track_path = os.path.join(os.getcwd(),r"units\images", f"track.png")
+        track_img = pg.image.load(track_path).convert_alpha()
+        self.track_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
+            
+
             
     def init_sound_effects(self):
         
+        pg.mixer.set_num_channels(64)
         self.sound_effects = []
         for i in range(1,5):
             cannon_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","cannon",f"cannon{i}.mp3"))
@@ -155,20 +169,20 @@ class TankGame:
         
         for i in range(1,5):
             death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
-            death_sounds.set_volume(0.1)  # Range: 0.0 to 1.0
+            death_sounds.set_volume(0.22)  # Range: 0.0 to 1.0
             self.sound_effects.append(death_sounds)
         
         for i in range(1,6):
             hit_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","wallhit",f"hit{i}.mp3"))
-            hit_sound.set_volume(0.04)  # Range: 0.0 to 1.0
+            hit_sound.set_volume(0.02)  # Range: 0.0 to 1.0
             self.sound_effects.append(hit_sound)
             
-        for i in range(1,8):
+        for i in range(1,7):
             projexp_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","proj_explosion",f"projexp{i}.mp3"))
             projexp_sound.set_volume(0.1)  # Range: 0.0 to 1.0
             self.sound_effects.append(projexp_sound)
             
-        self.projexp_sounds = self.sound_effects[13:21]
+        self.projexp_sounds = self.sound_effects[13:19]
         
         
     def init_game_objects(self):
@@ -422,6 +436,20 @@ class TankGame:
             
     def update(self):
         
+        # Track marks logic
+        self.track_counter += 1
+        if self.track_counter >= self.track_interval:
+            self.track_counter = 0
+            for unit in self.units:
+                if not unit.dead and unit.is_moving:
+                    # Add track mark at tank's position
+                    track_pos = unit.get_pos()
+                    track_angle = unit.degrees + 90
+                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img))
+    
+        # Update and remove old tracks
+        self.tracks = [track for track in self.tracks if track.update()]
+        
         # Temp list is created and all units' projectiles are added to a single list
         temp_projectiles = []
         for unit in self.units:
@@ -522,6 +550,9 @@ class TankGame:
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
 
+        # Draw tank track
+        for track in self.tracks:
+            track.draw(self.screen)
 
         # Temp way of drawning dead units first: for the future make a list with dead and alive units
         for unit in self.units:

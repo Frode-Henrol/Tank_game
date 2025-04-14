@@ -169,7 +169,7 @@ class TankGame:
         
         for i in range(1,5):
             death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
-            death_sounds.set_volume(0.22)  # Range: 0.0 to 1.0
+            death_sounds.set_volume(0.15)  # Range: 0.0 to 1.0
             self.sound_effects.append(death_sounds)
         
         for i in range(1,6):

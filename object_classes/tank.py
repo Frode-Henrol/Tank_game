@@ -115,7 +115,7 @@ class Tank:
         self.sound_effects = sound_effects
         
         self.cannon_sounds = sound_effects[:4]
-        self.death_sounds = sound_effects[4:9]
+        self.death_sounds = sound_effects[4:8]
 
     
     def set_units(self, units):

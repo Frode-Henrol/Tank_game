@@ -78,7 +78,7 @@ class TankGame:
         self.track_counter = 0
         
         # Projectile explosion
-        self.active_proj_explosions = []
+        self.proj_explosion_animation = None
         
         
         if self.godmode:
@@ -243,7 +243,7 @@ class TankGame:
         
     def init_game_objects(self):
         """Initialize tanks and obstacles."""
-        
+
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         map_name = r"map_files\map_test1.txt"
         self.polygon_list, unit_list, self.node_spacing = helper_functions.load_map_data(map_name)
@@ -305,7 +305,7 @@ class TankGame:
                                     images             = self.load_unit_images(unit_type_json_format),
                                     death_image        = self.tank_death_img,
                                     use_turret         = True,
-                                    team               = unit_team,    
+                                    team               = unit_team, 
                                     ai_type            = ai_type
                                     )
                 
@@ -330,8 +330,7 @@ class TankGame:
                 self.units_player_controlled.append(unit)
                 
             unit.init_sound_effects(self.sound_effects)
-        
-        self.load_misc_images() # SKAL SLETTES PT FOR AT UNDGÅ CRASH VED RESET F
+                    
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
 
@@ -492,7 +491,7 @@ class TankGame:
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             
     def update_old(self):
-    
+        
         # Track marks logic
         self.track_counter += 1
         if self.track_counter >= self.track_interval:
@@ -512,9 +511,11 @@ class TankGame:
         for unit in self.units:
             temp_projectiles.extend(unit.projectiles)
 
-        
         # Update projectiles and handle collisions
         for unit in self.units:
+
+            # Remove dead projectiles for each units projectile list
+            unit.projectiles = [proj for proj in unit.projectiles if proj.alive]
             
             to_remove = set()  # Store indices of projectiles to remove
             for i, proj in enumerate(unit.projectiles):
@@ -604,108 +605,123 @@ class TankGame:
         
         self.projectiles = [proj for proj in temp_projectiles if proj.alive]  
 
-         
     def update(self):
-    
-        # Track marks logic
+        # Update track marks
+        self.update_track_marks()
+        
+        # Process all projectiles
+        self.process_projectiles()
+        
+        # Handle unit collisions and physics
+        self.handle_unit_collisions()
+        
+        # Clean up dead mines
+        self.mines = [mine for mine in self.mines if not mine.is_exploded]
+
+    def update_track_marks(self):
         self.track_counter += 1
         if self.track_counter >= self.track_interval:
             self.track_counter = 0
             for unit in self.units:
                 if not unit.dead and unit.is_moving:
-                    # Add track mark at tank's position
-                    track_pos = unit.get_pos()
-                    track_angle = unit.degrees + 90
-                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img))
-    
-        # Update and remove old tracks
+                    pos = unit.get_pos()
+                    self.tracks.append(Track((pos[0], pos[1]), unit.degrees + 90, self.track_img))
         self.tracks = [track for track in self.tracks if track.update()]
+
+    def process_projectiles(self):
+        # Update all projectiles and check collisions
+        projectiles_to_remove = set()
+        positions = []
         
-        # Temp list is created and all units' projectiles are added to a single list
-        temp_projectiles = []
         for unit in self.units:
-            temp_projectiles.extend(unit.projectiles)
-
+            self.projectiles.extend(unit.projectiles)
         
-        # Update projectiles and handle collisions
-        for unit in self.units:
-            for i, proj in enumerate(unit.projectiles):
-                proj.update()
+        for proj in self.projectiles:
+            proj.update()
+            positions.append(proj.get_pos())
+            
+            # Check obstacle collisions
+            if self.check_obstacle_collisions(proj):
+                projectiles_to_remove.add(proj)
+                continue
                 
-                for obstacle in self.obstacles:
-                    for corner_pair in obstacle.get_corner_pairs():
-                        proj.collision(corner_pair)
-                        
-                # Check projectile collision with other units
-                projectile_line = proj.get_line()
-                for other_unit in self.units:
-                    if other_unit.get_death_status():
-                        continue  # Ignore dead units
-
-                    if other_unit.collision(projectile_line, collision_type="projectile"):
-                        proj.alive = False
+            # Check unit collisions
+            if self.check_unit_collisions(proj):
+                projectiles_to_remove.add(proj)
+                continue
                 
-        # Optimize projectile proximity checks with KDTree
-        if temp_projectiles:
-            projectile_positions = np.array([proj.get_pos() for proj in temp_projectiles])
-            tree = KDTree(projectile_positions)
+            # Check mine collisions
+            if self.check_mine_collisions(proj):
+                projectiles_to_remove.add(proj)
+        
+        # Check projectile-to-projectile collisions
+        self.check_projectile_collisions(projectiles_to_remove, positions)
+        
+        # Remove dead projectiles and handle explosions
+        for proj in projectiles_to_remove:
+            self.handle_projectile_explosion(proj)
+            proj.alive = False
+        
+        self.projectiles = [p for p in self.projectiles if p.alive]
+        
+        # Update AI projectile references
+        for unit in (u for u in self.units if u.ai is not None):
+            unit.ai.projectiles = self.projectiles
 
+    def check_obstacle_collisions(self, proj):
+        for obstacle in self.obstacles:
+            for corner_pair in obstacle.get_corner_pairs():
+                if proj.collision(corner_pair):
+                    return True
+        return False
 
-            for i, proj in enumerate(temp_projectiles):
-                neighbors = tree.query_ball_point(proj.get_pos(), self.projectile_collision_dist)
-                for j in neighbors:
-                    if i != j:  # Avoid self-collision
-                        temp_projectiles[i].alive = False
-                        temp_projectiles[j].alive = False
+    def check_unit_collisions(self, proj):
+        for unit in (u for u in self.units if not u.dead):
+            if unit.collision(proj.get_line(), "projectile"):
+                return True
+        return False
 
-                # Check for mine hit
-                for mine in self.mines:
-                     if helper_functions.distance(mine.pos, proj.pos) < 10:
-                        mine.explode()
-                        temp_projectiles[i].alive = False
+    def check_mine_collisions(self, proj):
+        for mine in self.mines:
+            if helper_functions.distance(mine.pos, proj.pos) < 10:
+                mine.explode()
+                return True
+        return False
 
-        # Check unit/surface collisions
+    def check_projectile_collisions(self, remove_set, positions):
+        if not self.projectiles:
+            return
+            
+        tree = KDTree(np.array(positions))
+        for i, proj in enumerate(self.projectiles):
+            if proj in remove_set:
+                continue
+            neighbors = tree.query_ball_point(proj.get_pos(), self.projectile_collision_dist)
+            for j in neighbors:
+                if i != j:
+                    remove_set.add(self.projectiles[i])
+                    remove_set.add(self.projectiles[j])
+
+    def handle_unit_collisions(self):
         for unit in self.units:
-            # Send new projectile info to AI
-            if unit.ai is not None:
-                unit.ai.projectiles = self.projectiles
-
+            # Surface collisions
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
-                    unit.collision(corner_pair, collision_type="surface")
+                    unit.collision(corner_pair, "surface")
 
-            # Check for unit-unit collision
-            for other_unit in self.units:
-                if unit == other_unit or other_unit.get_death_status():
-                    continue  # Skip self and dead units
-
-                if not self.are_tanks_close(unit, other_unit):
-                    continue  # Skip if tanks aren't close
-
-                # Skip collision check with dead tanks
-                if other_unit.dead or unit.dead:
-                    continue
-                
-                # Push tanks when colliding
-                unit.apply_repulsion(other_unit, push_strength=0.5)
-                other_unit.apply_repulsion(unit, push_strength=0.5)  # Ensure symmetry
+            # Unit-unit collisions
+            for other in (u for u in self.units 
+                        if u != unit and not u.dead and not unit.dead 
+                        and self.are_tanks_close(unit, u)):
+                unit.apply_repulsion(other, 0.5)
+                other.apply_repulsion(unit, 0.5)
             
+            # Mine interactions
             if not unit.dead:
-                # Mine logic
-                for mine in self.mines:          
-                    if mine.is_exploded:
-                        self.mines.remove(mine)
+                for mine in self.mines:
                     mine.get_unit_list(self.units)
-                    mine.check_for_tank(unit)
-
-        for proj in temp_projectiles:
-            if not proj.alive:
-                self.handle_projectile_explosion(proj)
-        
-        self.projectiles = [proj for proj in temp_projectiles if proj.alive]  
-
+                    mine.check_for_tank(unit)    
     
-     
     
 
     def draw(self):
@@ -713,14 +729,6 @@ class TankGame:
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
 
-        # Projectile explosions
-        for animation in self.active_proj_explosions[:]:
-            animation.play(self.screen)
-            
-            # Remove the animation if it's finished
-            if animation.finished:
-                self.active_proj_explosions.remove(animation)
-        
         # Draw tank track
         for track in self.tracks:
             track.draw(self.screen)
@@ -867,15 +875,7 @@ class TankGame:
     
     def handle_projectile_explosion(self, proj: Projectile):
         proj.play_explosion()
-
-        # Muzzle flash animation
-        muzzle_flash_animation = Animation(images=self.animations["muzzle_flash"], frame_delay=2)
-        muzzle_flash_animation.start(pos=proj.pos, angle=0)
-        
-        self.active_proj_explosions.append(muzzle_flash_animation)
-        
-
-        
+        print(f"IS ALIVE? {proj.alive}")
     
 
 class States:

@@ -8,6 +8,7 @@ class Animation:
         self.image_index = 0
         self.frame_counter = 0
         self.finished = False
+        self.has_played = False
         self.angle = 0
         self.pos = (0, 0)
 
@@ -17,6 +18,7 @@ class Animation:
         self.image_index = 0
         self.frame_counter = 0
         self.finished = False
+        self.has_played = True
 
     def play(self, screen):
         if self.finished or self.image_index >= len(self.images):

@@ -168,6 +168,10 @@ class Tank:
             
     def draw(self, surface):
         self.surface = surface
+        
+        # Remove dead projectiles
+        self.projectiles[:] = [p for p in self.projectiles if p.alive]
+        
         # TEMP: constant to make sure tank image points the right way
         tank_correct_orient = -90
         rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
@@ -180,29 +184,26 @@ class Tank:
             if self.muzzle_flash_animation.finished:
                 self.muzzle_flash_animation = None
 
+        # If dead return
         if self.dead:
             return
+        
         # Turret Rotation Logic
         if self.ai == None:
             # Control of turret when player controlled
             target_coord = pg.mouse.get_pos()
             self.turret_rotation_angle = helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1])
             
+        rotated_turret = pg.transform.rotate(self.turret_image, -1 * self.turret_rotation_angle - 90)   # Rotate turret image independently
+        turret_rect = rotated_turret.get_rect(center=self.pos) # Get turret rect centered at new turret position
+        surface.blit(rotated_turret, turret_rect.topleft)   # Draw turret
+        
         # Control shooting slowness effect
         if self.shot_slowness_cooldown > 0:
             self.shot_slowness_cooldown -= 1
             self.speed = self.speed_original * self.slowdown_amount  # Slowdown amount
         else: 
             self.speed = self.speed_original
-        
-        # Rotate turret image independently
-        rotated_turret = pg.transform.rotate(self.turret_image, -1 * self.turret_rotation_angle - 90)
-
-        # Get turret rect centered at new turret position
-        turret_rect = rotated_turret.get_rect(center=self.pos)
-
-        # Draw turret
-        surface.blit(rotated_turret, turret_rect.topleft)
         
         # ============================= Other logic ================================
         # Decrease cooldown each new draw
@@ -212,10 +213,7 @@ class Tank:
         if self.mine_cooldown > 0:
             self.mine_cooldown -= 1
         
-        # Remove dead projectiles
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-        
-        #AI
+        # Update ai
         if self.ai and not self.dead:
             self.ai.update()
             
@@ -223,9 +221,9 @@ class Tank:
         if self.go_to_waypoint:
             self.move_to_node(self.current_node)
             
+        # Timers
         if self.is_moving_false_time > 0:
             self.is_moving_false_time -= 1
-        
         if self.is_moving_false_time == 0: 
             self.is_moving = False
             

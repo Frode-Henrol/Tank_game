@@ -3,6 +3,7 @@ import utils.deflect as df
 from object_classes.projectile import Projectile
 from object_classes.obstacle import Obstacle
 from object_classes.mine import Mine
+from object_classes.animation import Animation
 import utils.helper_functions as helper_functions
 import numpy as np
 import random
@@ -100,11 +101,13 @@ class Tank:
         self.id = Tank._id_counter
         Tank._id_counter += 1  # increment for next tank
         
+        # Animation
+        self.muzzle_flash_animation = None    
+    
         # AI
         # TEST DIC
         self.ai_type = ai_type  
         self.pos_dir = (0,0)
-        
         self.units = []
 
         
@@ -117,6 +120,8 @@ class Tank:
         self.cannon_sounds = sound_effects[:4]
         self.death_sounds = sound_effects[4:8]
 
+    def init_animations(self, animation_list: dict):
+        self.animation_list = animation_list
     
     def set_units(self, units):
         self.units = units
@@ -162,12 +167,18 @@ class Tank:
         self.make_dead(False)
             
     def draw(self, surface):
-        
+        self.surface = surface
         # TEMP: constant to make sure tank image points the right way
         tank_correct_orient = -90
         rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
         tank_rect = rotated_tank.get_rect(center=self.pos)
         surface.blit(rotated_tank, tank_rect.topleft)
+        
+        # Play muzzle flash animation if active
+        if self.muzzle_flash_animation:
+            self.muzzle_flash_animation.play(self.surface)
+            if self.muzzle_flash_animation.finished:
+                self.muzzle_flash_animation = None
 
         if self.dead:
             return
@@ -348,8 +359,16 @@ class Tank:
         
         # Play sound when firing
         random.choice(self.cannon_sounds).play()
-                                                                      
-        print(self.direction)
+        
+        # Muzzle flash animation
+        self.muzzle_flash_animation = Animation(images=self.animation_list["muzzle_flash"], frame_delay=2)
+        barrel_length = 50  # same as spawn_distance_from_middle, or tweak if needed
+        rad_angle = np.radians(self.turret_rotation_angle)
+        barrel_end_x = self.pos[0] + barrel_length * np.cos(rad_angle)
+        barrel_end_y = self.pos[1] + barrel_length * np.sin(rad_angle)
+        moved_pos = (barrel_end_x, barrel_end_y)
+        self.muzzle_flash_animation.start(pos=moved_pos, angle=self.turret_rotation_angle)
+                      
         
 
     def lay_mine(self):

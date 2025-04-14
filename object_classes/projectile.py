@@ -83,12 +83,12 @@ class Projectile:
             return self.direction
         
         self.startpos = intersect_coord     # Update startpos for ai dodge mechanic
-        print(f"Projectile hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
-        print(f"Projectile has coord        : ({float(self.pos[0]):.1f},  {float(self.pos[1]):.1f})")
+        # print(f"Projectile hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
+        # print(f"Projectile has coord        : ({float(self.pos[0]):.1f},  {float(self.pos[1]):.1f})")
         
         # Find normal vector of line
         normal_vector1, normal_vector2 = df.find_normal_vectors(line_coord1, line_coord2)
-        print(f"Line start: {line_coord1}   End: {line_coord2}")
+        # print(f"Line start: {line_coord1}   End: {line_coord2}")
         
         # Find deflection vector and update the direction vector
         
@@ -104,8 +104,8 @@ class Projectile:
         # SKAL SLETTES: (bare test med tvungen normalvektor)
         #chosen_normal =  normal_vector2
 
-        print(f"dot1: {dot1:.1f} dot2: {dot2:.1f} Chosen: {dot1:.1f}")
-        print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f} BOUNCE COUNT: {self.bounce_count} and bounce limit: {self.bounce_limit} and state alive: {self.alive}")
+        # print(f"dot1: {dot1:.1f} dot2: {dot2:.1f} Chosen: {dot1:.1f}")
+        # print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f} BOUNCE COUNT: {self.bounce_count} and bounce limit: {self.bounce_limit} and state alive: {self.alive}")
         # Now do the reflection/deflection with chosen_normal
         self.direction = df.find_deflect_vector(chosen_normal, self.direction)
         
@@ -115,7 +115,7 @@ class Projectile:
         self.hit_timer = self.hit_timer_amount
         
     def add_bounce_count(self): 
-        self.bounce_count +=1       #SKAL SLETTES
+        self.bounce_count += 1
     
     def get_bounce_count(self):
         return self.bounce_count

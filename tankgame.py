@@ -136,7 +136,25 @@ class TankGame:
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()
-            
+
+    def load_and_transform_images(self, folder_path: str) -> list[pg.Surface]:
+        """Load and scale all images in a folder using Pygame."""
+        pg.init()
+        supported_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+        image_list: list[pg.Surface] = []
+
+        for filename in os.listdir(folder_path):
+            if filename.lower().endswith(supported_exts):
+                track_path = os.path.join(folder_path, filename)
+                try:
+                    track_img = pg.image.load(track_path).convert_alpha()
+                    scaled_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
+                    image_list.append(scaled_img)
+                except Exception as e:
+                    print(f"Failed to load {filename}: {e}")
+
+        return image_list
+    
     def load_unit_images(self, name: str):
         
         path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
@@ -155,9 +173,21 @@ class TankGame:
         track_path = os.path.join(os.getcwd(),r"units\images", f"track.png")
         track_img = pg.image.load(track_path).convert_alpha()
         self.track_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
+        
+        # Animation
+        animation_path = os.path.join(os.getcwd(),"units","animations")
+        animation = {}
+        
+        muzzle_flash_path = os.path.join(animation_path, "muzzle_flash")
+        self.muzzle_flash_list = self.load_and_transform_images(muzzle_flash_path)
+        animation["muzzle_flash"] = self.muzzle_flash_list
+ 
+        for unit in self.units:
+            unit.init_animations(animation)
             
-
-            
+        
+        
+        
     def init_sound_effects(self):
         
         pg.mixer.set_num_channels(64)
@@ -169,7 +199,7 @@ class TankGame:
         
         for i in range(1,5):
             death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
-            death_sounds.set_volume(0.15)  # Range: 0.0 to 1.0
+            death_sounds.set_volume(0.12)  # Range: 0.0 to 1.0
             self.sound_effects.append(death_sounds)
         
         for i in range(1,6):

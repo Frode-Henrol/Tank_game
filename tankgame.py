@@ -77,8 +77,9 @@ class TankGame:
         self.track_interval = 8  # Add track every 10 frames
         self.track_counter = 0
         
-        # Projectile explosion
+        # Projectile/tank explosion
         self.active_proj_explosions = []
+        self.active_tank_explosions = []
         
         
         if self.godmode:
@@ -146,7 +147,7 @@ class TankGame:
 
 
 
-    def load_and_transform_images(self, folder_path: str) -> list[pg.Surface]:
+    def load_and_transform_images(self, folder_path: str, scale: float = 1) -> list[pg.Surface]:
         """Load and scale all images in a folder using Pygame, sorted numerically."""
         pg.init()
         supported_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
@@ -167,7 +168,8 @@ class TankGame:
             track_path = os.path.join(folder_path, filename)
             try:
                 track_img = pg.image.load(track_path).convert_alpha()
-                scaled_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
+                
+                scaled_img = pg.transform.scale(track_img, (self.WINDOW_DIM_SCALED[0]*scale, self.WINDOW_DIM_SCALED[1]*scale))
                 image_list.append(scaled_img)
             except Exception as e:
                 print(f"Failed to load {filename}: {e}")
@@ -207,6 +209,12 @@ class TankGame:
         proj_explosion_path = os.path.join(animation_path, "proj_explosion")
         self.proj_explosion_list = self.load_and_transform_images(proj_explosion_path)
         self.animations["proj_explosion"] = self.proj_explosion_list
+        
+        # Load projectile explosion animation (shares proj_explosion just scaled)
+        self.tank_explosion_list = self.load_and_transform_images(proj_explosion_path, scale=2)
+        self.animations["tank_explosion"] = self.tank_explosion_list
+        
+        
  
         for unit in self.units:
             unit.init_animations(self.animations)
@@ -225,7 +233,7 @@ class TankGame:
         
         for i in range(1,5):
             death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
-            death_sounds.set_volume(0.12)  # Range: 0.0 to 1.0
+            death_sounds.set_volume(0.09)  # Range: 0.0 to 1.0
             self.sound_effects.append(death_sounds)
         
         for i in range(1,6):
@@ -698,28 +706,13 @@ class TankGame:
                     mine.get_unit_list(self.units)
                     mine.check_for_tank(unit)
 
-        for proj in temp_projectiles:
-            if not proj.alive:
-                self.handle_projectile_explosion(proj)
-        
-        self.projectiles = [proj for proj in temp_projectiles if proj.alive]  
+        self.projectiles = temp_projectiles
 
     
-     
-    
-
     def draw(self):
         """Render all objects on the screen."""
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
-
-        # Projectile explosions
-        for animation in self.active_proj_explosions[:]:
-            animation.play(self.screen)
-            
-            # Remove the animation if it's finished
-            if animation.finished:
-                self.active_proj_explosions.remove(animation)
         
         # Draw tank track
         for track in self.tracks:
@@ -763,6 +756,30 @@ class TankGame:
                     pg.draw.circle(self.screen, "blue", center=corner_pair[0], radius=5)   
 
 
+        # Projectile explosions
+        for animation in self.active_proj_explosions[:]:
+            animation.play(self.screen)
+            
+            # Remove the animation if it's finished
+            if animation.finished:
+                self.active_proj_explosions.remove(animation)
+                
+        # Tank explosions
+        for animation in self.active_tank_explosions[:]:
+            animation.play(self.screen)
+            
+            # Remove the animation if it's finished
+            if animation.finished:
+                self.active_tank_explosions.remove(animation)        
+        
+        for proj in self.projectiles:
+            if not proj.alive:
+                self.handle_projectile_explosion(proj)
+                
+        for unit in self.units:
+            if unit.time_of_death < 10 and unit.dead:
+                self.handle_tank_explosion(unit)
+        
         
         # ======================== DEBUG VISUALS ===================================
         
@@ -865,16 +882,19 @@ class TankGame:
         # Check if the distance is less than or equal to the threshold (radius)
         return distance <= threshold  
     
-    def handle_projectile_explosion(self, proj: Projectile):
-        proj.play_explosion()
-
-        # Muzzle flash animation
-        muzzle_flash_animation = Animation(images=self.animations["muzzle_flash"], frame_delay=2)
-        muzzle_flash_animation.start(pos=proj.pos, angle=0)
+    def handle_projectile_explosion(self, proj: Projectile) -> None:
+        proj.play_explosion()   # Play sound
         
-        self.active_proj_explosions.append(muzzle_flash_animation)
+        animation = Animation(images=self.animations["proj_explosion"], frame_delay=2)
+        animation.start(pos=proj.pos, angle=0)
+        self.active_proj_explosions.append(animation)
         
+    def handle_tank_explosion(self, unit: Tank) -> None:
 
+        animation = Animation(images=self.animations["tank_explosion"], frame_delay=6)
+        animation.start(pos=unit.pos, angle=0)
+        
+        self.active_tank_explosions.append(animation)
         
     
 

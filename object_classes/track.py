@@ -1,7 +1,7 @@
 import pygame as pg
 
 class Track:
-    def __init__(self, pos, angle, image, lifetime=250):
+    def __init__(self, pos, angle, image, lifetime=50):
         self.pos = pos
         self.angle = angle
         self.original_image = image.convert_alpha()  # Ensure image has alpha channel

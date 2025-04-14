@@ -42,6 +42,7 @@ class Tank:
         self.is_moving_dir = 0
         self.is_moving_false_time_start = 5
         self.is_moving_false_time = 0
+        self.time_of_death = 0
         
         # Team
         self.team = team
@@ -186,7 +187,10 @@ class Tank:
 
         # If dead return
         if self.dead:
+            self.time_of_death +=1
+            
             return
+        self.time_of_death = 0
         
         # Turret Rotation Logic
         if self.ai == None:
@@ -775,8 +779,6 @@ class TankAI:
                 self.behavior_state = BehaviorStates.DEFENDING
                 return
 
-        
-        print(self.targeted_unit.pos)
         if self.tank.go_to_waypoint == False:
             self.find_path_within_coord(self.targeted_unit.pos, 100)
             return

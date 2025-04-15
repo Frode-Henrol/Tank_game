@@ -47,12 +47,20 @@ class TankGame:
         # Game states:
         self.state = States.MENU
 
-        self.load_gui()                   
-        self.load_animations_and_misc()   
-        self.load_sound_effects()           
-        self.load_map()                 
+        # Sounds
+        self.init_sound_effects()
+
+        self.load_misc_images()
+        
+        # Initialize game objects - SKAL Rettes denne function skal omskrives sådan den init baseret på den rigtige json fil med map data
+        self.init_game_objects()
+        
+        # Load assets
         self.load_map_textures()
 
+        # Load gui related features
+        self.load_gui()
+        
         # Settings menu:
         self.show_obstacle_corners = False
         self.draw_hitbox = False # Not implemented 
@@ -77,13 +85,57 @@ class TankGame:
         
         if self.godmode:
             self.godmode_toggle()
+        
+        
+    def init_game_objects(self):
+        self.load_map()
+        self.init_pathfinding()
+        self.init_obstacles()
+        self.load_unit_configs()
+        self.init_units()
+        self.finalize_unit_setup()
             
-    def godmode_toggle(self):
-        for unit in self.units_player_controlled:
-            print(f"Toggled godemode for all player tanks")
-            unit.toggle_godmode()
 
-    # ============================================ Load helper functions ============================================
+    def load_gui(self):
+        x_mid = self.WINDOW_DIM[0] // 2
+        y_mid = self.WINDOW_DIM[1] // 2
+        
+        # ==================== Button for states ====================
+        # Last argument for button tells the button which state it should change to
+        
+        button_width = 300
+        left = x_mid - button_width // 2    # The x value were button starts
+        
+        self.menu_buttons = [
+            Button(left, 150, 300, 60, "Level selection", States.LEVEL_SELECT),
+            Button(left, 250, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 350, 300, 60, "Quick play", States.COUNTDOWN),
+            Button(left, 450, 300, 60, "Quit", States.EXIT)
+        ]
+        
+        self.setting_buttons = [
+            Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
+            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
+            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "godmode"), self.godmode_toggle())),
+            Button(left, 450, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
+            Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
+            Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
+            Button(left, 750, 300, 60, "Back", States.MENU)
+        ]
+        
+        self.level_selection_buttons = [
+            Button(left, 150, 300, 60, "Level 1", States.PLAYING, action=self.load_map(map_num=1)),
+            Button(left, 250, 300, 60, "Level 2", States.PLAYING, action=self.load_map(map_num=2)),
+            Button(left, 350, 300, 60, "Level 3", States.PLAYING, action=self.load_map(map_num=3)),
+            Button(left, 450, 300, 60, "Level 4", States.PLAYING, action=self.load_map(map_num=4)),
+
+            Button(left, 550, 300, 60, "Back", States.MENU)  
+        ]
+            
+    def load_map(self, map_num):
+        print(f"MAP {map_num} loadet")
+        # not implemented
+    
     def load_and_transform_images(self, folder_path: str, scale: float = 1) -> list[pg.Surface]:
         """Load and scale all images in a folder using Pygame, sorted numerically."""
         pg.init()
@@ -113,89 +165,54 @@ class TankGame:
 
         return image_list
     
-    def wrap_texture_on_polygons(self, polygons_points_list: list, images_list) -> None:
-        """Takes a list of polygons and assigns textures to them"""
-        
-        # Load texture and prepare it
-        # texture = pg.image.load(texture_path).convert()
-        # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
-
-        texture = random.choice(images_list)
-        
-        dim = self.WINDOW_DIM
-        
-        # Create a surface for all polygons
-        polygon_surface = pg.Surface(dim, pg.SRCALPHA)
-        polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
-
-        # Draw all polygons on the surface
-        for polygon_points in polygons_points_list:
-            pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
-
-        # Use the polygon_surface as a mask
-        mask = pg.mask.from_surface(polygon_surface)
-        mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-
-        # Prepare texture surface to match size
-        texture_surface = pg.Surface(dim, pg.SRCALPHA)
-        for x in range(0, dim[0], texture.get_width()):
-            texture = random.choice(images_list)
-            for y in range(0, dim[1], texture.get_height()):
-                texture_surface.blit(texture, (x, y))
-
-        # Apply mask to texture
-        texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
-        self.texture_surface = texture_surface
-        
-        pg.image.save(self.texture_surface, "debug_texture_output.png")
-    # ===============================================================================================================
-    # ============================================ Load helper functions ============================================
-    def load_gui(self) -> None:
-        x_mid = self.WINDOW_DIM[0] // 2
-        y_mid = self.WINDOW_DIM[1] // 2
-        
-        # ==================== Button for states ====================
-        # Last argument for button tells the button which state it should change to
-        
-        button_width = 300
-        left = x_mid - button_width // 2    # The x value were button starts
-        
-        self.menu_buttons = [
-            Button(left, 150, 300, 60, "Level selection", States.LEVEL_SELECT),
-            Button(left, 250, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 350, 300, 60, "Quick play", States.COUNTDOWN),
-            Button(left, 450, 300, 60, "Quit", States.EXIT)
-        ]
-        
-        self.setting_buttons = [
-            Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
-            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
-            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "godmode"), self.godmode_toggle())),
-            Button(left, 450, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
-            Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
-            Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
-            Button(left, 750, 300, 60, "Back", States.MENU)
-        ]
-        
-        
-        self.level_selection_buttons = [
-            Button(left, 150, 300, 60, "Level 1", States.PLAYING),
-            Button(left, 250, 300, 60, "Level 2", States.PLAYING),
-            Button(left, 350, 300, 60, "Level 3", States.PLAYING),
-            Button(left, 450, 300, 60, "Level 4", States.PLAYING),
-
-            Button(left, 550, 300, 60, "Back", States.MENU)  
-        ]  
+    def godmode_toggle(self):
+        for unit in self.units_player_controlled:
+            print(f"Toggled godemode for all player tanks")
+            unit.toggle_godmode()
     
-    def load_animations_and_misc(self) -> None:
-        """Loads animations and shared textures images"""
+    def load_map_textures(self):
+        """Load and scale game assets (e.g., images)."""
         try:
-            # Death image
+            path = os.path.join(os.getcwd(), "map_files", "backgrounds","dessert3.png")
+            self.background_inner = pg.image.load(path).convert_alpha()
+            self.background_inner = pg.transform.scale(self.background_inner, self.map_size)
+            
+            path = os.path.join(os.getcwd(), "map_files", "backgrounds","outer_background.png")
+            self.background_outer = pg.image.load(path).convert_alpha()
+            self.background_outer = pg.transform.scale(self.background_outer, self.WINDOW_DIM)
+            
+            path = os.path.join(os.getcwd(), "map_files", "backgrounds","wall_textures")
+            image_list = self.load_and_transform_images(path, scale=3)
+            self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
+                
+        except FileNotFoundError:
+            print("Error: Image not found! Check your path.")
+            sys.exit()    
+        
+    def load_unit_textures(self, name: str) -> list:
+        try:
+            path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
+            turret_name = name.split("_")[0]
+            path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
+            
+            tank_img = pg.image.load(path_tank).convert_alpha()
+            tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
+            
+            tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
+            tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
+            
+            return [tank_img, tank_turret_img]
+    
+        except FileNotFoundError:
+            print("Error: Image not found! Check your path.")
+            sys.exit()
+    
+    def load_misc_images(self):
+        try:
             path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
             self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
             
-            # Track image
             track_path = os.path.join(os.getcwd(),r"units\images", f"track.png")
             track_img = pg.image.load(track_path).convert_alpha()
             self.track_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
@@ -225,7 +242,7 @@ class TankGame:
         for unit in self.units:
             unit.init_animations(self.animations)
         
-    def load_sound_effects(self) -> None:
+    def init_sound_effects(self):
         
         pg.mixer.set_num_channels(64)
         self.sound_effects = []
@@ -250,32 +267,13 @@ class TankGame:
             self.sound_effects.append(projexp_sound)
             
         self.projexp_sounds = self.sound_effects[13:19]
-    
-    def load_unit_textures(self, name: str) -> list:
-        """Loads specific body and turret images for a given tank"""
-        try:
-            path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
-            turret_name = name.split("_")[0]
-            path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
-            
-            tank_img = pg.image.load(path_tank).convert_alpha()
-            tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
-            
-            tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
-            tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
-            
-            return [tank_img, tank_turret_img]
-    
-        except FileNotFoundError:
-            print("Error: Image not found! Check your path.")
-            sys.exit()
         
-    def load_map(self, map_path: str = r"map_files\map_test1.txt") -> None:
-        """Loads data from a map file"""
+    def init_game_objects(self):
+        """Initialize tanks and obstacles."""
         
-        # ==================== Load map  ====================
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
-        self.polygon_list, unit_list, self.node_spacing = helper_functions.load_map_data(map_path)
+        map_name = r"map_files\map_test1.txt"
+        self.polygon_list, unit_list, self.node_spacing = helper_functions.load_map_data(map_name)
        
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
         self.polygon_list_no_border = self.polygon_list.copy()
@@ -300,10 +298,12 @@ class TankGame:
         # Load ai config
         with open(r"units\ai.json", 'r') as json_file:
             all_ai_data_json: dict = json.load(json_file)
+            print(f"Loaded ai dict: {all_ai_data_json}")
         
         # Load unit config
         with open(r"units\units.json", "r") as json_file:
             all_units_data_json: dict = json.load(json_file)
+            print(f"Loaded unit dict: {all_units_data_json}")
         
         # Unpack each unit map data
         for unit in unit_list:
@@ -358,31 +358,11 @@ class TankGame:
                 self.units_player_controlled.append(unit)
                 
             unit.init_sound_effects(self.sound_effects)
-            unit.init_animations(self.animations)
         
+        self.load_misc_images() # SKAL SLETTES PT FOR AT UNDGÅ CRASH VED RESET F
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
 
-    def load_map_textures(self) -> None:
-        """Load and scale game assets (e.g., images)."""
-        try:
-            path = os.path.join(os.getcwd(), "map_files", "backgrounds","dessert3.png")
-            self.background_inner = pg.image.load(path).convert_alpha()
-            self.background_inner = pg.transform.scale(self.background_inner, self.map_size)
-            
-            path = os.path.join(os.getcwd(), "map_files", "backgrounds","outer_background.png")
-            self.background_outer = pg.image.load(path).convert_alpha()
-            self.background_outer = pg.transform.scale(self.background_outer, self.WINDOW_DIM)
-            
-            path = os.path.join(os.getcwd(), "map_files", "backgrounds","wall_textures")
-            image_list = self.load_and_transform_images(path, scale=3)
-            self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
-                
-        except FileNotFoundError:
-            print("Error: Image not found! Check your path.")
-            sys.exit()  
-
-    # ============================================ Run loop states ==========================================
     def run(self):
         """Main game loop."""
         while True:
@@ -404,7 +384,45 @@ class TankGame:
             
             self.handle_events(event_list)
 
+    def wrap_texture_on_polygons(self, polygons_points_list: list, images_list) -> None:
+        """Takes a list of polygons and assigns textures to them"""
+        
+        # Load texture and prepare it
+        # texture = pg.image.load(texture_path).convert()
+        # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
+
+        texture = random.choice(images_list)
+        
+        dim = self.WINDOW_DIM
+        
+        # Create a surface for all polygons
+        polygon_surface = pg.Surface(dim, pg.SRCALPHA)
+        polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
+
+        # Draw all polygons on the surface
+        for polygon_points in polygons_points_list:
+            pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
+
+        # Use the polygon_surface as a mask
+        mask = pg.mask.from_surface(polygon_surface)
+        mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+
+        # Prepare texture surface to match size
+        texture_surface = pg.Surface(dim, pg.SRCALPHA)
+        for x in range(0, dim[0], texture.get_width()):
+            texture = random.choice(images_list)
+            for y in range(0, dim[1], texture.get_height()):
+                texture_surface.blit(texture, (x, y))
+
+        # Apply mask to texture
+        texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+        self.texture_surface = texture_surface
+        
+        pg.image.save(self.texture_surface, "debug_texture_output.png")
+
+        
     # ============================================ State methods ============================================
+    # ============================================ ------------- ============================================
     def main_menu(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.menu_buttons, event_list, self.screen)
@@ -492,14 +510,14 @@ class TankGame:
                 self.units.clear()
                 self.obstacles.clear()
                 self.mines.clear()
-                self.load_map()
+                self.init_game_objects()
 
                     
                 # -------------------------------------------
         self.update()
         self.draw()
 
-    # ============================================ Handle methods ============================================
+    # ==================== Shared button handler for states ====================
     
     def handle_buttons(self, button_list, event_list, screen):
         """Handles button events and drawing of buttons"""
@@ -513,6 +531,8 @@ class TankGame:
         for button in button_list:
             button.draw(screen)
             
+    # ============================================ ------------- ============================================
+
     def handle_events(self, event_list):
         """Handle player inputs and game events."""
 
@@ -535,8 +555,6 @@ class TankGame:
                     if poly_pg_object.collidepoint(pos):
                         print("True mouse inside polygone")
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
-            
-    # ============================================ Drawing/update ============================================     
             
     def update(self):
     
@@ -774,23 +792,7 @@ class TankGame:
         self.render_debug_info()
         pg.display.update()
         self.clock.tick(self.fps)   # Controls FPS
-    
-    def handle_projectile_explosion(self, proj: Projectile) -> None:
-        proj.play_explosion()   # Play sound
-        
-        animation = Animation(images=self.animations["proj_explosion"], frame_delay=2)
-        animation.start(pos=proj.pos, angle=0)
-        self.active_proj_explosions.append(animation)
-        
-    def handle_tank_explosion(self, unit: Tank) -> None:
-
-        animation = Animation(images=self.animations["tank_explosion"], frame_delay=6)
-        animation.start(pos=unit.pos, angle=0)
-        
-        self.active_tank_explosions.append(animation)
-        
-    # ================================================= Misc ===============================================   
-
+            
     def render_debug_info(self):
         """Render debug information on the right-side bar."""
         font = pg.font.Font(None, 24)  # Default font, size 24
@@ -832,7 +834,21 @@ class TankGame:
         # Check if the distance is less than or equal to the threshold (radius)
         return distance <= threshold  
     
+    def handle_projectile_explosion(self, proj: Projectile) -> None:
+        proj.play_explosion()   # Play sound
+        
+        animation = Animation(images=self.animations["proj_explosion"], frame_delay=2)
+        animation.start(pos=proj.pos, angle=0)
+        self.active_proj_explosions.append(animation)
+        
+    def handle_tank_explosion(self, unit: Tank) -> None:
 
+        animation = Animation(images=self.animations["tank_explosion"], frame_delay=6)
+        animation.start(pos=unit.pos, angle=0)
+        
+        self.active_tank_explosions.append(animation)
+        
+    
 
 class States:
     MENU = "menu"

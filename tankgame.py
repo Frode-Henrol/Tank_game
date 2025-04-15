@@ -211,7 +211,7 @@ class TankGame:
         self.animations["proj_explosion"] = self.proj_explosion_list
         
         # Load projectile explosion animation (shares proj_explosion just scaled)
-        self.tank_explosion_list = self.load_and_transform_images(proj_explosion_path, scale=2)
+        self.tank_explosion_list = self.load_and_transform_images(proj_explosion_path, scale=3)
         self.animations["tank_explosion"] = self.tank_explosion_list
         
         
@@ -233,7 +233,7 @@ class TankGame:
         
         for i in range(1,5):
             death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
-            death_sounds.set_volume(0.09)  # Range: 0.0 to 1.0
+            death_sounds.set_volume(0.2)  # Range: 0.0 to 1.0
             self.sound_effects.append(death_sounds)
         
         for i in range(1,6):

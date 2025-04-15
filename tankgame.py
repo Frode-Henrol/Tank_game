@@ -27,30 +27,36 @@ class TankGame:
         self.clock = pg.time.Clock()
         self.fps = 60
         
-        # self.dpi_fix()
+        #self.dpi_fix()
 
         # Window setup
-        
-        
         self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
         #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980-1980//2, 1200-1200//2
-        
-        
         self.SCALE = 30
-        self.screen = pg.display.set_mode(self.WINDOW_DIM)
+        
+        # Create display with VSync enabled
+        # Try different display modes for best results
+        display_flags = pg.DOUBLEBUF | pg.HWSURFACE
+        try:
+            # First try with VSync
+            self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
+            print("VSync enabled successfully")
+        except:
+            try:
+                # Fallback to OpenGL with VSync
+                display_flags |= pg.OPENGL
+                self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
+                print("Using OpenGL with VSync")
+            except:
+                # Final fallback
+                self.screen = pg.display.set_mode(self.WINDOW_DIM)
+                print("VSync not available")
+        
+        # self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
         self.display = pg.Surface(self.WINDOW_DIM_SCALED)
 
-        #pg.display.set_mode(flags=pg.HWSURFACE | pg.DOUBLEBUF)  # Enable hardware acceleration
-
-        # Change your display setup in __init__:
-        # self.screen = pg.display.set_mode(self.WINDOW_DIM, flags=pg.HWSURFACE)
-        # self.background_buffer = pg.Surface(self.WINDOW_DIM, flags=pg.HWSURFACE)
-        # Optimization
-        self.background_buffer = None  # Will hold our pre-rendered background
-        self.background_dirty = True   # Flag to track when we need to redraw
-
-            
+        # Debug fps counter
         self.frame = 0
         self.total = 0
             
@@ -73,9 +79,6 @@ class TankGame:
         self.load_sound_effects()           
         self.load_map()                 
         self.load_map_textures()
-
-        # Call this after loading all textures
-        self._init_background_buffer()
         
         # Settings menu:
         self.show_obstacle_corners = False
@@ -85,6 +88,7 @@ class TankGame:
         self.show_pathfinding_paths = False
         self.show_ai_debug = False
         self.show_debug_info = False
+        self.cap_fps = True
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -109,23 +113,7 @@ class TankGame:
         except:
             pass
     
-    def _init_background_buffer(self):
-        """Create optimized background buffer surface"""
-        # Create a surface matching your display size
-        self.background_buffer = pg.Surface(self.WINDOW_DIM, flags=pg.SRCALPHA)
-        
-        # Draw both background layers onto the buffer
-        self.background_buffer.blit(self.background_outer, (0, 0))
-        
-        # Position the inner background correctly (using your border_polygon position)
-        inner_bg_pos = self.border_polygon[3]  # Using the same position as in your original code
-        self.background_buffer.blit(self.background_inner, inner_bg_pos)
-        
-        # Draw wall textures if they exist
-        if hasattr(self, 'texture_surface'):
-            self.background_buffer.blit(self.texture_surface, (0, 0))
-        
-        self.background_dirty = False  # Mark as clean
+  
     
     def godmode_toggle(self):
         for unit in self.units_player_controlled:
@@ -224,7 +212,8 @@ class TankGame:
             Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
             Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
             Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
-            Button(left, 850, 300, 60, "Back", States.MENU)
+            Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
+            Button(left, 950, 300, 60, "Back", States.MENU)
         ]
         
         
@@ -443,57 +432,6 @@ class TankGame:
             print("Error: Image not found! Check your path.")
             sys.exit()  
             
-    def load_map_textures_new(self) -> None:
-        """Optimized texture loading with caching and performance enhancements."""
-        try:
-            # Initialize texture cache if it doesn't exist
-            if not hasattr(self, '_texture_cache'):
-                self._texture_cache = {}
-
-            # Load inner background with caching
-            bg_inner_key = f"inner_bg_{self.map_size[0]}x{self.map_size[1]}"
-            if bg_inner_key not in self._texture_cache:
-                path = os.path.join(os.getcwd(), "map_files", "backgrounds", "dessert3.png")
-                img = pg.image.load(path).convert_alpha()
-                self._texture_cache[bg_inner_key] = pg.transform.scale(img, self.map_size)
-            self.background_inner = self._texture_cache[bg_inner_key]
-
-            # Load outer background with caching
-            bg_outer_key = f"outer_bg_{self.WINDOW_DIM[0]}x{self.WINDOW_DIM[1]}"
-            if bg_outer_key not in self._texture_cache:
-                path = os.path.join(os.getcwd(), "map_files", "backgrounds", "outer_background.png")
-                img = pg.image.load(path).convert_alpha()
-                self._texture_cache[bg_outer_key] = pg.transform.scale(img, self.WINDOW_DIM)
-            self.background_outer = self._texture_cache[bg_outer_key]
-
-            # Optimized wall texture loading
-            wall_textures_key = "wall_textures_scaled_3x"
-            if wall_textures_key not in self._texture_cache:
-                path = os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures")
-                image_list = self.load_and_transform_images(path, scale=3)
-                
-                # Pre-scale all wall textures once
-                scaled_textures = []
-                for img in image_list:
-                    # Create optimally sized surface
-                    tex_surface = pg.Surface(self.WINDOW_DIM, pg.SRCALPHA)
-                    # Tile the texture efficiently
-                    for x in range(0, self.WINDOW_DIM[0], img.get_width()):
-                        for y in range(0, self.WINDOW_DIM[1], img.get_height()):
-                            tex_surface.blit(img, (x, y))
-                    scaled_textures.append(tex_surface)
-                
-                self._texture_cache[wall_textures_key] = scaled_textures
-            
-            # Use cached textures
-            self.wrap_texture_on_polygons(
-                self.polygon_list_no_border,
-                self._texture_cache[wall_textures_key]
-            )
-
-        except FileNotFoundError as e:
-            print(f"Texture loading error: {e}")
-            sys.exit()
 
     # ============================================ Run loop states ==========================================
     def run(self):
@@ -886,8 +824,10 @@ class TankGame:
         self.render_debug_info()
             
         pg.display.update()
-        # self.clock.tick(self.fps)   # Controls FPS
-        self.clock.tick()   # Uncapped Controls FPS
+        if self.cap_fps:
+            self.clock.tick(self.fps)   # Controls FPS
+        else:
+            self.clock.tick()   # Uncapped Controls FPS
     
     def handle_projectile_explosion(self, proj: Projectile) -> None:
         proj.play_explosion()   # Play sound

@@ -5,23 +5,15 @@ Tank turret mangler at være animeret med en png fil der rotere korrekt.
 KNOW bugs:
 Spam clicking buttons makes them go towards a white color
 Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have
-Collsion between tanks i not working correct
+Projetiles often register multiple intersection on when hitting a wall meaning the sound effect get played multiple times per hit
+
+Prediction can be abused when driving into wall. the enemy tank will fire at the predicted point even though you are not moving: fix would be to make tank not move/stutter when driving into wall
+
 
 Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til cannowcooldown i json, tankgame load assets osv.
 
-AI:
-Dodge burde måske opgraderes til at kunne forudse deflection?
-Shooting state skal laves til func og dens skal laves so den laver linje med deflect svarende til tank type.
-Hvis den så ramme en fjentlig tank så skyder den.
-Der skal også laves et predict element hvor der tages højde for target tanks hastighed
 
-AI feature ideer:
-lav bool der gør at tank har change for at skyde efter punkt hvor fjerne sidst var set
 
 Add:
 for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntimer, hvor den ikke kan bounce inden for timeren
 
-Add:
-Tank skal skyde mod skud?
-
-Alle miner skal klassifceres ud fra det hold de kommer fra

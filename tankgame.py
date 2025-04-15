@@ -50,11 +50,13 @@ class TankGame:
         # Sounds
         self.init_sound_effects()
 
-        # Load assets
-        self.load_assets()
-
+        self.load_misc_images()
+        
         # Initialize game objects - SKAL Rettes denne function skal omskrives sådan den init baseret på den rigtige json fil med map data
         self.init_game_objects()
+        
+        # Load assets
+        self.load_assets()
 
         # Load gui related features
         self.load_gui()
@@ -72,7 +74,6 @@ class TankGame:
         
         # ====================== Visuals ==============================
         # Tank tracks
-        self.load_misc_images()
         self.tracks = []  # List to store all track marks
         self.track_interval = 8  # Add track every 10 frames
         self.track_counter = 0
@@ -131,21 +132,21 @@ class TankGame:
             print(f"Toggled godemode for all player tanks")
             unit.toggle_godmode()
     
-    
     def load_assets(self):
         """Load and scale game assets (e.g., images)."""
         try:
-           
-            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
+            path = os.path.join(os.getcwd(), "map_files", "backgrounds","dessert3.png")
+            self.background_inner = pg.image.load(path).convert_alpha()
+            self.background_inner = pg.transform.scale(self.background_inner, self.map_size)
             
-            self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
-            self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
+            path = os.path.join(os.getcwd(), "map_files", "backgrounds","outer_background.png")
+            self.background_outer = pg.image.load(path).convert_alpha()
+            self.background_outer = pg.transform.scale(self.background_outer, self.WINDOW_DIM)
+            
             
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()
-
-
 
     def load_and_transform_images(self, folder_path: str, scale: float = 1) -> list[pg.Surface]:
         """Load and scale all images in a folder using Pygame, sorted numerically."""
@@ -176,7 +177,6 @@ class TankGame:
 
         return image_list
 
-    
     def load_unit_images(self, name: str):
         
         path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
@@ -192,35 +192,39 @@ class TankGame:
         return [tank_img, tank_turret_img]
     
     def load_misc_images(self):
-        track_path = os.path.join(os.getcwd(),r"units\images", f"track.png")
-        track_img = pg.image.load(track_path).convert_alpha()
-        self.track_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
-        
-        # Animations
-        animation_path = os.path.join(os.getcwd(),"units","animations")
-        self.animations = {}
-        
-        # Load muzzle animation
-        muzzle_flash_path = os.path.join(animation_path, "muzzle_flash")
-        self.muzzle_flash_list = self.load_and_transform_images(muzzle_flash_path)
-        self.animations["muzzle_flash"] = self.muzzle_flash_list
+        try:
+            path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
+            self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
+            self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
+            
+            track_path = os.path.join(os.getcwd(),r"units\images", f"track.png")
+            track_img = pg.image.load(track_path).convert_alpha()
+            self.track_img = pg.transform.scale(track_img, self.WINDOW_DIM_SCALED)
+            
+            # Animations
+            animation_path = os.path.join(os.getcwd(),"units","animations")
+            self.animations = {}
+            
+            # Load muzzle animation
+            muzzle_flash_path = os.path.join(animation_path, "muzzle_flash")
+            self.muzzle_flash_list = self.load_and_transform_images(muzzle_flash_path)
+            self.animations["muzzle_flash"] = self.muzzle_flash_list
 
-        # Load projectile explosion animation
-        proj_explosion_path = os.path.join(animation_path, "proj_explosion")
-        self.proj_explosion_list = self.load_and_transform_images(proj_explosion_path)
-        self.animations["proj_explosion"] = self.proj_explosion_list
-        
-        # Load projectile explosion animation (shares proj_explosion just scaled)
-        self.tank_explosion_list = self.load_and_transform_images(proj_explosion_path, scale=3)
-        self.animations["tank_explosion"] = self.tank_explosion_list
-        
+            # Load projectile explosion animation
+            proj_explosion_path = os.path.join(animation_path, "proj_explosion")
+            self.proj_explosion_list = self.load_and_transform_images(proj_explosion_path)
+            self.animations["proj_explosion"] = self.proj_explosion_list
+            
+            # Load projectile explosion animation (shares proj_explosion just scaled)
+            self.tank_explosion_list = self.load_and_transform_images(proj_explosion_path, scale=3)
+            self.animations["tank_explosion"] = self.tank_explosion_list
+        except FileNotFoundError:
+            print("Error: Image not found! Check your path.")
+            sys.exit()
         
  
         for unit in self.units:
             unit.init_animations(self.animations)
-            
-        
-        
         
     def init_sound_effects(self):
         
@@ -248,7 +252,6 @@ class TankGame:
             
         self.projexp_sounds = self.sound_effects[13:19]
         
-        
     def init_game_objects(self):
         """Initialize tanks and obstacles."""
         
@@ -259,6 +262,12 @@ class TankGame:
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
         self.polygon_list_no_border = self.polygon_list.copy()
         self.border_polygon = self.polygon_list_no_border.pop(0)    # Removes the border polygon and store seperate
+        
+        path = os.path.join(os.getcwd(), "map_files", "backgrounds","wall_textures")
+        image_list = self.load_and_transform_images(path, scale=3)
+        self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
+        
+        self.map_size = (self.border_polygon[1][0] - self.border_polygon[0][0], self.border_polygon[1][1] - self.border_polygon[2][1])
         
         # Get pathfinding data from map.
         self.grid_dict = pathfinding.get_mapgrid_dict(self.polygon_list.copy(), self.node_spacing)
@@ -364,6 +373,45 @@ class TankGame:
             
             self.handle_events(event_list)
 
+    def wrap_texture_on_polygons(self, polygons_points_list: list, images_list) -> None:
+        """Takes a list of polygons and assigns textures to them"""
+        
+        # Load texture and prepare it
+        # texture = pg.image.load(texture_path).convert()
+        # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
+
+        texture = random.choice(images_list)
+        
+        dim = self.WINDOW_DIM
+        
+        # Create a surface for all polygons
+        polygon_surface = pg.Surface(dim, pg.SRCALPHA)
+        polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
+
+        # Draw all polygons on the surface
+        for polygon_points in polygons_points_list:
+            pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
+
+        # Use the polygon_surface as a mask
+        mask = pg.mask.from_surface(polygon_surface)
+        mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+
+        # Prepare texture surface to match size
+        texture_surface = pg.Surface(dim, pg.SRCALPHA)
+        for x in range(0, dim[0], texture.get_width()):
+            texture = random.choice(images_list)
+            for y in range(0, dim[1], texture.get_height()):
+                texture_surface.blit(texture, (x, y))
+
+        # Apply mask to texture
+        texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+        self.texture_surface = texture_surface
+        
+        pg.image.save(self.texture_surface, "debug_texture_output.png")
+
+        
+    
+        
     # ============================================ State methods ============================================
     # ============================================ ------------- ============================================
     def main_menu(self, event_list):
@@ -499,120 +547,6 @@ class TankGame:
                         print("True mouse inside polygone")
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             
-    def update_old(self):
-    
-        # Track marks logic
-        self.track_counter += 1
-        if self.track_counter >= self.track_interval:
-            self.track_counter = 0
-            for unit in self.units:
-                if not unit.dead and unit.is_moving:
-                    # Add track mark at tank's position
-                    track_pos = unit.get_pos()
-                    track_angle = unit.degrees + 90
-                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img))
-    
-        # Update and remove old tracks
-        self.tracks = [track for track in self.tracks if track.update()]
-        
-        # Temp list is created and all units' projectiles are added to a single list
-        temp_projectiles = []
-        for unit in self.units:
-            temp_projectiles.extend(unit.projectiles)
-
-        
-        # Update projectiles and handle collisions
-        for unit in self.units:
-            
-            to_remove = set()  # Store indices of projectiles to remove
-            for i, proj in enumerate(unit.projectiles):
-                for obstacle in self.obstacles:
-                    for corner_pair in obstacle.get_corner_pairs():
-                        proj.collision(corner_pair)
-
-                # Check projectile collision with other units
-                projectile_line = proj.get_line()
-                for other_unit in self.units:
-                    if other_unit.get_death_status():
-                        continue  # Ignore dead units
-
-                    if other_unit.collision(projectile_line, collision_type="projectile"):
-                        to_remove.add(i)  # Mark for removal
-                        # self.handle_projectile_explosion(proj) # Sound played when tank is hit  
-
-                proj.update()
-
-            # Remove marked projectiles (in reverse order)
-            for index in sorted(to_remove, reverse=True):
-                if index < len(unit.projectiles):  
-                    del unit.projectiles[index]
-
-        # Optimize projectile proximity checks with KDTree
-        if temp_projectiles:
-            projectile_positions = np.array([proj.get_pos() for proj in temp_projectiles])
-            tree = KDTree(projectile_positions)
-
-            projectile_remove_set = set()
-            for i, proj in enumerate(temp_projectiles):
-                neighbors = tree.query_ball_point(proj.get_pos(), self.projectile_collision_dist)
-                for j in neighbors:
-                    if i != j:  # Avoid self-collision
-                        projectile_remove_set.add(temp_projectiles[i])
-                        projectile_remove_set.add(temp_projectiles[j])
-
-                # Check for mine hit
-                for mine in self.mines:
-                     if helper_functions.distance(mine.pos, proj.pos) < 10:
-                         mine.explode()
-                         projectile_remove_set.add(temp_projectiles[i])
-                
-            # Mark projectiles for removal
-            for proj in projectile_remove_set:
-                proj.alive = False
-                # self.handle_projectile_explosion(proj)  # Sound played when 2 projetiles hit
-
-
-        # Check unit/surface collisions
-        for unit in self.units:
-            # Send new projectile info to AI
-            if unit.ai is not None:
-                unit.ai.projectiles = self.projectiles
-
-            for obstacle in self.obstacles:
-                for corner_pair in obstacle.get_corner_pairs():
-                    unit.collision(corner_pair, collision_type="surface")
-
-            # Check for unit-unit collision
-            for other_unit in self.units:
-                if unit == other_unit or other_unit.get_death_status():
-                    continue  # Skip self and dead units
-
-                if not self.are_tanks_close(unit, other_unit):
-                    continue  # Skip if tanks aren't close
-
-                # Skip collision check with dead tanks
-                if other_unit.dead or unit.dead:
-                    continue
-                
-                # Push tanks when colliding
-                unit.apply_repulsion(other_unit, push_strength=0.5)
-                other_unit.apply_repulsion(unit, push_strength=0.5)  # Ensure symmetry
-            
-            if not unit.dead:
-                # Mine logic
-                for mine in self.mines:          
-                    if mine.is_exploded:
-                        self.mines.remove(mine)
-                    mine.get_unit_list(self.units)
-                    mine.check_for_tank(unit)
-
-        for proj in temp_projectiles:
-            if not proj.alive:
-                self.handle_projectile_explosion(proj)
-        
-        self.projectiles = [proj for proj in temp_projectiles if proj.alive]  
-
-         
     def update(self):
     
         # Track marks logic
@@ -707,12 +641,18 @@ class TankGame:
                     mine.check_for_tank(unit)
 
         self.projectiles = temp_projectiles
-
-    
+ 
     def draw(self):
         """Render all objects on the screen."""
+        
         self.display.fill("white")
         self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
+        
+        self.screen.blit(self.background_outer, (0,0))
+        self.screen.blit(self.background_inner, self.border_polygon[3])
+        
+        self.screen.blit(self.texture_surface, (0, 0))
+
         
         # Draw tank track
         for track in self.tracks:
@@ -739,20 +679,22 @@ class TankGame:
                     pg.draw.line(self.screen, "blue", corner_pair[0], corner_pair[1], 3)
                     
                     if corner_pair == (unit.hitbox[1], unit.hitbox[2]):                     # Skal rettes! - lav front hitbox linje rød
-                        pg.draw.line(self.screen, "green", corner_pair[0], corner_pair[1], 3)
+                        pg.draw.line(self.screen, "green", corner_pair[0], corner_pair[1], 5)
         
         # Draw projectiles
         for proj in self.projectiles:
             proj.draw(self.screen)
-
-        # Draw obstacles
-        for obstacle in self.obstacles:
-            # Debug: draw obstacle collision lines
-            for corner_pair in obstacle.get_corner_pairs():
-                pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
-                
-                # Draw corners of obstacles if turned on
-                if self.show_obstacle_corners:
+        
+        
+        if self.show_obstacle_corners:
+            # Draw obstacles
+            for obstacle in self.obstacles:
+                # Debug: draw obstacle collision lines
+                for corner_pair in obstacle.get_corner_pairs():
+                    pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
+                    
+                    # Draw corners of obstacles if turned on
+                    
                     pg.draw.circle(self.screen, "blue", center=corner_pair[0], radius=5)   
 
 

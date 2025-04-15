@@ -18,7 +18,6 @@ from scipy.spatial import KDTree
 import random
 import re
 import ctypes
-import cProfile
 
 class TankGame:
     def __init__(self):
@@ -27,33 +26,16 @@ class TankGame:
         self.clock = pg.time.Clock()
         self.fps = 60
         
-        # self.dpi_fix()
+        self.dpi_fix()
 
         # Window setup
-        
-        
-        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
-        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980-1980//2, 1200-1200//2
-        
-        
+        self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1320, 580
+        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
         self.SCALE = 30
         self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
         self.display = pg.Surface(self.WINDOW_DIM_SCALED)
 
-        #pg.display.set_mode(flags=pg.HWSURFACE | pg.DOUBLEBUF)  # Enable hardware acceleration
-
-        # Change your display setup in __init__:
-        # self.screen = pg.display.set_mode(self.WINDOW_DIM, flags=pg.HWSURFACE)
-        # self.background_buffer = pg.Surface(self.WINDOW_DIM, flags=pg.HWSURFACE)
-        # Optimization
-        self.background_buffer = None  # Will hold our pre-rendered background
-        self.background_dirty = True   # Flag to track when we need to redraw
-
-            
-        self.frame = 0
-        self.total = 0
-            
         # Game objects
         self.units: list[Tank] = []
         self.units_player_controlled: list[Tank] = []
@@ -74,9 +56,6 @@ class TankGame:
         self.load_map()                 
         self.load_map_textures()
 
-        # Call this after loading all textures
-        self._init_background_buffer()
-        
         # Settings menu:
         self.show_obstacle_corners = False
         self.draw_hitbox = False # Not implemented 
@@ -84,7 +63,6 @@ class TankGame:
         self.show_pathfinding_nodes = False
         self.show_pathfinding_paths = False
         self.show_ai_debug = False
-        self.show_debug_info = False
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -108,25 +86,7 @@ class TankGame:
             ctypes.windll.user32.SetProcessDPIAware()
         except:
             pass
-    
-    def _init_background_buffer(self):
-        """Create optimized background buffer surface"""
-        # Create a surface matching your display size
-        self.background_buffer = pg.Surface(self.WINDOW_DIM, flags=pg.SRCALPHA)
         
-        # Draw both background layers onto the buffer
-        self.background_buffer.blit(self.background_outer, (0, 0))
-        
-        # Position the inner background correctly (using your border_polygon position)
-        inner_bg_pos = self.border_polygon[3]  # Using the same position as in your original code
-        self.background_buffer.blit(self.background_inner, inner_bg_pos)
-        
-        # Draw wall textures if they exist
-        if hasattr(self, 'texture_surface'):
-            self.background_buffer.blit(self.texture_surface, (0, 0))
-        
-        self.background_dirty = False  # Mark as clean
-    
     def godmode_toggle(self):
         for unit in self.units_player_controlled:
             print(f"Toggled godemode for all player tanks")
@@ -223,8 +183,7 @@ class TankGame:
             Button(left, 450, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
             Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
             Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
-            Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
-            Button(left, 850, 300, 60, "Back", States.MENU)
+            Button(left, 750, 300, 60, "Back", States.MENU)
         ]
         
         
@@ -428,100 +387,31 @@ class TankGame:
             image_list = self.load_and_transform_images(path, scale=3)
             self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
                 
-            # After loading and scaling all background images
-            self.cached_background = pg.Surface(self.WINDOW_DIM).convert()
-
-            # Blit static background layers ONCE into cached surface
-            self.cached_background.blit(self.background_outer, (0, 0))
-            self.cached_background.blit(self.background_inner, self.border_polygon[3])  # position as needed
-
-            # Optional: If self.texture_surface is also static
-            self.cached_background.blit(self.texture_surface, (0, 0))
-                            
-                
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()  
-            
-    def load_map_textures_new(self) -> None:
-        """Optimized texture loading with caching and performance enhancements."""
-        try:
-            # Initialize texture cache if it doesn't exist
-            if not hasattr(self, '_texture_cache'):
-                self._texture_cache = {}
-
-            # Load inner background with caching
-            bg_inner_key = f"inner_bg_{self.map_size[0]}x{self.map_size[1]}"
-            if bg_inner_key not in self._texture_cache:
-                path = os.path.join(os.getcwd(), "map_files", "backgrounds", "dessert3.png")
-                img = pg.image.load(path).convert_alpha()
-                self._texture_cache[bg_inner_key] = pg.transform.scale(img, self.map_size)
-            self.background_inner = self._texture_cache[bg_inner_key]
-
-            # Load outer background with caching
-            bg_outer_key = f"outer_bg_{self.WINDOW_DIM[0]}x{self.WINDOW_DIM[1]}"
-            if bg_outer_key not in self._texture_cache:
-                path = os.path.join(os.getcwd(), "map_files", "backgrounds", "outer_background.png")
-                img = pg.image.load(path).convert_alpha()
-                self._texture_cache[bg_outer_key] = pg.transform.scale(img, self.WINDOW_DIM)
-            self.background_outer = self._texture_cache[bg_outer_key]
-
-            # Optimized wall texture loading
-            wall_textures_key = "wall_textures_scaled_3x"
-            if wall_textures_key not in self._texture_cache:
-                path = os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures")
-                image_list = self.load_and_transform_images(path, scale=3)
-                
-                # Pre-scale all wall textures once
-                scaled_textures = []
-                for img in image_list:
-                    # Create optimally sized surface
-                    tex_surface = pg.Surface(self.WINDOW_DIM, pg.SRCALPHA)
-                    # Tile the texture efficiently
-                    for x in range(0, self.WINDOW_DIM[0], img.get_width()):
-                        for y in range(0, self.WINDOW_DIM[1], img.get_height()):
-                            tex_surface.blit(img, (x, y))
-                    scaled_textures.append(tex_surface)
-                
-                self._texture_cache[wall_textures_key] = scaled_textures
-            
-            # Use cached textures
-            self.wrap_texture_on_polygons(
-                self.polygon_list_no_border,
-                self._texture_cache[wall_textures_key]
-            )
-
-        except FileNotFoundError as e:
-            print(f"Texture loading error: {e}")
-            sys.exit()
 
     # ============================================ Run loop states ==========================================
     def run(self):
         """Main game loop."""
-        profiler = cProfile.Profile()
-        profiler.enable()
-        try:
-            while True:
-                
-                event_list = pg.event.get()
-                
-                if self.state == States.MENU:
-                    self.main_menu(event_list)
-                elif self.state == States.SETTINGS:
-                    self.settings(event_list)
-                elif self.state == States.LEVEL_SELECT:
-                    self.level_selection(event_list)
-                elif self.state == States.PLAYING:
-                    self.playing(event_list)
-                elif self.state == States.COUNTDOWN:
-                    self.count_down(event_list)
-                elif self.state == States.EXIT:
-                    self.exit()
-                
-                self.handle_events(event_list)
-        finally:
-            profiler.disable()
-            profiler.dump_stats('game_profile.prof')
+        while True:
+            
+            event_list = pg.event.get()
+            
+            if self.state == States.MENU:
+                self.main_menu(event_list)
+            elif self.state == States.SETTINGS:
+                self.settings(event_list)
+            elif self.state == States.LEVEL_SELECT:
+                self.level_selection(event_list)
+            elif self.state == States.PLAYING:
+                self.playing(event_list)
+            elif self.state == States.COUNTDOWN:
+                self.count_down(event_list)
+            elif self.state == States.EXIT:
+                self.exit()
+            
+            self.handle_events(event_list)
 
     # ============================================ State methods ============================================
     def main_menu(self, event_list):
@@ -755,9 +645,16 @@ class TankGame:
     def draw(self):
         """Render all objects on the screen."""
         
-        # Draw all static textures (backgrounds and obstacles)
-        self.screen.blit(self.cached_background, (0, 0))
-    
+        self.display.fill("white")
+        self.screen.blit(pg.transform.scale(self.display, self.WINDOW_DIM), (0, 0))
+        
+        # Draw outer and inner background
+        self.screen.blit(self.background_outer, (0,0))
+        self.screen.blit(self.background_inner, self.border_polygon[3])
+        
+        # Draw polygon textures
+        self.screen.blit(self.texture_surface, (0, 0))
+
         # Draw tank track
         for track in self.tracks:
             track.draw(self.screen)
@@ -884,10 +781,8 @@ class TankGame:
             
         
         self.render_debug_info()
-            
         pg.display.update()
-        # self.clock.tick(self.fps)   # Controls FPS
-        self.clock.tick()   # Uncapped Controls FPS
+        self.clock.tick(self.fps)   # Controls FPS
     
     def handle_projectile_explosion(self, proj: Projectile) -> None:
         proj.play_explosion()   # Play sound
@@ -907,35 +802,24 @@ class TankGame:
 
     def render_debug_info(self):
         """Render debug information on the right-side bar."""
-        
-        self.frame += 1
-        self.total  +=self.clock.get_fps()
-        avg = self.total / self.frame
-        
         font = pg.font.Font(None, 24)  # Default font, size 24
+        debug_text = [
+            f"FPS: {self.clock.get_fps():.2f}",
+            f"Active projectiles: {len(self.projectiles)}",
+            f"Main tank angle: {self.units_player_controlled[0].degrees}",
+            f"Units: {len(self.units)}",
+            f"Player units: {len(self.units_player_controlled)}",
+            f"Obstacles: {len(self.obstacles)}",
+            f"Tank 1: {self.units[1].ai.behavior_state}",
+            f"Path dist: {self.units[1].ai.dist_to_target_path}",
+            f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
+            f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
+            f"Closets proj: {self.units[1].ai.closest_projectile[1]}",
+            f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}"
+        ]
         
-        if self.show_debug_info:
-            debug_text = [
-                f"FPS: {self.clock.get_fps():.2f}",
-                f"FPS avg: {avg:.2f}",
-                f"Active projectiles: {len(self.projectiles)}",
-                f"Main tank angle: {self.units_player_controlled[0].degrees}",
-                f"Units: {len(self.units)}",
-                f"Player units: {len(self.units_player_controlled)}",
-                f"Obstacles: {len(self.obstacles)}",
-                f"Tank 1: {self.units[1].ai.behavior_state}",
-                f"Path dist: {self.units[1].ai.dist_to_target_path}",
-                f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
-                f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
-                f"Closets proj: {self.units[1].ai.closest_projectile[1]}",
-                f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}"
-            ]
-        else:
-             debug_text = [
-                f"FPS: {self.clock.get_fps():.2f}",
-                f"FPS avg: {avg:.2f}"
-            ]
         
+
         # Start position for text
         x_start = self.WINDOW_DIM[0] - 490  
         y_start = 200  

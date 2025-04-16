@@ -623,6 +623,12 @@ class TankGame:
         self.last_frame_time = current_time
         self.delta_time = delta_time
         
+        # Prevent absurd movement speed at loadin
+        if self.delta_time > 0.01:
+            self.delta_time = 0.01
+            
+        print(f"{self.delta_time=}")
+        
         # Debug output
         if random.random() < 0.01:  # Print about 1% of frames to avoid spam
             print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f}")

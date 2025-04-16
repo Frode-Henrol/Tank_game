@@ -7,14 +7,15 @@ from object_classes.animation import Animation
 
 class Projectile:
     
-    def __init__(self, startpos: tuple, direction: tuple, speed: int, bounce_limit: int):   # Add color and more later!!!!
+    def __init__(self, startpos: tuple, direction: tuple, speed: list[float], bounce_limit: int):   # Add color and more later!!!!
         self.startpos = startpos
         self.pos = copy.copy(startpos)
         self.direction = direction
         self.degrees = 0
+        self.speed_original = speed
         self.speed = speed  
         self.alive = True  
-        self.lifespan = 10*60     # Projectile lifespan
+        self.lifespan = 5000     # Projectile lifespan
         self.projectile_path_scale = 10     # Scale of projectile len
         self.bounce_count = 0
         self.bounce_limit = bounce_limit
@@ -23,29 +24,42 @@ class Projectile:
         self.hit_timer_amount = 0 # Frames. (0 right now which means maximum amount of collision checks)
         self.hit_timer = 0
     
+    def set_delta_time(self, delta_time):
+        self.delta_time = delta_time
+        self.update_speed()
         
+    def update_speed(self):
+        self.speed = self.speed_original * self.delta_time * 60
+    
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
         self.hit_sounds = sound_effects[9:13]
         self.projexp_sounds = self.sound_effects[13:19]
     
-    
     def update(self):
         
+        # Update projectile speed based on framerate
+        self.update_speed() 
+        
+        # Hit timer to control how often to do collision checks
         if self.hit_timer > 0:
             self.hit_timer -= 1
         
+        # Update position of projectile
         self.pos[0] += self.direction[0]*self.speed
         self.pos[1] += self.direction[1]*self.speed
         
-        self.lifespan -= 1
+        # Update spawn timer (UNUSED)
         if self.spawn_timer > 0:
             self.spawn_timer -= 1
         
+        # Update lifespan timer
+        self.lifespan -= self.delta_time * 60
         if self.lifespan <= 0:
             self.alive = False
-            
+        
+        # Check if max bounces is reached
         if self.bounce_count >= self.bounce_limit:
             self.play_explosion()
             self.alive = False
@@ -79,8 +93,8 @@ class Projectile:
         
         # Start of projectile path in a given frame
         start_point = self.pos
-        # End of projectile path in a given frame
         
+        # End of projectile path in a given frame
         end_point = (self.pos[0] + self.direction[0] * self.projectile_path_scale,
                     self.pos[1] + self.direction[1] * self.projectile_path_scale)
         
@@ -92,8 +106,6 @@ class Projectile:
             return self.direction
         
         self.startpos = intersect_coord     # Update startpos for ai dodge mechanic
-        # print(f"Projectile hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
-        # print(f"Projectile has coord        : ({float(self.pos[0]):.1f},  {float(self.pos[1]):.1f})")
         
         # Find normal vector of line
         normal_vector1, normal_vector2 = df.find_normal_vectors(line_coord1, line_coord2)
@@ -110,14 +122,8 @@ class Projectile:
         else:
             chosen_normal = normal_vector2
             
-        # SKAL SLETTES: (bare test med tvungen normalvektor)
-        #chosen_normal =  normal_vector2
-
-        # print(f"dot1: {dot1:.1f} dot2: {dot2:.1f} Chosen: {dot1:.1f}")
-        # print(f"New direction after reflection: {self.direction[0]:.2f}, {self.direction[1]:.2f} BOUNCE COUNT: {self.bounce_count} and bounce limit: {self.bounce_limit} and state alive: {self.alive}")
-        # Now do the reflection/deflection with chosen_normal
         self.direction = df.find_deflect_vector(chosen_normal, self.direction)
-        random.choice(self.hit_sounds).play()
+        random.choice(self.hit_sounds).play()   # Choose random sound
         
         self.bounce_count +=1
         self.hit_timer = self.hit_timer_amount

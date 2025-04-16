@@ -25,6 +25,7 @@ class TankGame:
         # Initialize Pygame
         pg.init()
         self.clock = pg.time.Clock()
+        self.last_frame_time = pg.time.get_ticks() / 1000  # Convert to seconds immediately
         self.fps = 60
         
         #self.dpi_fix()
@@ -594,14 +595,23 @@ class TankGame:
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             
     # ============================================ Drawing/update ============================================     
+
             
     def update(self):
+        # Calculate delta time (time since last frame)
+        current_time = pg.time.get_ticks() / 1000
+        delta_time = current_time - self.last_frame_time
+        self.last_frame_time = current_time
+        self.delta_time = delta_time
     
         # Track marks logic
         self.track_counter += 1
         if self.track_counter >= self.track_interval:
             self.track_counter = 0
             for unit in self.units:
+                
+                unit.send_delta(delta_time) # Send delta time to tank instances
+                
                 if not unit.dead and unit.is_moving:
                     # Add track mark at tank's position
                     track_pos = unit.get_pos()
@@ -616,11 +626,12 @@ class TankGame:
         for unit in self.units:
             temp_projectiles.extend(unit.projectiles)
 
-        
         # Update projectiles and handle collisions
         for unit in self.units:
             for i, proj in enumerate(unit.projectiles):
-                proj.update()
+                
+                proj.set_delta_time(delta_time) # Send frame delta time
+                proj.update()                   # Update the projectile
                 
                 for obstacle in self.obstacles:
                     for corner_pair in obstacle.get_corner_pairs():
@@ -832,13 +843,13 @@ class TankGame:
     def handle_projectile_explosion(self, proj: Projectile) -> None:
         proj.play_explosion()   # Play sound
         
-        animation = Animation(images=self.animations["proj_explosion"], frame_delay=2)
+        animation = Animation(images=self.animations["proj_explosion"], frame_delay=2, delta_time=self.delta_time)
         animation.start(pos=proj.pos, angle=0)
         self.active_proj_explosions.append(animation)
         
     def handle_tank_explosion(self, unit: Tank) -> None:
 
-        animation = Animation(images=self.animations["tank_explosion"], frame_delay=6)
+        animation = Animation(images=self.animations["tank_explosion"], frame_delay=6, delta_time=self.delta_time)
         animation.start(pos=unit.pos, angle=0)
         
         self.active_tank_explosions.append(animation)

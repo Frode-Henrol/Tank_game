@@ -48,7 +48,7 @@ class Tank:
         self.team = team
         
         # Projectile
-        self.speed_projectile = speed_projectile # Scale the tanks projectile speed
+        self.speed_projectile = speed_projectile
         self.bounch_limit = bounch_limit
         
         # Mines
@@ -104,6 +104,7 @@ class Tank:
         
         # Animation
         self.muzzle_flash_animation = None    
+        self.delta_time = 0
     
         # AI
         # TEST DIC
@@ -126,6 +127,9 @@ class Tank:
     
     def set_units(self, units):
         self.units = units
+    
+    def send_delta(self, delta_time):
+        self.delta_time = delta_time
     
     def init_hitbox(self, spawn_degress):
         x = self.pos[0]
@@ -166,9 +170,31 @@ class Tank:
     
     def respawn(self):
         self.make_dead(False)
+    
+    
+    def fps_scaling(self):
+
+        # Update timers
+        if self.is_moving_false_time > 0:
+            self.is_moving_false_time -= self.delta_time * 60
             
+        # # Update AI
+        # if self.ai and not self.dead:
+        #     self.ai.update(self.delta_time)
+            
+        # # Update animation
+        # if self.muzzle_flash_animation:
+        #     self.muzzle_flash_animation.update(self.delta_time)
+        #     if self.muzzle_flash_animation.finished:
+        #         self.muzzle_flash_animation = None
+    
     def draw(self, surface):
         self.surface = surface
+        
+        # Scale movement speeds
+        self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
+        
+        self.fps_scaling()
         
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
@@ -202,20 +228,30 @@ class Tank:
         turret_rect = rotated_turret.get_rect(center=self.pos) # Get turret rect centered at new turret position
         surface.blit(rotated_turret, turret_rect.topleft)   # Draw turret
         
+        # NOT INTEGRATED WITH THE NEW FPS SCALED SPEED!
         # Control shooting slowness effect
-        if self.shot_slowness_cooldown > 0:
-            self.shot_slowness_cooldown -= 1
-            self.speed = self.speed_original * self.slowdown_amount  # Slowdown amount
-        else: 
-            self.speed = self.speed_original
+        # if self.shot_slowness_cooldown > 0:
+        #     self.shot_slowness_cooldown -= 1
+        #     self.speed = self.speed_original * self.slowdown_amount  # Slowdown amount
+        # else: 
+        #     self.speed = self.speed_original
         
         # ============================= Other logic ================================
         # Decrease cooldown each new draw
+        # if self.cannon_cooldown > 0:
+        #     self.cannon_cooldown -= 1
+        
+        # if self.mine_cooldown > 0:
+        #     self.mine_cooldown -= 1
+        
+        
+        # Update cooldowns using delta_time
         if self.cannon_cooldown > 0:
-            self.cannon_cooldown -= 1
+            self.cannon_cooldown -= self.delta_time * 60  # Convert to "frames" (60 FPS base)
         
         if self.mine_cooldown > 0:
-            self.mine_cooldown -= 1
+            self.mine_cooldown -= self.delta_time * 60
+        
         
         # Update ai
         if self.ai and not self.dead:
@@ -322,12 +358,13 @@ class Tank:
             
                
     def shoot(self, aim_pos: tuple | None):
+
         # Dont shoot if dead, reach projectile limit or cooldown hasnt been reached
         if self.dead and not self.godmode:
             return
         if len(self.projectiles) >= self.projectile_limit:
             return
-        if self.cannon_cooldown != 0:
+        if self.cannon_cooldown > 0:
             return
         
         self.cannon_cooldown = self.firerate * 5
@@ -356,13 +393,14 @@ class Tank:
 
         projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile, bounce_limit=self.bounch_limit)
         projectile.init_sound_effects(self.sound_effects)
+        projectile.set_delta_time(self.delta_time)
         self.projectiles.append(projectile)
         
         # Play sound when firing
         random.choice(self.cannon_sounds).play()
         
         # Muzzle flash animation
-        self.muzzle_flash_animation = Animation(images=self.animation_list["muzzle_flash"], frame_delay=2)
+        self.muzzle_flash_animation = Animation(images=self.animation_list["muzzle_flash"], frame_delay= 2, delta_time= self.delta_time)
         barrel_length = 50  # same as spawn_distance_from_middle, or tweak if needed
         rad_angle = np.radians(self.turret_rotation_angle)
         barrel_end_x = self.pos[0] + barrel_length * np.cos(rad_angle)

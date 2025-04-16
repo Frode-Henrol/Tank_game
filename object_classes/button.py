@@ -1,7 +1,23 @@
 import pygame as pg
 
 class Button:
-    def __init__(self, x, y, width, height, text, target_state=None, action=None, is_toggle_on=False, color_normal=None, color_clicked=None, hover_enabled=True, disabled=False, semi_disabled=False, click_color_enabled=False, obj_id = None):
+    def __init__(self, 
+                 x, 
+                 y, 
+                 width, 
+                 height, 
+                 text, 
+                 target_state=None, 
+                 action=None, 
+                 is_toggle_on=False,
+                 color_normal=None, 
+                 color_clicked=None, 
+                 hover_enabled=True, 
+                 disabled=False, 
+                 semi_disabled=False, 
+                 click_color_enabled=False, 
+                 obj_id = None):
+        
         self.rect = pg.Rect(x, y, width, height)
         self.text = text
         self.target_state = target_state
@@ -94,6 +110,7 @@ class Button:
                 self.color = self.get_current_color()
         
         return None
+    
 
     def get_id(self):
         return self.obj_id

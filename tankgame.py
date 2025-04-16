@@ -19,6 +19,7 @@ import random
 import re
 import ctypes
 import cProfile
+from object_classes.textfield import Textfield
 
 class TankGame:
     def __init__(self):
@@ -89,7 +90,7 @@ class TankGame:
         self.show_pathfinding_paths = False
         self.show_ai_debug = False
         self.show_debug_info = False
-        self.cap_fps = True
+        self.cap_fps = False
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -213,7 +214,8 @@ class TankGame:
             Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
             Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
             Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
-            Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "cap_fps"), self.clear_all_projectiles())),
+            Button(left, 850, 300, 60, "Cap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
+            Textfield(left+350, 850, 300, 60, "60", on_mouse_leave_action=self.fps_button),
             Button(left, 950, 300, 60, "Back", States.MENU)
         ]
         
@@ -225,7 +227,14 @@ class TankGame:
             Button(left, 450, 300, 60, "Level 4", States.PLAYING),
             Button(left, 550, 300, 60, "Back", States.MENU)  
         ]  
-    
+        
+        
+    def fps_button(self):
+        if self.cap_fps:
+            self.clear_all_projectiles()
+            self.fps = int(self.setting_buttons[8].get_string()) # Skal rettes til dict! Nurværende løsning ikke robust
+
+            
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""

@@ -3,12 +3,25 @@ import pygame as pg
 
 class Textfield:
     
-    def __init__(self, x, y, width, height, default_text, color_normal=None, color_clicked=None, disabled=False, semi_disabled=False, click_color_enabled=False, obj_id = None):
+    def __init__(self, 
+                 x, 
+                 y, 
+                 width, 
+                 height, 
+                 default_text, 
+                 color_normal=None, 
+                 color_clicked=None, 
+                 disabled=False, 
+                 semi_disabled=False, 
+                 click_color_enabled=False, 
+                 obj_id = None,
+                 on_mouse_leave_action = None):
         
         self.rect = pg.Rect(x, y, width, height)
         self.text = ""
         self.default_text = default_text
         self.font = pg.font.Font(None, 36)
+        self.on_mouse_leave_action = on_mouse_leave_action
         
         # id for each object
         self.obj_id = obj_id
@@ -29,6 +42,8 @@ class Textfield:
         self.color = self.get_current_color()
 
         self.active = False
+        self.mouse_was_inside = False  # Track if mouse was previously inside the field
+        self.on_mouse_leave = on_mouse_leave_action  # Callback function for mouse leave event
         
     
     def get_current_color(self):
@@ -78,6 +93,9 @@ class Textfield:
         if self.active:
             if event.type == pygame.KEYDOWN: 
 
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
+                    self.handle_mouse_leave()
+                
                 # Check for backspace 
                 if event.key == pygame.K_BACKSPACE: 
 
@@ -93,12 +111,32 @@ class Textfield:
                 self.color = self.color_clicked 
             else: 
                 self.color = self.color_normal 
-        
+                
+             # Handle mouse movement events for leave detection
+            if event.type == pg.MOUSEMOTION:
+                mouse_is_inside = self.rect.collidepoint(event.pos)
+                
+                # If mouse was inside but is now outside, trigger leave action
+                if self.mouse_was_inside and not mouse_is_inside:
+                    self.handle_mouse_leave()
+                
+                # Update the tracking variable
+                self.mouse_was_inside = mouse_is_inside
+
+            
+            
         if not self.active and not self.text:
             # If the textbox is not active and there is no text, show default text
             self.text = self.default_text
         
+       
         return None
+    
+    def handle_mouse_leave(self):
+        """Called when the mouse leaves the textfield"""
+        print(f"Mouse left textfield {self.obj_id}")
+        if self.on_mouse_leave_action:
+            self.on_mouse_leave_action() 
     
     def get_string(self):
         return self.text

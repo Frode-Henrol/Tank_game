@@ -10,6 +10,7 @@ import random
 import pathfinding
 from scipy.spatial import KDTree
 import heapq
+import time
 
 class Tank:
     _id_counter = 0 
@@ -45,6 +46,8 @@ class Tank:
         self.time_of_death = 0
         
         self.time_alive = 0
+        
+
         
         # Team
         self.team = team
@@ -106,6 +109,8 @@ class Tank:
         
         # Animation
         self.muzzle_flash_animation = None    
+        
+        # Time
         self.delta_time = 0
     
         # AI
@@ -146,6 +151,7 @@ class Tank:
         self.rotate_hit_box(spawn_degress)
         
     def move(self, direction: str):
+        
         if self.dead and not self.godmode:
             return
             
@@ -170,6 +176,8 @@ class Tank:
             moved_y = y + dir * self.direction[1] * self.speed
             self.hitbox[i] = (moved_x, moved_y)
     
+    
+    
     def respawn(self):
         self.make_dead(False)
     
@@ -179,10 +187,10 @@ class Tank:
         
         self.time_alive += self.delta_time
         
-        # Scale movement speeds
         self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
+        # if random.random() < 0.01: 
+        #     # print(f"SPEED: {self.speed}")
         
-
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
         

@@ -1,7 +1,7 @@
 import pygame as pg
 
 class Track:
-    def __init__(self, pos, angle, image, lifetime=50):
+    def __init__(self, pos, angle, image, lifetime):
         self.pos = pos
         self.angle = angle
         self.original_image = image.convert_alpha()  # Ensure image has alpha channel
@@ -12,8 +12,8 @@ class Track:
         self.image = pg.transform.rotate(image, -angle).convert_alpha()
         self.rect = self.image.get_rect(center=pos)
         
-    def update(self):
-        self.age += 1
+    def update(self, amount):
+        self.age += amount
         return self.age < self.lifetime
         
     def draw(self, screen):

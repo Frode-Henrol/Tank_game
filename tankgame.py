@@ -39,20 +39,21 @@ class TankGame:
         # Create display with VSync enabled
         # Try different display modes for best results
         display_flags = pg.DOUBLEBUF | pg.HWSURFACE
-        try:
-            # First try with VSync
-            self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
-            print("VSync enabled successfully")
-        except:
-            try:
-                # Fallback to OpenGL with VSync
-                display_flags |= pg.OPENGL
-                self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
-                print("Using OpenGL with VSync")
-            except:
-                # Final fallback
-                self.screen = pg.display.set_mode(self.WINDOW_DIM)
-                print("VSync not available")
+        self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags)
+        # try:
+        #     # First try with VSync
+        #     self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
+        #     print("VSync enabled successfully")
+        # except:
+        #     try:
+        #         # Fallback to OpenGL with VSync
+        #         display_flags |= pg.OPENGL
+        #         self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
+        #         print("Using OpenGL with VSync")
+        #     except:
+        #         # Final fallback
+        #         self.screen = pg.display.set_mode(self.WINDOW_DIM)
+        #         print("VSync not available")
         
         # self.screen = pg.display.set_mode(self.WINDOW_DIM)
         self.WINDOW_DIM_SCALED = self.WINDOW_W_SCALED, self.WINDOW_H_SCALED = int(self.WINDOW_W / (self.SCALE * 1.5)), int(self.WINDOW_H / self.SCALE)
@@ -61,6 +62,8 @@ class TankGame:
         # Debug fps counter
         self.frame = 0
         self.total = 0
+            
+        self.last_frame_time = time.perf_counter()
             
         # Game objects
         self.units: list[Tank] = []
@@ -608,27 +611,37 @@ class TankGame:
             
     def update(self):
         # Calculate delta time (time since last frame)
-        current_time = pg.time.get_ticks() / 1000
+        # current_time = pg.time.get_ticks() / 1000
+        # delta_time = current_time - self.last_frame_time
+        # self.last_frame_time = current_time
+        # self.delta_time = delta_time
+        
+
+        # In your update method:
+        current_time = time.perf_counter()
         delta_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
         self.delta_time = delta_time
-    
+        
+        # Debug output
+        if random.random() < 0.01:  # Print about 1% of frames to avoid spam
+            print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f}")
+        
         # Track marks logic
-        self.track_counter += 1
+        self.track_counter += 60 * self.delta_time
         if self.track_counter >= self.track_interval:
             self.track_counter = 0
             for unit in self.units:
-                
                 unit.send_delta(delta_time) # Send delta time to tank instances
                 
                 if not unit.dead and unit.is_moving:
                     # Add track mark at tank's position
                     track_pos = unit.get_pos()
                     track_angle = unit.degrees + 90
-                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img))
+                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=50*60*delta_time))
     
         # Update and remove old tracks
-        self.tracks = [track for track in self.tracks if track.update()]
+        self.tracks = [track for track in self.tracks if track.update(self.delta_time*60)]
         
         # Temp list is created and all units' projectiles are added to a single list
         temp_projectiles = []

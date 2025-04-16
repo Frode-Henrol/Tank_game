@@ -44,6 +44,8 @@ class Tank:
         self.is_moving_false_time = 0
         self.time_of_death = 0
         
+        self.time_alive = 0
+        
         # Team
         self.team = team
         
@@ -172,30 +174,15 @@ class Tank:
         self.make_dead(False)
     
     
-    def fps_scaling(self):
-
-        # Update timers
-        if self.is_moving_false_time > 0:
-            self.is_moving_false_time -= self.delta_time * 60
-            
-        # # Update AI
-        # if self.ai and not self.dead:
-        #     self.ai.update(self.delta_time)
-            
-        # # Update animation
-        # if self.muzzle_flash_animation:
-        #     self.muzzle_flash_animation.update(self.delta_time)
-        #     if self.muzzle_flash_animation.finished:
-        #         self.muzzle_flash_animation = None
-    
     def draw(self, surface):
         self.surface = surface
+        
+        self.time_alive += self.delta_time
         
         # Scale movement speeds
         self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
         
-        self.fps_scaling()
-        
+
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
         
@@ -254,8 +241,16 @@ class Tank:
         
         
         # Update ai
+        # if self.ai and not self.dead:
+        #     self.ai.update()    
+            
+        # Update AI
         if self.ai and not self.dead:
-            self.ai.update()
+            self.ai.update_accumulator += self.delta_time
+            while self.ai.update_accumulator >= self.ai.update_interval:
+                self.ai.update()
+                self.ai.update_accumulator -= self.ai.update_interval
+            
             
         # Pathfinding / waypoint logic if it is activated
         if self.go_to_waypoint:
@@ -263,8 +258,8 @@ class Tank:
             
         # Timers
         if self.is_moving_false_time > 0:
-            self.is_moving_false_time -= 1
-        if self.is_moving_false_time == 0: 
+            self.is_moving_false_time -= self.delta_time * 60
+        if self.is_moving_false_time <= 0: 
             self.is_moving = False
             
     def rotate(self, deg: int):
@@ -614,6 +609,10 @@ class TankAI:
                  mines: list[Mine],
                  config: dict):
         
+        # FPS correction
+        self.update_accumulator = 0
+        self.update_interval = 1/60  # 60 updates per second
+        
         # Generel tank information
         self.tank = tank                # The tank instance this AI controls
         self.spawn_coord = tank.pos     # Save the spawn coordinate
@@ -707,6 +706,7 @@ class TankAI:
         # Misc
         self.current_target_angle = None  # Store the randomized target angle
         self.can_shoot = False
+        self.debug_target_pos = (0,0)
         
         # Mine
         self.mine_chance = config.get("mine_chance", 10000)

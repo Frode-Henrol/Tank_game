@@ -213,7 +213,7 @@ class TankGame:
             Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
             Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
             Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
-            Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
+            Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "cap_fps"), self.clear_all_projectiles())),
             Button(left, 950, 300, 60, "Back", States.MENU)
         ]
         
@@ -223,9 +223,9 @@ class TankGame:
             Button(left, 250, 300, 60, "Level 2", States.PLAYING),
             Button(left, 350, 300, 60, "Level 3", States.PLAYING),
             Button(left, 450, 300, 60, "Level 4", States.PLAYING),
-
             Button(left, 550, 300, 60, "Back", States.MENU)  
         ]  
+    
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
@@ -879,8 +879,11 @@ class TankGame:
                 f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
                 f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
                 f"Closets proj: {self.units[1].ai.closest_projectile[1]}",
-                f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}"
+                f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}",
+                f"AI accu: {self.units[1].ai.update_accumulator:.5f}",
+                f"Tank 1: {self.units[1].ai.salvo_cooldown:.5f}"
             ]
+            
         else:
              debug_text = [
                 f"FPS: {self.clock.get_fps():.2f}",
@@ -908,6 +911,13 @@ class TankGame:
         # Check if the distance is less than or equal to the threshold (radius)
         return distance <= threshold  
     
+    def clear_all_projectiles(self):
+        # Clear for each unit
+        for unit in self.units:
+            unit.projectiles.clear()
+        
+        # Clear global list
+        self.projectiles.clear()
 
 
 class States:

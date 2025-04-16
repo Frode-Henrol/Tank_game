@@ -184,7 +184,7 @@
         "rotation_mult_max": 4.0,
         "rotation_mult_min": 0.75,
         
-        "perfect_aim": false,
+        "perfect_aim": true,
         "advanced_targeting": true,
         "predictive_targeting": true,
         "predictive_targeting_chance": 50,

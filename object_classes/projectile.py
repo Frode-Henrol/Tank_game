@@ -102,7 +102,7 @@ class Projectile:
         intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point)
         
         # If there is no intersection then just keep diretion vector the same
-        if intersect_coord == None:
+        if intersect_coord == (-1.0, -1.0):
             return self.direction
         
         self.startpos = intersect_coord     # Update startpos for ai dodge mechanic

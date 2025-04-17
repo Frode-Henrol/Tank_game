@@ -4,6 +4,7 @@ import pygame as pg
 import numpy as np
 import os
 import utils.helper_functions as helper_functions
+import utils.deflect as deflect
 import time
 from object_classes.projectile import Projectile
 from object_classes.tank import Tank
@@ -108,10 +109,11 @@ class TankGame:
         self.active_proj_explosions = []
         self.active_tank_explosions = []
         
+        self.delta_time = 1
         
         if self.godmode:
             self.godmode_toggle()
-            
+    
     def dpi_fix(self):
         try:
             ctypes.windll.user32.SetProcessDPIAware()
@@ -610,14 +612,8 @@ class TankGame:
 
             
     def update(self):
-        # Calculate delta time (time since last frame)
-        # current_time = pg.time.get_ticks() / 1000
-        # delta_time = current_time - self.last_frame_time
-        # self.last_frame_time = current_time
-        # self.delta_time = delta_time
-        
 
-        # In your update method:
+        # Delta time
         current_time = time.perf_counter()
         delta_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
@@ -627,8 +623,6 @@ class TankGame:
         if self.delta_time > 0.01:
             self.delta_time = 0.01
             
-        print(f"{self.delta_time=}")
-        
         # Debug output
         if random.random() < 0.01:  # Print about 1% of frames to avoid spam
             print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f}")
@@ -693,12 +687,12 @@ class TankGame:
                         mine.explode()
                         temp_projectiles[i].alive = False
 
-        # Check unit/surface collisions
         for unit in self.units:
             # Send new projectile info to AI
             if unit.ai is not None:
                 unit.ai.projectiles = self.projectiles
 
+            # Check unit/surface collisions
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")

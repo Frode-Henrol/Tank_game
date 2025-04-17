@@ -11,6 +11,7 @@ import pathfinding
 from scipy.spatial import KDTree
 import heapq
 import time
+import math
 
 class Tank:
     _id_counter = 0 
@@ -38,6 +39,7 @@ class Tank:
         self.degrees = spawn_degress
         self.speed = speed  # Used to control speed so it wont be fps bound
         self.speed_original = speed
+        self.can_move = self.speed_original > 0
         
         self.is_moving = False  # True if moving: 1 = forward, -1 = backward
         self.is_moving_dir = 0
@@ -122,7 +124,8 @@ class Tank:
         
     def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
         self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None
-    
+          
+        
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
@@ -317,8 +320,8 @@ class Tank:
             intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point)
         
             # Only execute code when a collision is present. The code under will push the tank back with the normal vector to the line "surface" hit (with same magnitude as unit direction vector)
-            if intersect_coord != None:
-                print(f"Tank hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
+            if intersect_coord != (-1.0, -1.0):
+                # print(f"Tank hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
                 
                 # If collision is a ____
                 if collision_type == "surface":
@@ -441,8 +444,24 @@ class Tank:
             return  # Avoid division by zero
 
         dist = dist_sq ** 0.5
-        repulsion_vector = (dx / dist * push_strength, dy / dist * push_strength)
-
+        
+        # Calculate the normalized direction vector
+        direction_x = dx / dist
+        direction_y = dy / dist
+        
+        repulsion_distance = push_strength * self.delta_time * 120
+        repulsion_vector = (direction_x * repulsion_distance, direction_y * repulsion_distance)
+        
+        # This is quick fix to prevent non moving tank being pushed through walls
+        if not self.can_move:
+            self.speed_original = helper_functions.get_vector_magnitude(repulsion_vector)
+            # Scaling repulsion amount linearly with delta time
+            dir_amount = -130 * self.delta_time + 3
+            print(f"dir_amount {dir_amount}")
+            self.direction = (dir_amount, dir_amount)
+        
+            
+        
         # Move this tank slightly away
         self.pos[0] += repulsion_vector[0]
         self.pos[1] += repulsion_vector[1]
@@ -451,7 +470,8 @@ class Tank:
         for i in range(len(self.hitbox)):
             x, y = self.hitbox[i]
             self.hitbox[i] = (x + repulsion_vector[0], y + repulsion_vector[1])
-
+        
+        
     def __str__(self):
         return f"Pos: {self.pos} ai: {self.ai_type}"
 
@@ -1211,11 +1231,17 @@ class TankAI:
         
         for obstacle in self.obstacles:
             for corner_pair in obstacle.get_corner_pairs():
-                result = df.line_intersection(map(float,coord1), map(float,coord2), corner_pair[0], corner_pair[1])
+                #result = df.line_intersection(map(float,coord1), map(float,coord2), corner_pair[0], corner_pair[1])
+                result = df.line_intersection((float(coord1[0]),float(coord1[1])), (float(coord2[0]),float(coord2[1])), corner_pair[0], corner_pair[1])
                 #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
-                if result != None:
+                
+                if result !=  (-1.0, -1.0):
                     self.target_in_sight = False
                     return False
+                
+                # if result != None:
+                #     self.target_in_sight = False
+                #     return False
                 
         # Get turret's direction as a unit vector
         turret_direction_x = np.cos(np.radians(self.tank.turret_rotation_angle))
@@ -1302,7 +1328,7 @@ class TankAI:
                 for corner_pair in obstacle.get_corner_pairs():
                     intersect = df.line_intersection(corner_pair[0], corner_pair[1], current_point, end_point)
                     
-                    if intersect:
+                    if intersect != (-1.0, -1.0):
                         # Calculate distance and ensure we don't pick the same point
                         dist = helper_functions.distance(current_point, intersect)
                         if dist < closest_distance and dist > 1:  # Small threshold to avoid self-intersection

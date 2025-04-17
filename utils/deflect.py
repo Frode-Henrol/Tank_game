@@ -1,6 +1,8 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numba import njit
+import math
 
 def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | None:
     """Finds the intersection coord of two line segments if it exists. Returns the coord or none"""
@@ -9,12 +11,17 @@ def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | Non
     x3, y3 = p3
     x4, y4 = p4
     
+    # Early bounding box rejection
+    if (max(x1, x2) < min(x3, x4) or min(x1, x2) > max(x3, x4) or
+        (max(y1, y2) < min(y3, y4) or min(y1, y2) > max(y3, y4))):
+        return (-1.0, -1.0)
+    
     # Calculate determinants
     denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
         
     # If denominator is zero, the lines are parallel or coincident
     if denominator == 0:
-        return None  # No intersection
+        return (-1.0, -1.0)  # No intersection
     
     # Compute the intersection point using Cramer's Rule    
     px = ((x1*y2 - y1*x2) * (x3 - x4) - (x1 - x2) * (x3*y4 - y3*x4)) / denominator
@@ -27,8 +34,7 @@ def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | Non
         min(y3, y4) - epsilon <= py <= max(y3, y4) + epsilon):
         return (px, py)  # Intersection point
     
-    return None  # The intersection is outside the segment
-
+    return (-1.0, -1.0)  # The intersection is outside the segment
 
 def find_normal_vectors(start_point: tuple, end_point: tuple) -> tuple:
     """Returns two possible unit normal vectors to the line segment."""

@@ -50,8 +50,6 @@ class Tank:
         
         self.time_alive = 0
         
-
-        
         # Team
         self.team = team
         
@@ -79,7 +77,9 @@ class Tank:
         
         # Hitbox
         self.init_hitbox(spawn_degress)    # Init the hitbox in the correct orientation
+        self.precompute_rotated_hitboxes()
         self.draw_hitbox = draw_hitbox
+        self.closest_angle = 0
             
         # Health
         self.dead = False
@@ -141,21 +141,127 @@ class Tank:
     
     def send_delta(self, delta_time):
         self.delta_time = delta_time
+
+    # def init_hitbox(self, spawn_degress):
+    #     x = self.pos[0]
+    #     y = self.pos[1]
+    #     size_factor = 20
+    #     # top left, top right, bottom right, bottom left ->  Front, right, back, right (line orientation in respect to tank, when run through coord_to_coordlist function)
+    #     self.hitbox = [(x-size_factor, y-size_factor),
+    #                    (x+size_factor, y-size_factor),
+    #                    (x+size_factor, y+size_factor),
+    #                    (x-size_factor, y+size_factor)]
+        
+    #     self.hitbox = self.rotate_hit_box(spawn_degress)
+        
+    # def rotate_hit_box(self, deg):
+    #     # Rotate tank hitbox
+    #     rads = np.radians(deg)  # The hitbox is rotated specified degress
+        
+    #     new_hit_box = self.hitbox.copy()
+        
+    #     # Rotate all 4 corners in the hitbox
+    #     for i in range(len(new_hit_box)):
+    #         x, y = new_hit_box[i]
+            
+    #         # Corrected 2D rotation formulawa
+    #         rotated_x = self.pos[0] + (x - self.pos[0]) * np.cos(rads) - (y - self.pos[1]) * np.sin(rads)
+    #         rotated_y = self.pos[1] + (x - self.pos[0]) * np.sin(rads) + (y - self.pos[1]) * np.cos(rads)
+
+    #         # Update the list in place
+    #         new_hit_box[i] = (rotated_x, rotated_y)
+        
+    #     return new_hit_box
+
+    # def precompute_hitbox_coords(self):
+    #     """Precompute the hitbox coordinates for every angle from 0 to 360 degrees."""
+    #     hitbox_coords = {}
+    #     hitbox_coord_list = {}
+    #     self.step = 5
+        
+    #     for angle in range(0, 360, self.step):
+    #         hitbox = self.rotate_hit_box(angle)
+
+    #         # Store the precomputed hitbox for the given angle
+    #         hitbox_coords[angle] = hitbox
+    #         hitbox_coord_list[angle] = helper_functions.coord_to_coordlist(hitbox)
+            
+    #     self.calc_hitbox_coordlist = hitbox_coord_list
+    #     self.calc_hitbox_coords = hitbox_coords
     
+    # def update_hitbox(self):
+    #     pass
+        
     def init_hitbox(self, spawn_degress):
-        x = self.pos[0]
-        y = self.pos[1]
         size_factor = 20
-        # top left, top right, bottom right, bottom left ->  Front, right, back, right (line orientation in respect to tank, when run through coord_to_coordlist function)
-        self.hitbox = [(x-size_factor, y-size_factor),
-                       (x+size_factor, y-size_factor),
-                       (x+size_factor, y+size_factor),
-                       (x-size_factor, y+size_factor)]
+        # Create base hitbox relative to origin (0,0)
+        self.base_hitbox = np.array([
+            [-size_factor, -size_factor],  # top left
+            [size_factor, -size_factor],   # top right
+            [size_factor, size_factor],    # bottom right
+            [-size_factor, size_factor]    # bottom left
+        ], dtype=np.float32)
         
-        self.rotate_hit_box(spawn_degress)
+        self.precompute_rotated_hitboxes()
+        self.update_hitbox_position()  # Initialize with current position
         
+    def precompute_rotated_hitboxes(self):
+        """Precompute rotated hitbox templates (relative to origin) for all angles"""
+        self.step = 5
+        angles = np.arange(0, 360, self.step)
+        rads = np.radians(angles)
+        
+        # Create rotation matrices for all angles
+        cos = np.cos(rads)[:, np.newaxis, np.newaxis]
+        sin = np.sin(rads)[:, np.newaxis, np.newaxis]
+        
+        # Rotation matrix: [cos -sin]
+        #                 [sin  cos]
+        rotation_matrices = np.concatenate([
+            np.concatenate([cos, -sin], axis=2),
+            np.concatenate([sin, cos], axis=2)
+        ], axis=1)
+        
+        # Rotate base hitbox for all angles (vectorized operation)
+        self.rotated_hitboxes = np.einsum('ijk,lk->ilj', rotation_matrices, self.base_hitbox)
+        
+        # Convert to dictionary for easy lookup
+        self.rotated_hitbox_templates = {
+            angle: self.rotated_hitboxes[i] 
+            for i, angle in enumerate(angles)
+        }
+        
+        # Precompute line segments for collision detection
+        self.rotated_hitbox_lines = {
+            angle: [
+                (template[0], template[1]),  # front
+                (template[1], template[2]),  # right
+                (template[2], template[3]),  # back
+                (template[3], template[0])   # left
+            ]
+            for angle, template in self.rotated_hitbox_templates.items()
+        }
+
+    def update_hitbox_position(self):
+        """Update hitbox position based on current tank position"""
+        new_angle = int(self.degrees / self.step) * self.step
+        if getattr(self, "closest_angle", None) == new_angle and getattr(self, "_last_pos", None) == tuple(self.pos):
+            return  # Nothing has changed
+
+        self.closest_angle = new_angle
+        self._last_pos = tuple(self.pos)
+
+        offset = np.array(self.pos)
+
+        self.hitbox = self.rotated_hitbox_templates[self.closest_angle] + offset
+
+        self.hitbox_lines = [
+            (tuple(p1 + offset), tuple(p2 + offset))
+            for p1, p2 in self.rotated_hitbox_lines[self.closest_angle]
+    ]
+
+
     def move(self, direction: str):
-        
         if self.dead and not self.godmode:
             return
             
@@ -180,13 +286,11 @@ class Tank:
             moved_y = y + dir * self.direction[1] * self.speed
             self.hitbox[i] = (moved_x, moved_y)
     
-    
-    
     def respawn(self):
         self.make_dead(False)
     
-    
     def draw(self, surface):
+        self.update_hitbox_position()
         self.surface = surface
         
         self.time_alive += self.delta_time
@@ -282,81 +386,107 @@ class Tank:
         deg *= self.speed
         
         # Rotate tank image
-        self.degrees += deg
+        self.degrees = (self.degrees + deg) % 360
         rads = np.radians(self.degrees)
         
         # Update direction vector
         self.direction = np.cos(rads), np.sin(rads)
         
         # When rotating we also rate the tank hitbox
-        self.rotate_hit_box(deg)
-           
-    def rotate_hit_box(self, deg):
-        # Rotate tank hitbox
-        rads = np.radians(deg)  # The hitbox is rotated specified degress
+        # Find the nearest precomputed hitbox
+        self.closest_angle = int(self.degrees / self.step) * self.step  # Round to nearest 5-degree step
         
-        # Rotate all 4 corners in the hitbox
-        for i in range(len(self.hitbox)):
-            x, y = self.hitbox[i]
-            
-            # Corrected 2D rotation formulawa
-            rotated_x = self.pos[0] + (x - self.pos[0]) * np.cos(rads) - (y - self.pos[1]) * np.sin(rads)
-            rotated_y = self.pos[1] + (x - self.pos[0]) * np.sin(rads) + (y - self.pos[1]) * np.cos(rads)
-
-            # Update the list in place
-            self.hitbox[i] = (rotated_x, rotated_y)
-            
-    def collision(self, line: tuple, collision_type: str) -> bool:
-        """line should be a tuple of 2 coords"""
         
-        # Coords of the "surface" line in the polygon
-        line_coord1, line_coord2 = line
+        #self.rotate_hit_box(deg)
+                  
+    # def collision(self, line: tuple, collision_type: str) -> bool:
+    #     """line should be a tuple of 2 coords"""
         
-        # Find coord where tank and line meet. Try all 4 side of tank
-        hit_box_lines = helper_functions.coord_to_coordlist(self.hitbox)
+    #     # Coords of the "surface" line in the polygon
+    #     line_coord1, line_coord2 = line
         
-        # Check each line in hitbox if it itersect a line: surface/projectile/etc
-        for i in range(len(hit_box_lines)):
-            start_point, end_point = hit_box_lines[i]
-            intersect_coord = line_intersection.line_intersection(line_coord1[0], line_coord1[1], 
-                                                                  line_coord2[0], line_coord2[1], 
-                                                                  start_point[0], start_point[1], 
-                                                                  end_point[0], end_point[1])
+    #     # Find coord where tank and line meet. Try all 4 side of tank
+    #     # hit_box_lines = helper_functions.coord_to_coordlist(self.hitbox)
+    #     hit_box_lines = self.hitbox_lines
         
-            # Only execute code when a collision is present. The code under will push the tank back with the normal vector to the line "surface" hit (with same magnitude as unit direction vector)
-            if intersect_coord != (-1.0, -1.0):
-                # print(f"Tank hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
+    #     # Check each line in hitbox if it itersect a line: surface/projectile/etc
+    #     for i in range(len(hit_box_lines)):
+    #         start_point, end_point = hit_box_lines[i]
+    #         intersect_coord = line_intersection.line_intersection(line_coord1[0], line_coord1[1], 
+    #                                                               line_coord2[0], line_coord2[1], 
+    #                                                               start_point[0], start_point[1], 
+    #                                                               end_point[0], end_point[1])
+        
+    #         # Only execute code when a collision is present. The code under will push the tank back with the normal vector to the line "surface" hit (with same magnitude as unit direction vector)
+    #         if intersect_coord != (-1.0, -1.0):
+    #             # print(f"Tank hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
                 
-                # If collision is a ____
-                if collision_type == "surface":
-                    # Find normal vector of line
-                    normal_vector1, normal_vector2 = df.find_normal_vectors(line_coord1, line_coord2)
-                    # - We only use normalvector2 since all the left sides of the hitbox lines point outwards
+    #             # If collision is a ____
+    #             if collision_type == "surface":
+    #                 # Find normal vector of line
+    #                 normal_vector1, normal_vector2 = df.find_normal_vectors(line_coord1, line_coord2)
+    #                 # - We only use normalvector2 since all the left sides of the hitbox lines point outwards
                     
-                    # Calculate magnitude scalar of units direction vector
-                    magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction) 
+    #                 # Calculate magnitude scalar of units direction vector
+    #                 magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction) 
                     
-                    # Scale the normal vector with the previous magnitude scalar
-                    normal_scaled_x, normal_scaled_y = normal_vector2[0] * magnitude_dir_vec, normal_vector2[1] * magnitude_dir_vec
+    #                 # Scale the normal vector with the previous magnitude scalar
+    #                 normal_scaled_x, normal_scaled_y = normal_vector2[0] * magnitude_dir_vec, normal_vector2[1] * magnitude_dir_vec
                     
-                    # Update unit postion
-                    self.pos = [self.pos[0] + normal_scaled_x * self.speed, self.pos[1] + normal_scaled_y * self.speed]
+    #                 # Update unit postion
+    #                 self.pos = [self.pos[0] + normal_scaled_x * self.speed, self.pos[1] + normal_scaled_y * self.speed]
                     
-                    # Update each corner position in hitbox
-                    for i in range(len(self.hitbox)):
-                        x, y = self.hitbox[i]
-                        self.hitbox[i] = (x + normal_scaled_x * self.speed, y + normal_scaled_y * self.speed)
+    #                 # Update each corner position in hitbox
+    #                 for i in range(len(self.hitbox)):
+    #                     x, y = self.hitbox[i]
+    #                     self.hitbox[i] = (x + normal_scaled_x * self.speed, y + normal_scaled_y * self.speed)
                         
                         
-                elif collision_type == "projectile":
-                    self.make_dead(True)
-                    return True
-                else:
-                    print("Hitbox collision: type is unknown")
+    #             elif collision_type == "projectile":
+    #                 self.make_dead(True)
+    #                 return True
+    #             else:
+    #                 print("Hitbox collision: type is unknown")
+          
+    def collision(self, line: tuple, collision_type: str) -> bool:
+        """Check if the tank collides with a given line based on collision_type."""
+        for start_point, end_point in self.hitbox_lines:
+            intersect_coord = self._check_line_intersection(line, (start_point, end_point))
+            
+            if intersect_coord != (-1.0, -1.0):
+                return self._handle_collision(collision_type, line)
         
+        return False
+        
+    def _check_line_intersection(self, line1, line2) -> tuple:
+        (x1, y1), (x2, y2) = line1
+        (x3, y3), (x4, y4) = line2
+        return line_intersection.line_intersection(x1, y1, x2, y2, x3, y3, x4, y4)
+
+    def _handle_collision(self, collision_type: str, line: tuple) -> bool:
+        if collision_type == "surface":
+            self._resolve_surface_collision(line)
+            return True
+        elif collision_type == "projectile":
+            self.make_dead(True)
+            return True
+        else:
+            print("Hitbox collision: type is unknown")
+            return False
+
+    def _resolve_surface_collision(self, line: tuple):
+        normal_vector1, normal_vector2 = df.find_normal_vectors(*line)
+        magnitude = helper_functions.get_vector_magnitude(self.direction)
+        
+        # Push back using normal_vector2
+        dx, dy = normal_vector2[0] * magnitude * self.speed, normal_vector2[1] * magnitude * self.speed
+        
+        self.pos[0] += dx
+        self.pos[1] += dy
+        self.hitbox = [(x + dx, y + dy) for (x, y) in self.hitbox]
+
+
     def make_dead(self, active):
-        
-        
         if active and not self.godmode:
             print("Tank dead")
             self.dead = True

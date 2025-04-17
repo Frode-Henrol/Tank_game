@@ -1,9 +1,9 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numba import njit
-import math
 
+
+# UNUSED - CONVERTED TO CYTHON!
 def line_intersection(p1: tuple, p2: tuple, p3: tuple, p4: tuple) -> tuple | None:
     """Finds the intersection coord of two line segments if it exists. Returns the coord or none"""
     x1, y1 = p1
@@ -55,7 +55,6 @@ def find_normal_vectors(start_point: tuple, end_point: tuple) -> tuple:
     
     # Return two perpendicular unit normal vectors  
     return (-dy, dx), (dy, -dx)
-    
     
 def find_deflect_vector(normal_vector: tuple, vector_to_deflect: tuple) -> tuple:
     

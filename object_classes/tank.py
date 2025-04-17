@@ -12,6 +12,7 @@ from scipy.spatial import KDTree
 import heapq
 import time
 import math
+from utils import line_intersection
 
 class Tank:
     _id_counter = 0 
@@ -317,7 +318,10 @@ class Tank:
         # Check each line in hitbox if it itersect a line: surface/projectile/etc
         for i in range(len(hit_box_lines)):
             start_point, end_point = hit_box_lines[i]
-            intersect_coord = df.line_intersection(line_coord1, line_coord2, start_point, end_point)
+            intersect_coord = line_intersection.line_intersection(line_coord1[0], line_coord1[1], 
+                                                                  line_coord2[0], line_coord2[1], 
+                                                                  start_point[0], start_point[1], 
+                                                                  end_point[0], end_point[1])
         
             # Only execute code when a collision is present. The code under will push the tank back with the normal vector to the line "surface" hit (with same magnitude as unit direction vector)
             if intersect_coord != (-1.0, -1.0):
@@ -1232,7 +1236,10 @@ class TankAI:
         for obstacle in self.obstacles:
             for corner_pair in obstacle.get_corner_pairs():
                 #result = df.line_intersection(map(float,coord1), map(float,coord2), corner_pair[0], corner_pair[1])
-                result = df.line_intersection((float(coord1[0]),float(coord1[1])), (float(coord2[0]),float(coord2[1])), corner_pair[0], corner_pair[1])
+                result = line_intersection.line_intersection(float(coord1[0]),float(coord1[1]), 
+                                                             float(coord2[0]),float(coord2[1]), 
+                                                             corner_pair[0][0], corner_pair[0][1],
+                                                             corner_pair[1][0], corner_pair[1][1])
                 #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
                 
                 if result !=  (-1.0, -1.0):
@@ -1326,7 +1333,10 @@ class TankAI:
             # Find closest intersection with any obstacle
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
-                    intersect = df.line_intersection(corner_pair[0], corner_pair[1], current_point, end_point)
+                    intersect = line_intersection.line_intersection(corner_pair[0][0], corner_pair[0][1],
+                                                     corner_pair[1][0], corner_pair[1][1], 
+                                                     current_point[0], current_point[1], 
+                                                     end_point[0], end_point[1])
                     
                     if intersect != (-1.0, -1.0):
                         # Calculate distance and ensure we don't pick the same point

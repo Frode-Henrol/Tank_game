@@ -853,8 +853,8 @@ class TankGame:
                     pg.draw.circle(self.screen, "red", unit.ai.debug_target_pos, 5)
                     print(f"{unit.ai.debug_target_pos=}")
             
-        
-        self.render_debug_info()
+        if self.show_debug_info:
+            self.render_debug_info()
             
         pg.display.update()
         if self.cap_fps:
@@ -887,30 +887,25 @@ class TankGame:
         
         font = pg.font.Font(None, 24)  # Default font, size 24
         
-        if self.show_debug_info:
-            debug_text = [
-                f"FPS: {self.clock.get_fps():.2f}",
-                f"FPS avg: {avg:.2f}",
-                f"Active projectiles: {len(self.projectiles)}",
-                f"Main tank angle: {self.units_player_controlled[0].degrees}",
-                f"Units: {len(self.units)}",
-                f"Player units: {len(self.units_player_controlled)}",
-                f"Obstacles: {len(self.obstacles)}",
-                f"Tank 1: {self.units[1].ai.behavior_state}",
-                f"Path dist: {self.units[1].ai.dist_to_target_path}",
-                f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
-                f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
-                f"Closets proj: {self.units[1].ai.closest_projectile[1]}",
-                f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}",
-                f"AI accu: {self.units[1].ai.update_accumulator:.5f}",
-                f"Tank 1: {self.units[1].ai.salvo_cooldown:.5f}"
-            ]
-            
-        else:
-             debug_text = [
-                f"FPS: {self.clock.get_fps():.2f}",
-                f"FPS avg: {avg:.2f}"
-            ]
+        debug_text = [
+            f"FPS: {self.clock.get_fps():.2f}",
+            f"FPS avg: {avg:.2f}",
+            f"Active projectiles: {len(self.projectiles)}",
+            f"Main tank angle: {self.units_player_controlled[0].degrees}",
+            f"Units: {len(self.units)}",
+            f"Player units: {len(self.units_player_controlled)}",
+            f"Obstacles: {len(self.obstacles)}",
+            f"Tank 1: {self.units[1].ai.behavior_state}",
+            f"Path dist: {self.units[1].ai.dist_to_target_path}",
+            f"Direct dist: {self.units[1].ai.dist_to_target_direct}",
+            f"Valid nodes: {len(self.units[1].ai.valid_nodes)}",
+            f"Closets proj: {self.units[1].ai.closest_projectile[1]}",
+            f"Dodge cooldown: {self.units[1].ai.dodge_cooldown}",
+            f"AI accu: {self.units[1].ai.update_accumulator:.5f}",
+            f"Tank 1: {self.units[1].ai.salvo_cooldown:.5f}"
+        ]
+        
+
         
         # Start position for text
         x_start = self.WINDOW_DIM[0] - 490  

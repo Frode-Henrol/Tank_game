@@ -8,7 +8,7 @@ from utils import line_intersection
 
 class Projectile:
     
-    def __init__(self, unit_pos, startpos: tuple, direction: tuple, speed: list[float], bounce_limit: int, id):   # Add color and more later!!!!
+    def __init__(self, unit_pos, startpos: tuple, direction: tuple, speed: list[float], bounce_limit: int, id: int):   # Add color and more later!!!!
         self.spawn_coord = unit_pos 
         self.startpos = copy.copy(startpos)
         self.pos = self.startpos
@@ -24,7 +24,7 @@ class Projectile:
         self.bounce_count = 0
         self.bounce_limit = bounce_limit
         
-        self.spawn_timer = 50   # Amount of time that projectiles can't kill the unit it was fired from
+        self.spawn_timer = 10   # Amount of time that projectiles can't kill the unit it was fired from
         self.hit_timer_amount = 0 # Frames. (0 right now which means maximum amount of collision checks)
         self.hit_timer = 0
 
@@ -99,9 +99,10 @@ class Projectile:
         return [(self.pos[0], self.pos[1]), (self.pos[0]+self.direction[0]*self.projectile_path_scale, self.pos[1]+self.direction[1]*self.projectile_path_scale)]
         
     def draw(self, surface):
-        #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
-        line_start, line_end = self.get_line()
-        pg.draw.line(surface, self.color, (line_start[0], line_start[1]), (line_end[0], line_end[1]), self.thickness)
+        if self.bounce_count < self.bounce_limit:
+            #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
+            line_start, line_end = self.get_line()
+            pg.draw.line(surface, self.color, (line_start[0], line_start[1]), (line_end[0], line_end[1]), self.thickness)
         
         
     def collision(self, line):

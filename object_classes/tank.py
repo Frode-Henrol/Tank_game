@@ -235,11 +235,29 @@ class Tank:
             moved_x = x + dir * self.direction[0] * self.speed
             moved_y = y + dir * self.direction[1] * self.speed
             self.hitbox[i] = (moved_x, moved_y)
-    
+
+    def rotate(self, deg: int):
+        if self.dead and not self.godmode:
+            return
+
+        # Scale rotation by delta time
+        deg *= self.delta_time * 60  # Scale to match 60 FPS base
+
+        # Rotate tank
+        self.degrees = (self.degrees + deg) % 360
+        rads = math.radians(self.degrees)
+
+        # Update direction vector (normalized)
+        self.direction = (math.cos(rads), math.sin(rads))
+
+        # Update hitbox rotation
+        self.closest_angle = int(self.degrees / self.step) * self.step
+        self.update_hitbox_position()
+
     def respawn(self):
         self.make_dead(False)
-    
-    # TODO SKAL slette arg her og i tankgame
+
+        # TODO SKAL slette arg her og i tankgame
     def update(self, surface):
         """Update all tank logic and state"""
         self.update_hitbox_position()
@@ -604,7 +622,7 @@ class Tank:
         
         # This is quick fix to prevent non moving tank being pushed through walls
         if not self.can_move:
-            self.speed_original = helper_functions.get_vector_magnitude(repulsion_vector)
+            self.speed = helper_functions.get_vector_magnitude(repulsion_vector)       
             # Scaling repulsion amount linearly with delta time
             dir_amount = -130 * self.delta_time + 3
             print(f"dir_amount {dir_amount}")

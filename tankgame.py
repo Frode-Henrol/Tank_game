@@ -27,7 +27,7 @@ class TankGame:
         # Initialize Pygame
         pg.init()
         self.clock = pg.time.Clock()
-        self.last_frame_time = pg.time.get_ticks() / 1000  # Convert to seconds immediately
+        # self.last_frame_time = pg.time.get_ticks() / 1000  # Convert to seconds immediately
         self.fps = 60
         
         #self.dpi_fix()
@@ -40,6 +40,7 @@ class TankGame:
         # Try different display modes for best results
         display_flags = pg.DOUBLEBUF | pg.HWSURFACE
         self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags)
+        
         # try:
         #     # First try with VSync
         #     self.screen = pg.display.set_mode(self.WINDOW_DIM, display_flags, vsync=1)
@@ -109,6 +110,10 @@ class TankGame:
         self.active_tank_explosions = []
         
         self.delta_time = 1
+        self.time = 0
+        self.last_print_time = 0
+        self.fps_list = []
+        self.delta_time_list = []
         
         
         if self.godmode:
@@ -431,15 +436,13 @@ class TankGame:
                 
             # After loading and scaling all background images
             self.cached_background = pg.Surface(self.WINDOW_DIM).convert()
-
-            # Blit static background layers ONCE into cached surface
+            self.cached_obstacles = pg.Surface(self.WINDOW_DIM).convert()
+            
+            # Blit backgrounds onto surface:
             self.cached_background.blit(self.background_outer, (0, 0))
             self.cached_background.blit(self.background_inner, self.border_polygon[3])  # position as needed
-
-            # Optional: If self.texture_surface is also static
             self.cached_background.blit(self.texture_surface, (0, 0))
-                            
-                
+
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()  
@@ -616,13 +619,48 @@ class TankGame:
         self.last_frame_time = current_time
         self.delta_time = delta_time
         
+        if self.time - self.last_print_time >= 0.1:
+           
+            self.last_print_time = self.time  # Update last print time
+            self.fps_list.append(1/delta_time)
+            
+            if len(self.fps_list) > 100:
+                self.fps_list.pop(0)
+
+            mov_avg_fps = sum(self.fps_list) / len(self.fps_list)
+
+            print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
         # Prevent absurd movement speed at loadin   (dosent fix it )
         # if self.delta_time > 0.005:
         #     self.delta_time = 0.005
+        
+        
+        self.frame += 1
+        self.time += delta_time
             
         # Debug output
-        if random.random() < 0.01:  # Print about 1% of frames to avoid spam
-            print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f} ")
+        # if random.random() < 0.01:  # Print about 1% of frames to avoid spam
+        #     print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f} ")
+
+        test = False
+        
+        if test:
+            if self.time - self.last_print_time >= 0.1:
+                self.delta_time_list.append(delta_time)
+                
+                list_len = len(self.delta_time_list)
+                if list_len > 100:
+                    self.fps_list.pop(0)
+                    self.delta_time_list.pop(0)
+                
+                self.delta_time = sum(self.delta_time_list) / list_len
+                
+                mov_avg_fps = sum(self.fps_list) / list_len
+                
+                print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
+                    
+                self.last_print_time = self.time  # Update last print time
+        
         
         # Track marks logic
         self.track_counter += 60 * self.delta_time
@@ -662,8 +700,8 @@ class TankGame:
                     if other_unit.dead:
                         continue  # Ignore dead units
                     
-                    # Skip unit if the projecile has been newly-fired from the same unit (prevents tank exploding itself)
-                    if proj.spawn_timer > 0 and proj.id == unit.id:
+                    # # Skip unit if the projecile has been newly-fired from the same unit (prevents tank exploding itself)
+                    if proj.spawn_timer > 0 and proj.id == other_unit.id:
                         continue
                     
                     if other_unit.collision(projectile_line, collision_type="projectile"):
@@ -765,7 +803,7 @@ class TankGame:
         # Draw projectiles
         for proj in self.projectiles:
             proj.draw(self.screen)
-        
+
         if self.show_obstacle_corners:
             # Draw obstacles
             for obstacle in self.obstacles:
@@ -888,7 +926,7 @@ class TankGame:
     def render_debug_info(self):
         """Render debug information on the right-side bar."""
         
-        self.frame += 1
+        
         self.total  +=self.clock.get_fps()
         avg = self.total / self.frame
         

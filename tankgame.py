@@ -28,7 +28,7 @@ class TankGame:
         pg.init()
         self.clock = pg.time.Clock()
         # self.last_frame_time = pg.time.get_ticks() / 1000  # Convert to seconds immediately
-        self.fps = 60
+        self.fps = 100
         
         #self.dpi_fix()
 
@@ -223,7 +223,7 @@ class TankGame:
             Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
             Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
             Button(left, 850, 300, 60, "Cap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
-            Textfield(left+350, 850, 300, 60, "60", on_mouse_leave_action=self.fps_button),
+            Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
             Button(left, 950, 300, 60, "Back", States.MENU)
         ]
         

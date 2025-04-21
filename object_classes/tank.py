@@ -289,7 +289,81 @@ class Tank:
     def respawn(self):
         self.make_dead(False)
     
+    def update(self, surface):
+        """Update all tank logic and state"""
+        self.update_hitbox_position()
+        self.time_alive += self.delta_time
+        
+        # Scale speed based on delta time
+        self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
+        
+        # Remove dead projectiles
+        self.projectiles[:] = [p for p in self.projectiles if p.alive]
+        
+        # Handle dead state
+        if self.dead:
+            self.time_of_death += 1
+            return
+        self.time_of_death = 0
+        
+        # Turret rotation for player controlled tanks
+        if self.ai is None:
+            target_coord = pg.mouse.get_pos()
+            self.turret_rotation_angle = helper_functions.find_angle(
+                self.pos[0], self.pos[1], 
+                target_coord[0], target_coord[1]
+            )
+            
+        # Update cooldowns
+        if self.cannon_cooldown > 0:
+            self.cannon_cooldown -= self.delta_time * 60
+        
+        if self.mine_cooldown > 0:
+            self.mine_cooldown -= self.delta_time * 60
+            
+        # AI updates
+        if self.ai and not self.dead:
+            self.ai.update_accumulator += self.delta_time
+            while self.ai.update_accumulator >= self.ai.update_interval:
+                self.ai.update()
+                self.ai.update_accumulator -= self.ai.update_interval
+            
+        # Pathfinding
+        if self.go_to_waypoint:
+            self.move_to_node(self.current_node)
+            
+        # Movement timers
+        if self.is_moving_false_time > 0:
+            self.is_moving_false_time -= self.delta_time * 60
+        if self.is_moving_false_time <= 0: 
+            self.is_moving = False
+
     def draw(self, surface):
+        """Draw the tank and its components"""
+        # Draw tank body
+        tank_correct_orient = -90  # Correction for image orientation
+        rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
+        tank_rect = rotated_tank.get_rect(center=self.pos)
+        surface.blit(rotated_tank, tank_rect.topleft)
+        
+        # Handle muzzle flash animation
+        if self.muzzle_flash_animation:
+            self.muzzle_flash_animation.play(surface)
+            if self.muzzle_flash_animation.finished:
+                self.muzzle_flash_animation = None
+
+        # Don't draw turret if dead
+        if self.dead:
+            return
+            
+        # Draw turret
+        rotated_turret = pg.transform.rotate(self.turret_image, -1 * self.turret_rotation_angle - 90)
+        turret_rect = rotated_turret.get_rect(center=self.pos)
+        surface.blit(rotated_turret, turret_rect.topleft)
+ 
+
+    
+    def draw_update_combined_old(self, surface):
         self.update_hitbox_position()
         self.surface = surface
         
@@ -340,12 +414,6 @@ class Tank:
         #     self.speed = self.speed_original
         
         # ============================= Other logic ================================
-        # Decrease cooldown each new draw
-        # if self.cannon_cooldown > 0:
-        #     self.cannon_cooldown -= 1
-        
-        # if self.mine_cooldown > 0:
-        #     self.mine_cooldown -= 1
         
         
         # Update cooldowns using delta_time
@@ -354,11 +422,6 @@ class Tank:
         
         if self.mine_cooldown > 0:
             self.mine_cooldown -= self.delta_time * 60
-        
-        
-        # Update ai
-        # if self.ai and not self.dead:
-        #     self.ai.update()    
             
         # Update AI
         if self.ai and not self.dead:
@@ -366,7 +429,6 @@ class Tank:
             while self.ai.update_accumulator >= self.ai.update_interval:
                 self.ai.update()
                 self.ai.update_accumulator -= self.ai.update_interval
-            
             
         # Pathfinding / waypoint logic if it is activated
         if self.go_to_waypoint:
@@ -377,6 +439,7 @@ class Tank:
             self.is_moving_false_time -= self.delta_time * 60
         if self.is_moving_false_time <= 0: 
             self.is_moving = False
+            
             
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
@@ -1413,8 +1476,9 @@ class TankAI:
         # If no obstacles or units block the path
         self.target_in_sight = True
         return True
-        
-    def find_closest_projectile(self):
+    
+    # Skal Rettes skal fjernes:
+    def find_closest_projectile_old(self):
         closest = None
         min_dist = float("inf")
 
@@ -1438,6 +1502,34 @@ class TankAI:
             self.closest_projectile = (closest, min_dist)
         else:
             self.closest_projectile = (None, 9999)
+
+    def find_closest_projectile(self):
+        closest = None
+        min_dist = float("inf")
+        tank_pos = np.array(self.tank.pos)  # Cache tank position
+        
+        for proj in self.projectiles:
+            proj_pos = np.array(proj.pos)  # Cache projectile position
+            direction_vector = proj_pos - np.array(proj.startpos)
+            to_tank_vector = tank_pos - proj_pos
+
+            # Early continue if not moving toward tank
+            if np.dot(direction_vector, to_tank_vector) <= 0:
+                continue
+                
+            # Calculate distance
+            dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)
+            
+            # Early update if better match found
+            if dist < min_dist:
+                min_dist = dist
+                closest = proj
+                # Early exit if perfect match found
+                if min_dist == 0:
+                    break
+
+        self.closest_projectile = (closest, min_dist if closest else 9999)
+
 
     def deflect_ray(self):        
         lines = []

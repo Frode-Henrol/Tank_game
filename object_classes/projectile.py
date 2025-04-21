@@ -16,13 +16,26 @@ class Projectile:
         self.speed = speed  
         self.alive = True  
         self.lifespan = 5000     # Projectile lifespan
-        self.projectile_path_scale = 10     # Scale of projectile len
+        self.thickness = 5
+        self.set_visuals()
+        
         self.bounce_count = 0
         self.bounce_limit = bounce_limit
         
         self.spawn_timer = 60
         self.hit_timer_amount = 0 # Frames. (0 right now which means maximum amount of collision checks)
         self.hit_timer = 0
+    
+    def set_visuals(self):
+        t = (self.speed_original - 3.36) / (9.6 - 3.36)
+        
+        if t > 1: 
+            t = 1
+        elif t < 0: 
+            t = 0
+        
+        self.color = (128 + 100*t, 128 - (128*t), 128 - (128*t)) 
+        self.projectile_path_scale = 10 + 10 * t    # Scale of projectile len
     
     def set_delta_time(self, delta_time):
         self.delta_time = delta_time
@@ -80,7 +93,7 @@ class Projectile:
     def draw(self, surface):
         #pg.draw.circle(surface, "red", (int(self.pos[0]), int(self.pos[1])), 2)
         line_start, line_end = self.get_line()
-        pg.draw.line(surface, "grey", (line_start[0], line_start[1]), (line_end[0], line_end[1]), 6)
+        pg.draw.line(surface, self.color, (line_start[0], line_start[1]), (line_end[0], line_end[1]), self.thickness)
         
         
     def collision(self, line):

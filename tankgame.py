@@ -111,6 +111,7 @@ class TankGame:
         
         self.delta_time = 1
         
+        
         if self.godmode:
             self.godmode_toggle()
     
@@ -369,16 +370,15 @@ class TankGame:
             # Fetch specific unit data 
             specific_unit_data = all_units_data_json[unit_type_json_format]
             
-            temp_speed = 144 / self.fps 
             # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
             
             ai_type = specific_unit_data["ai_personality"]
                 
             try:
                 unit_to_add = Tank(startpos            = unit_pos,
-                                    speed              = temp_speed * specific_unit_data["tank_speed_modifier"], 
+                                    speed              = specific_unit_data["tank_speed_modifier"], 
                                     firerate           = specific_unit_data["firerate"],
-                                    speed_projectile   = temp_speed * specific_unit_data["projectile_speed_modifier"],
+                                    speed_projectile   = specific_unit_data["projectile_speed_modifier"],
                                     spawn_degress      = unit_angle,
                                     bounch_limit       = specific_unit_data["bounch_limit"] + 1,
                                     mine_limit         = specific_unit_data["mine_limit"],
@@ -636,7 +636,7 @@ class TankGame:
                 
                 if not unit.dead and unit.is_moving:
                     # Add track mark at tank's position
-                    track_pos = unit.get_pos()
+                    track_pos = unit.pos
                     track_angle = unit.degrees + 90
                     self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=50*60*delta_time))
     
@@ -670,12 +670,11 @@ class TankGame:
                 
         # Optimize projectile proximity checks with KDTree
         if temp_projectiles:
-            projectile_positions = np.array([proj.get_pos() for proj in temp_projectiles])
+            projectile_positions = np.array([proj.pos for proj in temp_projectiles])
             tree = KDTree(projectile_positions)
 
-
             for i, proj in enumerate(temp_projectiles):
-                neighbors = tree.query_ball_point(proj.get_pos(), self.projectile_collision_dist)
+                neighbors = tree.query_ball_point(proj.pos, self.projectile_collision_dist)
                 for j in neighbors:
                     if i != j:  # Avoid self-collision
                         temp_projectiles[i].alive = False
@@ -722,10 +721,12 @@ class TankGame:
                     mine.check_for_tank(unit)
 
         self.projectiles = temp_projectiles
+        
  
     def draw(self):
+
         """Render all objects on the screen."""
-        
+
         # Draw all static textures (backgrounds and obstacles)
         self.screen.blit(self.cached_background, (0, 0))
     
@@ -736,6 +737,7 @@ class TankGame:
         # Temp way of drawning dead units first: for the future make a list with dead and alive units
         for unit in self.units:
             if unit.dead:
+                unit.update(self.screen)
                 unit.draw(self.screen)
                 
         # Drawing mines
@@ -746,6 +748,7 @@ class TankGame:
         for unit in self.units:
             if unit.dead:
                 continue
+            unit.update(self.screen)
             unit.draw(self.screen)
             
             #Draw hitbox:
@@ -758,11 +761,9 @@ class TankGame:
                     end = tuple(map(int, corner_pair[1]))
                     pg.draw.line(self.screen, "blue", start, end, 3)
                     
-        
         # Draw projectiles
         for proj in self.projectiles:
             proj.draw(self.screen)
-        
         
         if self.show_obstacle_corners:
             # Draw obstacles
@@ -856,10 +857,10 @@ class TankGame:
                     pg.draw.circle(self.screen, "red", unit.ai.debug_target_pos, 5)
                     print(f"{unit.ai.debug_target_pos=}")
             
-        # if self.show_debug_info:
-        #     self.render_debug_info()
+        if self.show_debug_info:
+            self.render_debug_info()
             
-        self.render_debug_info()
+        # self.render_debug_info()
             
         pg.display.update()
         if self.cap_fps:
@@ -925,18 +926,31 @@ class TankGame:
             text_surface = font.render(text, True, (0, 0, 0))  # White text
             self.screen.blit(text_surface, (x_start, y_start))
             y_start += 25  # Spacing between lines
-            
+    
     def are_tanks_close(self, tank1: Tank, tank2: Tank, threshold=40) -> bool:
-        """Proximity check: if tanks' centers are close enough based on their radius."""
+        """Optimized proximity check using squared distance."""
         # Get the center coordinates of both tanks
-        pos1 = tank1.get_pos()  # Assuming get_pos() returns the center (x, y)
-        pos2 = tank2.get_pos()
-
-        # Calculate the distance between the two centers
-        distance = helper_functions.distance(pos1, pos2)
-
-        # Check if the distance is less than or equal to the threshold (radius)
-        return distance <= threshold  
+        pos1 = tank1.pos
+        pos2 = tank2.pos
+        # Calculate the squared distance between the two centers (no sqrt for performance)
+        dx = pos1[0] - pos2[0]
+        dy = pos1[1] - pos2[1]
+        return dx*dx + dy*dy <= threshold*threshold
+    
+    def are_tanks_close_ALTERNATIVE(self, tank1: Tank, tank2: Tank, threshold=40) -> bool:
+        """Optimized with AABB check first."""
+        x1, y1 = tank1.pos
+        x2, y2 = tank2.pos
+        
+        # Quick AABB check
+        if abs(x1 - x2) > threshold or abs(y1 - y2) > threshold:
+            return False
+            
+        # Precise check
+        dx = x1 - x2
+        dy = y1 - y2
+        return dx*dx + dy*dy <= threshold*threshold
+    
     
     def clear_all_projectiles(self):
         # Clear for each unit

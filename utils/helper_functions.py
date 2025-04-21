@@ -173,6 +173,21 @@ def point_to_line_distance(lcoord1, lcoord2, pcoord3) -> int:
     denominator = np.sqrt((y2 - y1)**2 + (x2 - x1)**2)
     return numerator / denominator if denominator != 0 else float('inf')
 
+def point_to_line_distance_squared(lcoord1, lcoord2, pcoord3) -> float:
+    """Find squared distance from line to point (avoids sqrt)"""
+    x1, y1 = lcoord1
+    x2, y2 = lcoord2
+    x0, y0 = pcoord3
+    
+    # Compute the numerator of the distance formula
+    numerator = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
+    
+    # Compute the denominator squared (avoids sqrt)
+    denominator_sq = (y2 - y1)**2 + (x2 - x1)**2
+    
+    # Return squared distance (numerator²/denominator)
+    return (numerator ** 2) / denominator_sq if denominator_sq != 0 else float('inf')
+
 
 def find_angle(x1: float, y1: float, x2: float, y2: float) -> float:
     """

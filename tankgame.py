@@ -34,7 +34,6 @@ class TankGame:
 
         # Window setup
         self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
-        #self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980-1980//2, 1200-1200//2
         self.SCALE = 30
         
         # Create display with VSync enabled
@@ -120,8 +119,6 @@ class TankGame:
             ctypes.windll.user32.SetProcessDPIAware()
         except:
             pass
-    
-  
     
     def godmode_toggle(self):
         for unit in self.units_player_controlled:
@@ -619,13 +616,13 @@ class TankGame:
         self.last_frame_time = current_time
         self.delta_time = delta_time
         
-        # Prevent absurd movement speed at loadin
-        if self.delta_time > 0.01:
-            self.delta_time = 0.01
+        # Prevent absurd movement speed at loadin   (dosent fix it )
+        # if self.delta_time > 0.005:
+        #     self.delta_time = 0.005
             
         # Debug output
         if random.random() < 0.01:  # Print about 1% of frames to avoid spam
-            print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f}")
+            print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f} ")
         
         # Track marks logic
         self.track_counter += 60 * self.delta_time
@@ -638,7 +635,7 @@ class TankGame:
                     # Add track mark at tank's position
                     track_pos = unit.pos
                     track_angle = unit.degrees + 90
-                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=50*60*delta_time))
+                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=1/delta_time))
     
         # Update and remove old tracks
         self.tracks = [track for track in self.tracks if track.update(self.delta_time*60)]
@@ -662,13 +659,17 @@ class TankGame:
                 # Check projectile collision with other units
                 projectile_line = proj.get_line()
                 for other_unit in self.units:
-                    if other_unit.get_death_status():
+                    if other_unit.dead:
                         continue  # Ignore dead units
-
+                    
+                    # Skip unit if the projecile has been newly-fired from the same unit (prevents tank exploding itself)
+                    if proj.spawn_timer > 0 and proj.id == unit.id:
+                        continue
+                    
                     if other_unit.collision(projectile_line, collision_type="projectile"):
                         proj.alive = False
                 
-        # Optimize projectile proximity checks with KDTree
+        # Projectile/projectile collision check
         if temp_projectiles:
             projectile_positions = np.array([proj.pos for proj in temp_projectiles])
             tree = KDTree(projectile_positions)
@@ -698,7 +699,7 @@ class TankGame:
 
             # Check for unit-unit collision
             for other_unit in self.units:
-                if unit == other_unit or other_unit.get_death_status():
+                if unit == other_unit or other_unit.dead:
                     continue  # Skip self and dead units
 
                 if not self.are_tanks_close(unit, other_unit):
@@ -935,22 +936,7 @@ class TankGame:
         # Calculate the squared distance between the two centers (no sqrt for performance)
         dx = pos1[0] - pos2[0]
         dy = pos1[1] - pos2[1]
-        return dx*dx + dy*dy <= threshold*threshold
-    
-    def are_tanks_close_ALTERNATIVE(self, tank1: Tank, tank2: Tank, threshold=40) -> bool:
-        """Optimized with AABB check first."""
-        x1, y1 = tank1.pos
-        x2, y2 = tank2.pos
-        
-        # Quick AABB check
-        if abs(x1 - x2) > threshold or abs(y1 - y2) > threshold:
-            return False
-            
-        # Precise check
-        dx = x1 - x2
-        dy = y1 - y2
-        return dx*dx + dy*dy <= threshold*threshold
-    
+        return dx*dx + dy*dy <= threshold*threshold    
     
     def clear_all_projectiles(self):
         # Clear for each unit

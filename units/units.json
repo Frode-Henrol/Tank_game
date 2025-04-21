@@ -2,7 +2,7 @@
     "player_tank": {
         "tank_speed_modifier": 1.92,
         "projectile_speed_modifier": 3.36,
-        "firerate": 2,
+        "firerate": 4,
         "bounch_limit": 1,
         "mine_limit": 4,
         "projectile_limit": 5,

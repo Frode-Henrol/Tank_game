@@ -76,7 +76,7 @@ class Tank:
         self.slowdown_amount = 0.1      # Procentage of the original speed to keep when slowed
         
         # Hitbox
-        self.init_hitbox(spawn_degress)    # Init the hitbox in the correct orientation
+        self.init_hitbox()    # Init the hitbox in the correct orientation
         self.precompute_rotated_hitboxes()
         self.draw_hitbox = draw_hitbox
         self.closest_angle = 0
@@ -141,58 +141,8 @@ class Tank:
     
     def send_delta(self, delta_time):
         self.delta_time = delta_time
-
-    # def init_hitbox(self, spawn_degress):
-    #     x = self.pos[0]
-    #     y = self.pos[1]
-    #     size_factor = 20
-    #     # top left, top right, bottom right, bottom left ->  Front, right, back, right (line orientation in respect to tank, when run through coord_to_coordlist function)
-    #     self.hitbox = [(x-size_factor, y-size_factor),
-    #                    (x+size_factor, y-size_factor),
-    #                    (x+size_factor, y+size_factor),
-    #                    (x-size_factor, y+size_factor)]
         
-    #     self.hitbox = self.rotate_hit_box(spawn_degress)
-        
-    # def rotate_hit_box(self, deg):
-    #     # Rotate tank hitbox
-    #     rads = np.radians(deg)  # The hitbox is rotated specified degress
-        
-    #     new_hit_box = self.hitbox.copy()
-        
-    #     # Rotate all 4 corners in the hitbox
-    #     for i in range(len(new_hit_box)):
-    #         x, y = new_hit_box[i]
-            
-    #         # Corrected 2D rotation formulawa
-    #         rotated_x = self.pos[0] + (x - self.pos[0]) * np.cos(rads) - (y - self.pos[1]) * np.sin(rads)
-    #         rotated_y = self.pos[1] + (x - self.pos[0]) * np.sin(rads) + (y - self.pos[1]) * np.cos(rads)
-
-    #         # Update the list in place
-    #         new_hit_box[i] = (rotated_x, rotated_y)
-        
-    #     return new_hit_box
-
-    # def precompute_hitbox_coords(self):
-    #     """Precompute the hitbox coordinates for every angle from 0 to 360 degrees."""
-    #     hitbox_coords = {}
-    #     hitbox_coord_list = {}
-    #     self.step = 5
-        
-    #     for angle in range(0, 360, self.step):
-    #         hitbox = self.rotate_hit_box(angle)
-
-    #         # Store the precomputed hitbox for the given angle
-    #         hitbox_coords[angle] = hitbox
-    #         hitbox_coord_list[angle] = helper_functions.coord_to_coordlist(hitbox)
-            
-    #     self.calc_hitbox_coordlist = hitbox_coord_list
-    #     self.calc_hitbox_coords = hitbox_coords
-    
-    # def update_hitbox(self):
-    #     pass
-        
-    def init_hitbox(self, spawn_degress):
+    def init_hitbox(self):
         size_factor = 20
         # Create base hitbox relative to origin (0,0)
         self.base_hitbox = np.array([
@@ -289,13 +239,17 @@ class Tank:
     def respawn(self):
         self.make_dead(False)
     
+    # TODO SKAL slette arg her og i tankgame
     def update(self, surface):
         """Update all tank logic and state"""
         self.update_hitbox_position()
         self.time_alive += self.delta_time
         
         # Scale speed based on delta time
-        self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
+        if self.time_alive < 6:
+            self.speed = 0
+        else:
+            self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
         
         # Remove dead projectiles
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
@@ -362,7 +316,7 @@ class Tank:
         surface.blit(rotated_turret, turret_rect.topleft)
  
 
-    
+    # TODO SKAL SLETTES
     def draw_update_combined_old(self, surface):
         self.update_hitbox_position()
         self.surface = surface
@@ -586,7 +540,6 @@ class Tank:
                 aim_y = np.sin(np.radians(self.turret_rotation_angle))
                 
                 aim_pos = aim_x + self.pos[0], aim_y + self.pos[1]
-                print(f"Angle: {self.turret_rotation_angle:.2f} Aim: {aim_pos[0]:.2f},{aim_pos[1]:.2f}")
                 unit_direction = helper_functions.unit_vector(self.pos, aim_pos)
                 
             projectile_direction = unit_direction
@@ -594,7 +547,7 @@ class Tank:
         # Find position for spawn of projectile
         spawn_projectile_pos = [self.pos[0] + unit_direction[0]*spawn_distance_from_middle, self.pos[1] + unit_direction[1]*spawn_distance_from_middle]
 
-        projectile = Projectile(spawn_projectile_pos, projectile_direction, speed=self.speed_projectile, bounce_limit=self.bounch_limit)
+        projectile = Projectile(self.pos, spawn_projectile_pos, projectile_direction, speed=self.speed_projectile, bounce_limit=self.bounch_limit, id=self.id)
         projectile.init_sound_effects(self.sound_effects)
         projectile.set_delta_time(self.delta_time)
         self.projectiles.append(projectile)
@@ -687,9 +640,6 @@ class Tank:
     def get_ai(self):
         print(f"AI type: {self.ai_type}")
         return self.ai_type
-        
-    def get_death_status(self):
-        return self.dead
 
     def get_direction_vector(self):
         return self.direction
@@ -803,9 +753,9 @@ class Tank:
             # Move to next node or end
             if self.waypoint_queue:
                 self.next_node()
-                print("Node finished.")
+                # print("Node finished.")
             else:
-                print("Waypoint queue finished")
+                # print("Waypoint queue finished")
                 self.go_to_waypoint = False
 
 
@@ -1013,7 +963,6 @@ class TankAI:
             self.timer -= 1
             
         if self.timer == 1:
-            print("ATTACK")
             self.tank.abort_waypoint()
             self.behavior_state = BehaviorStates.ATTACKING
             return
@@ -1237,7 +1186,8 @@ class TankAI:
             try:
                 self.dist_to_target_path = len(self.tank.find_path(self.targeted_unit.pos)) * self.tank.node_spacing 
             except:
-                print("Tank blocked in")
+                pass
+                # print("Tank blocked in")
             self.hit_scan_check_proximity()  
         
         if self.timer > 0:
@@ -1417,7 +1367,7 @@ class TankAI:
 
         if possible_nodes:
             chosen_node = random.choice(possible_nodes)
-            print(f"Tank: {self.tank.id} is avoiding mine, finding path")
+            # print(f"Tank: {self.tank.id} is avoiding mine, finding path")
             self.tank.find_waypoint(chosen_node[0])
         
         self.possible_nodes = [x[0] for x in possible_nodes]
@@ -1433,15 +1383,10 @@ class TankAI:
                                                              float(coord2[0]),float(coord2[1]), 
                                                              corner_pair[0][0], corner_pair[0][1],
                                                              corner_pair[1][0], corner_pair[1][1])
-                #print(f"Checking intersection: {corner_pair} and {coord1, coord2} -> Result: {result}")
                 
                 if result !=  (-1.0, -1.0):
                     self.target_in_sight = False
                     return False
-                
-                # if result != None:
-                #     self.target_in_sight = False
-                #     return False
                 
         # Get turret's direction as a unit vector
         turret_direction_x = np.cos(np.radians(self.tank.turret_rotation_angle))

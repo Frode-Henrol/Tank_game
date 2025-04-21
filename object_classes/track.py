@@ -4,7 +4,6 @@ class Track:
     def __init__(self, pos, angle, image, lifetime):
         self.pos = pos
         self.angle = angle
-        self.original_image = image.convert_alpha()  # Ensure image has alpha channel
         self.lifetime = lifetime
         self.age = 0
         

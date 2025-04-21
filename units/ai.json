@@ -226,6 +226,7 @@
         "wander_radius": 150,
         "defend_time": 100,
 
-        "mine_chance": 1500
+        "mine_chance": 1,
+        "mine_min_distance": 150
     }
 }

@@ -27,8 +27,7 @@ class Tank:
                  mine_limit: int,
                  global_mine_list: list[Mine],
                  projectile_limit: int,
-                 images, 
-                 death_image,
+                 images: dict, 
                  use_turret,
                  team,
                  ai_type = None,
@@ -59,7 +58,7 @@ class Tank:
         
         # Mines
         self.mine_limit = mine_limit
-        self.mine_cooldown_amount = 60 
+        self.mine_cooldown_amount = 0
         self.mine_cooldown = 0
         self.global_mine_list = global_mine_list
         self.unit_mine_list = []
@@ -88,13 +87,12 @@ class Tank:
         self.godmode = godmode     # Toggle godmode for all tanks
         
         # Tank images:
-        self.image = images[0]
-        self.death_image = death_image
-        self.active_image = images[0]
-        
-        # Turret image:
-        self.turret_image = images[1]
-        
+        self.image = images["tank_body"]
+        self.turret_image = images["tank_turret"]
+        self.death_image = images["death_marker"]
+        self.mine_image = images["mine"]
+        self.active_image = self.image
+
         # Projectiles from current tank
         self.projectiles: list[Projectile] = []
         
@@ -126,7 +124,6 @@ class Tank:
     def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
         self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None
           
-        
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
@@ -584,8 +581,10 @@ class Tank:
                       
         
     def lay_mine(self):
+        self.mine_cooldown_amount = 60 * self.delta_time 
         
         # Remove exploded mines
+        print(f"Laying mine. active mines: {len(self.unit_mine_list)}")
         temp_mine = []
         for mine in self.unit_mine_list:
             if not mine.is_exploded:
@@ -593,7 +592,7 @@ class Tank:
         self.unit_mine_list = temp_mine
         
         if self.mine_cooldown == 0 and len(self.unit_mine_list) < self.mine_limit:
-            mine = Mine(spawn_point=self.pos, explode_radius=100, owner_id=self.id, team=self.team)
+            mine = Mine(image=self.mine_image,spawn_point=self.pos, explode_radius=100, owner_id=self.id, team=self.team)
             
             self.mine_cooldown = self.mine_cooldown_amount
             
@@ -903,6 +902,7 @@ class TankAI:
         
         # Mine
         self.mine_chance = config.get("mine_chance", 10000)
+        self.mine_min_distance = config.get("mine_min_distance", 250)
         self.closest_mine = (None, 0)
 
         # Ray predict data
@@ -1218,15 +1218,22 @@ class TankAI:
             self.dodge_cooldown -= 1
             
         # Mine laying
-        if self.tank.mine_limit > 0 and self.behavior_state == BehaviorStates.ATTACKING:
+        print(f"Mines layed: {len(self.mines)} LIMIT: {self.tank.mine_limit}")
+        if self.tank.mine_limit > 0:
             randint = random.randint(0, self.mine_chance)
-            if randint == 1:
-                if self.mines:
-                    for mine in self.mines:
-                        if helper_functions.distance(mine.pos, self.tank.pos) > mine.explode_radius*1.5:
-                            self.tank.lay_mine()
-                else:
+            if randint != 1:
+                return
+
+            if helper_functions.distance(self.tank.pos, self.targeted_unit.pos) > self.mine_min_distance:
+                return
+            
+            if not self.mines:
+                self.tank.lay_mine()
+            
+            for mine in self.mines:
+                if helper_functions.distance(mine.pos, self.tank.pos) > mine.explode_radius*1.5:                 
                     self.tank.lay_mine()
+
         
         # Cooldown after salvo
         if len(self.tank.projectiles) == self.tank.projectile_limit:

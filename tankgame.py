@@ -240,9 +240,7 @@ class TankGame:
     def fps_button(self):
         if self.cap_fps:
             self.clear_all_projectiles()
-            self.fps = int(self.setting_buttons[8].get_string()) # Skal rettes til dict! Nurværende løsning ikke robust
-
-            
+            self.fps = int(self.setting_buttons[8].get_string()) # Skal rettes til dict! Nurværende løsning ikke robust            
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
@@ -251,6 +249,11 @@ class TankGame:
             path_tank_death = os.path.join(os.getcwd(), r"units\death_images", "tank_death3.png")
             self.tank_death_img = pg.image.load(path_tank_death).convert_alpha()
             self.tank_death_img = pg.transform.scale(self.tank_death_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
+            
+            # Mine image
+            path_mine = os.path.join(os.getcwd(), r"units\mines", "mine1.png")
+            self.mine_img = pg.image.load(path_mine).convert_alpha()
+            self.mine_img = pg.transform.scale(self.mine_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]))
             
             # Track image
             track_path = os.path.join(os.getcwd(),r"units\images", f"track.png")
@@ -374,6 +377,16 @@ class TankGame:
             
             # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
             
+            # Creating dict to store all unit relevant images
+            tank_img, tank_turret_img  = self.load_unit_textures(unit_type_json_format)
+            image_dict = {
+                "tank_body": tank_img,
+                "tank_turret": tank_turret_img,
+                "death_marker": self.tank_death_img,
+                "mine": self.mine_img
+            }
+            
+            
             ai_type = specific_unit_data["ai_personality"]
                 
             try:
@@ -386,8 +399,7 @@ class TankGame:
                                     mine_limit         = specific_unit_data["mine_limit"],
                                     global_mine_list   = self.mines,
                                     projectile_limit   = specific_unit_data["projectile_limit"],
-                                    images             = self.load_unit_textures(unit_type_json_format),
-                                    death_image        = self.tank_death_img,
+                                    images             = image_dict,
                                     use_turret         = True,
                                     team               = unit_team,    
                                     ai_type            = ai_type
@@ -753,7 +765,8 @@ class TankGame:
             
             if not unit.dead:
                 # Mine logic
-                for mine in self.mines:          
+                for mine in self.mines:
+                    mine.send_delta(delta_time)          
                     if mine.is_exploded:
                         self.mines.remove(mine)
                     mine.get_unit_list(self.units)

@@ -95,9 +95,9 @@
         "wander_radius": 150,
         "defend_time": 500,
         
-        "avoid_mine_dist": 150,
+        "avoid_mine_dist": 300,
         "mine_dodge_cooldown_val": 100,
-        "mine_chance": 300,
+        "mine_chance": 400,
         "random_mines": true
     },
     "pink": {

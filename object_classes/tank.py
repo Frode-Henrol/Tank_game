@@ -255,11 +255,12 @@ class Tank:
         self.make_dead(False)
 
         # TODO SKAL slette arg her og i tankgame
-    def update(self, surface):
+    def update(self, delta_time):
         """Update all tank logic and state"""
         self.update_hitbox_position()
         self.time_alive += self.delta_time
-        self.surface = surface
+        self.delta_time = delta_time
+        
         
         # Scale speed based on delta time
         if self.time_alive < 6:
@@ -311,6 +312,7 @@ class Tank:
 
     def draw(self, surface):
         """Draw the tank and its components"""
+        self.surface = surface
         # Draw tank body
         tank_correct_orient = -90  # Correction for image orientation
         rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
@@ -505,7 +507,10 @@ class Tank:
         
     def lay_mine(self):
         
-            
+        # Units can't lay mines within the first 10 seconds
+        if self.time_alive < 10:
+            return
+        
         # Remove exploded mines
         print(f"COOLDOWN {self.mine_cooldown}")
         
@@ -1064,7 +1069,7 @@ class TankAI:
             
             # 1. Dont shoot mines that are close enough to kill the unit
             for mine in self.mines:
-                if (helper_functions.distance(mine.pos, self.tank.pos) < mine.explode_radius
+                if (helper_functions.distance(mine.pos, self.tank.pos) < mine.explode_radius * 1.3
                     and self.is_point_within_segment_and_threshold(start, end, mine.pos, self.safe_threshold)):
                     self.can_shoot = False
                     return

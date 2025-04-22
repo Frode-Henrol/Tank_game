@@ -111,6 +111,7 @@ class TankGame:
         self.active_mine_explosions = []
         
         self.delta_time = 1
+        self.old_delta_time = 1
         self.time = 0
         self.last_print_time = 0
         self.fps_list = []
@@ -472,6 +473,7 @@ class TankGame:
         profiler.enable()
         try:
             while True:
+                self.update_delta_time()
                 
                 event_list = pg.event.get()
                 
@@ -550,7 +552,9 @@ class TankGame:
             pg.quit()
             sys.exit()
         if keys[pg.K_ESCAPE]:
+            print("ESCAPE PRESSED")
             self.state = States.MENU
+            return
         
         # If the player controlled units list is empty we dont take inputs
         if self.units_player_controlled:
@@ -583,8 +587,6 @@ class TankGame:
                 self.mines.clear()
                 self.load_map()
 
-                    
-                # -------------------------------------------
         self.update()
         self.draw()
 
@@ -627,33 +629,33 @@ class TankGame:
             
     # ============================================ Drawing/update ============================================     
 
-            
-    def update(self):
-
+    def update_delta_time(self):
         # Delta time
         current_time = time.perf_counter()
-        delta_time = current_time - self.last_frame_time
+        self.delta_time = min(current_time - self.last_frame_time, 0.1)
         self.last_frame_time = current_time
-        self.delta_time = delta_time
+            
+    def update(self):        
         
         if self.time - self.last_print_time >= 0.1:
            
             self.last_print_time = self.time  # Update last print time
-            self.fps_list.append(1/delta_time)
+            self.fps_list.append(1/self.delta_time)
+            self.delta_time_list.append(self.delta_time)
             
             if len(self.fps_list) > 100:
                 self.fps_list.pop(0)
+                self.delta_time_list.pop(0)
 
             mov_avg_fps = sum(self.fps_list) / len(self.fps_list)
-
-            print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
-        # Prevent absurd movement speed at loadin   (dosent fix it )
-        # if self.delta_time > 0.005:
-        #     self.delta_time = 0.005
+            mov_delta_fps = sum(self.delta_time_list) / len(self.delta_time_list)
         
+            print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/self.delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
+           
         
         self.frame += 1
-        self.time += delta_time
+        self.time += self.delta_time
+            
             
         # Debug output
         # if random.random() < 0.01:  # Print about 1% of frames to avoid spam
@@ -664,13 +666,13 @@ class TankGame:
         if self.track_counter >= self.track_interval:
             self.track_counter = 0
             for unit in self.units:
-                unit.send_delta(delta_time) # Send delta time to tank instances
+                unit.send_delta(self.delta_time) # Send delta time to tank instances
                 
                 if not unit.dead and unit.is_moving:
                     # Add track mark at tank's position
                     track_pos = unit.pos
                     track_angle = unit.degrees + 90
-                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=1/delta_time))
+                    self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=1/self.delta_time))
     
         # Update and remove old tracks
         self.tracks = [track for track in self.tracks if track.update(self.delta_time*60)]
@@ -678,13 +680,17 @@ class TankGame:
         # Temp list is created and all units' projectiles are added to a single list
         temp_projectiles = []
         for unit in self.units:
+            unit.update(self.delta_time)
             temp_projectiles.extend(unit.projectiles)
 
+        for mine in self.mines:
+            mine.update(self.delta_time)
+        
         # Update projectiles and handle collisions
         for unit in self.units:
             for i, proj in enumerate(unit.projectiles):
                 
-                proj.set_delta_time(delta_time) # Send frame delta time
+                proj.set_delta_time(self.delta_time) # Send frame delta time
                 proj.update()                   # Update the projectile
                 
                 for obstacle in self.obstacles:
@@ -751,7 +757,6 @@ class TankGame:
 
             # Mine logic
             for mine in self.mines:
-                mine.send_delta(delta_time)          
                 if mine.is_exploded:
                     self.handle_mine_explosion(mine)
                     self.mines.remove(mine)
@@ -775,9 +780,8 @@ class TankGame:
         # Temp way of drawning dead units first: for the future make a list with dead and alive units
         for unit in self.units:
             if unit.dead:
-                unit.update(self.screen)
                 unit.draw(self.screen)
-                
+            
         # Drawing mines
         for mine in self.mines:
             mine.draw(self.screen)
@@ -786,7 +790,6 @@ class TankGame:
         for unit in self.units:
             if unit.dead:
                 continue
-            unit.update(self.screen)
             unit.draw(self.screen)
             
             #Draw hitbox:

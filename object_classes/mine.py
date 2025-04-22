@@ -21,10 +21,6 @@ class Mine:
 
         self.color_timer = 0
         self.min_flash_speed = 4
-
-    def send_delta(self, delta_time):
-        self.delta_time = delta_time
-        
     
     def get_unit_list(self, unit_list: list):
         self.unit_list = unit_list
@@ -36,6 +32,8 @@ class Mine:
         # tank_rect = self.image.get_rect(center=self.pos)
         # surface.blit(self.image, tank_rect.topleft)
 
+    def update(self, delta_time):
+        self.delta_time = delta_time
         # Start countdown if life timer expires
         if not self.countdown_start:
             self.life_timer -= 60 * self.delta_time
@@ -59,8 +57,12 @@ class Mine:
     def check_for_tank(self, unit, check_for_owner=True):
         if check_for_owner and unit.team == self.team or unit.dead:
             return False
-
+        
         if self._is_in_radius(unit.pos):
+            
+            if not self.countdown_start:
+                self.countdown_timer *= 0.25   # Shorten coundown timer if mine is triggered by enemy tank
+            
             self.countdown_start = True
             return True
         return False

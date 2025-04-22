@@ -51,8 +51,8 @@ class Projectile:
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
-        self.hit_sounds = sound_effects[9:13]
-        self.projexp_sounds = self.sound_effects[13:19]
+        self.hit_sounds = sound_effects["wallhit"]
+        self.projexp_sounds = self.sound_effects["proj_explosion"]
     
     def update(self):
         # Makes sure to detonate projetiles if spawntimer hasnt been depleted

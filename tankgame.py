@@ -94,7 +94,7 @@ class TankGame:
         self.show_pathfinding_paths = False
         self.show_ai_debug = False
         self.show_debug_info = False
-        self.cap_fps = False
+        self.cap_fps = True
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -108,6 +108,7 @@ class TankGame:
         # Projectile/tank explosion
         self.active_proj_explosions = []
         self.active_tank_explosions = []
+        self.active_mine_explosions = []
         
         self.delta_time = 1
         self.time = 0
@@ -222,7 +223,7 @@ class TankGame:
             Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
             Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
             Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
-            Button(left, 850, 300, 60, "Cap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
+            Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
             Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
             Button(left, 950, 300, 60, "Back", States.MENU)
         ]
@@ -286,30 +287,34 @@ class TankGame:
             unit.init_animations(self.animations)
         
     def load_sound_effects(self) -> None:
-        
         pg.mixer.set_num_channels(64)
-        self.sound_effects = []
-        for i in range(1,5):
-            cannon_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","cannon",f"cannon{i}.mp3"))
-            cannon_sound.set_volume(0.1)  # Range: 0.0 to 1.0
-            self.sound_effects.append(cannon_sound)
-        
-        for i in range(1,5):
-            death_sounds = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","death",f"death{i}.mp3"))
-            death_sounds.set_volume(0.2)  # Range: 0.0 to 1.0
-            self.sound_effects.append(death_sounds)
-        
-        for i in range(1,6):
-            hit_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","wallhit",f"hit{i}.mp3"))
-            hit_sound.set_volume(0.02)  # Range: 0.0 to 1.0
-            self.sound_effects.append(hit_sound)
-            
-        for i in range(1,7):
-            projexp_sound = pg.mixer.Sound(os.path.join(os.getcwd(),"sound_effects","proj_explosion",f"projexp{i}.mp3"))
-            projexp_sound.set_volume(0.1)  # Range: 0.0 to 1.0
-            self.sound_effects.append(projexp_sound)
-            
-        self.projexp_sounds = self.sound_effects[13:19]
+        self.sound_effects = {
+            "cannon": [],
+            "death": [],
+            "wallhit": [],
+            "proj_explosion": []
+        }
+
+        for i in range(1, 5):
+            sound = pg.mixer.Sound(os.path.join(os.getcwd(), "sound_effects", "cannon", f"cannon{i}.mp3"))
+            sound.set_volume(0.1)
+            self.sound_effects["cannon"].append(sound)
+
+        for i in range(1, 5):
+            sound = pg.mixer.Sound(os.path.join(os.getcwd(), "sound_effects", "death", f"death{i}.mp3"))
+            sound.set_volume(0.2)
+            self.sound_effects["death"].append(sound)
+
+        for i in range(1, 6):
+            sound = pg.mixer.Sound(os.path.join(os.getcwd(), "sound_effects", "wallhit", f"hit{i}.mp3"))
+            sound.set_volume(0.02)
+            self.sound_effects["wallhit"].append(sound)
+
+        for i in range(1, 7):
+            sound = pg.mixer.Sound(os.path.join(os.getcwd(), "sound_effects", "proj_explosion", f"projexp{i}.mp3"))
+            sound.set_volume(0.1)
+            self.sound_effects["proj_explosion"].append(sound)
+
     
     def load_unit_textures(self, name: str) -> list:
         """Loads specific body and turret images for a given tank"""
@@ -653,26 +658,6 @@ class TankGame:
         # Debug output
         # if random.random() < 0.01:  # Print about 1% of frames to avoid spam
         #     print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f} ")
-
-        test = False
-        
-        if test:
-            if self.time - self.last_print_time >= 0.1:
-                self.delta_time_list.append(delta_time)
-                
-                list_len = len(self.delta_time_list)
-                if list_len > 100:
-                    self.fps_list.pop(0)
-                    self.delta_time_list.pop(0)
-                
-                self.delta_time = sum(self.delta_time_list) / list_len
-                
-                mov_avg_fps = sum(self.fps_list) / list_len
-                
-                print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
-                    
-                self.last_print_time = self.time  # Update last print time
-        
         
         # Track marks logic
         self.track_counter += 60 * self.delta_time
@@ -763,14 +748,15 @@ class TankGame:
                 unit.apply_repulsion(other_unit, push_strength=0.5)
                 other_unit.apply_repulsion(unit, push_strength=0.5)  # Ensure symmetry
             
-            if not unit.dead:
-                # Mine logic
-                for mine in self.mines:
-                    mine.send_delta(delta_time)          
-                    if mine.is_exploded:
-                        self.mines.remove(mine)
-                    mine.get_unit_list(self.units)
-                    mine.check_for_tank(unit)
+
+            # Mine logic
+            for mine in self.mines:
+                mine.send_delta(delta_time)          
+                if mine.is_exploded:
+                    self.handle_mine_explosion(mine)
+                    self.mines.remove(mine)
+                mine.get_unit_list(self.units)
+                mine.check_for_tank(unit)
 
         self.projectiles = temp_projectiles
         
@@ -843,7 +829,16 @@ class TankGame:
             
             # Remove the animation if it's finished
             if animation.finished:
-                self.active_tank_explosions.remove(animation)        
+                self.active_tank_explosions.remove(animation)
+                
+        # Tank explosions
+        for animation in self.active_mine_explosions[:]:
+            animation.play(self.screen)
+            
+            # Remove the animation if it's finished
+            if animation.finished:
+                self.active_mine_explosions.remove(animation)       
+        
         
         for proj in self.projectiles:
             if not proj.alive:
@@ -933,6 +928,14 @@ class TankGame:
         animation.start(pos=unit.pos, angle=0)
         
         self.active_tank_explosions.append(animation)
+        
+    def handle_mine_explosion(self, mine: Mine) -> None:
+        random.choice(self.sound_effects["death"]).play()
+
+        animation = Animation(images=self.animations["tank_explosion"], frame_delay=5, delta_time=self.delta_time)
+        animation.start(pos=mine.pos, angle=random.randint(0,360))
+    
+        self.active_mine_explosions.append(animation)
         
     # ================================================= Misc ===============================================   
 

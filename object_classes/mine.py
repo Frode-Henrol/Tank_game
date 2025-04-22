@@ -1,6 +1,7 @@
 import pygame as pg
-import utils.deflect as df
+import random
 
+from object_classes.animation import Animation
 
 class Mine:
     def __init__(self, image, spawn_point: tuple, explode_radius: int, owner_id: int, team: int):
@@ -12,9 +13,11 @@ class Mine:
         self.color = "yellow"
         self.unit_list = []
         self.image = image
-
+        self.countdown_timer = 2 * 60    # 2 seconds
+        self.life_timer = 10 * 60         # 10 seconds
+    
         self.countdown_start = False
-
+        self.timer_set = False
 
         self.color_timer = 0
         self.min_flash_speed = 4
@@ -22,8 +25,6 @@ class Mine:
     def send_delta(self, delta_time):
         self.delta_time = delta_time
         
-        self.countdown_timer = 2 * 60 * self.delta_time     # 2 seconds
-        self.life_timer = 10 * 60 * self.delta_time         # 10 seconds
     
     def get_unit_list(self, unit_list: list):
         self.unit_list = unit_list
@@ -56,7 +57,7 @@ class Mine:
                 self.explode()
 
     def check_for_tank(self, unit, check_for_owner=True):
-        if check_for_owner and unit.team == self.team:
+        if check_for_owner and unit.team == self.team or unit.dead:
             return False
 
         if self._is_in_radius(unit.pos):
@@ -71,6 +72,8 @@ class Mine:
 
         self.is_exploded = True
         self.color = "red"
+        
+
 
     def _is_in_radius(self, target_pos):
         x, y = target_pos

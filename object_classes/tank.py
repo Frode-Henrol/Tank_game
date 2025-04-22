@@ -58,7 +58,7 @@ class Tank:
         
         # Mines
         self.mine_limit = mine_limit
-        self.mine_cooldown_amount = 0
+        self.mine_cooldown_amount = 60
         self.mine_cooldown = 0
         self.global_mine_list = global_mine_list
         self.unit_mine_list = []
@@ -127,11 +127,11 @@ class Tank:
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
-        self.cannon_sounds = sound_effects[:4]
-        self.death_sounds = sound_effects[4:8]
+        self.cannon_sounds = sound_effects["cannon"]
+        self.death_sounds = sound_effects["death"]
 
-    def init_animations(self, animation_list: dict):
-        self.animation_list = animation_list
+    def init_animations(self, animations: dict):
+        self.animations = animations
     
     def set_units(self, units):
         self.units = units
@@ -259,6 +259,7 @@ class Tank:
         """Update all tank logic and state"""
         self.update_hitbox_position()
         self.time_alive += self.delta_time
+        self.surface = surface
         
         # Scale speed based on delta time
         if self.time_alive < 6:
@@ -289,6 +290,7 @@ class Tank:
         
         if self.mine_cooldown > 0:
             self.mine_cooldown -= self.delta_time * 60
+            
             
         # AI updates
         if self.ai and not self.dead:
@@ -330,85 +332,6 @@ class Tank:
         turret_rect = rotated_turret.get_rect(center=self.pos)
         surface.blit(rotated_turret, turret_rect.topleft)
  
-
-    # TODO SKAL SLETTES
-    def draw_update_combined_old(self, surface):
-        self.update_hitbox_position()
-        self.surface = surface
-        
-        self.time_alive += self.delta_time
-        
-        self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
-        # if random.random() < 0.01: 
-        #     # print(f"SPEED: {self.speed}")
-        
-        # Remove dead projectiles
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-        
-        # TEMP: constant to make sure tank image points the right way
-        tank_correct_orient = -90
-        rotated_tank = pg.transform.rotate(self.active_image, -self.degrees + tank_correct_orient)
-        tank_rect = rotated_tank.get_rect(center=self.pos)
-        surface.blit(rotated_tank, tank_rect.topleft)
-        
-        # Play muzzle flash animation if active
-        if self.muzzle_flash_animation:
-            self.muzzle_flash_animation.play(self.surface)
-            if self.muzzle_flash_animation.finished:
-                self.muzzle_flash_animation = None
-
-        # If dead return
-        if self.dead:
-            self.time_of_death +=1
-            
-            return
-        self.time_of_death = 0
-        
-        # Turret Rotation Logic
-        if self.ai == None:
-            # Control of turret when player controlled
-            target_coord = pg.mouse.get_pos()
-            self.turret_rotation_angle = helper_functions.find_angle(self.pos[0], self.pos[1], target_coord[0], target_coord[1])
-            
-        rotated_turret = pg.transform.rotate(self.turret_image, -1 * self.turret_rotation_angle - 90)   # Rotate turret image independently
-        turret_rect = rotated_turret.get_rect(center=self.pos) # Get turret rect centered at new turret position
-        surface.blit(rotated_turret, turret_rect.topleft)   # Draw turret
-        
-        # NOT INTEGRATED WITH THE NEW FPS SCALED SPEED!
-        # Control shooting slowness effect
-        # if self.shot_slowness_cooldown > 0:
-        #     self.shot_slowness_cooldown -= 1
-        #     self.speed = self.speed_original * self.slowdown_amount  # Slowdown amount
-        # else: 
-        #     self.speed = self.speed_original
-        
-        # ============================= Other logic ================================
-        
-        
-        # Update cooldowns using delta_time
-        if self.cannon_cooldown > 0:
-            self.cannon_cooldown -= self.delta_time * 60  # Convert to "frames" (60 FPS base)
-        
-        if self.mine_cooldown > 0:
-            self.mine_cooldown -= self.delta_time * 60
-            
-        # Update AI
-        if self.ai and not self.dead:
-            self.ai.update_accumulator += self.delta_time
-            while self.ai.update_accumulator >= self.ai.update_interval:
-                self.ai.update()
-                self.ai.update_accumulator -= self.ai.update_interval
-            
-        # Pathfinding / waypoint logic if it is activated
-        if self.go_to_waypoint:
-            self.move_to_node(self.current_node)
-            
-        # Timers
-        if self.is_moving_false_time > 0:
-            self.is_moving_false_time -= self.delta_time * 60
-        if self.is_moving_false_time <= 0: 
-            self.is_moving = False
-            
             
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
@@ -571,7 +494,7 @@ class Tank:
         random.choice(self.cannon_sounds).play()
         
         # Muzzle flash animation
-        self.muzzle_flash_animation = Animation(images=self.animation_list["muzzle_flash"], frame_delay= 2, delta_time= self.delta_time)
+        self.muzzle_flash_animation = Animation(images=self.animations["muzzle_flash"], frame_delay= 2, delta_time= self.delta_time)
         barrel_length = 50  # same as spawn_distance_from_middle, or tweak if needed
         rad_angle = np.radians(self.turret_rotation_angle)
         barrel_end_x = self.pos[0] + barrel_length * np.cos(rad_angle)
@@ -581,17 +504,14 @@ class Tank:
                       
         
     def lay_mine(self):
-        self.mine_cooldown_amount = 60 * self.delta_time 
         
+            
         # Remove exploded mines
-        print(f"Laying mine. active mines: {len(self.unit_mine_list)}")
-        temp_mine = []
-        for mine in self.unit_mine_list:
-            if not mine.is_exploded:
-                temp_mine.append(mine)
-        self.unit_mine_list = temp_mine
+        print(f"COOLDOWN {self.mine_cooldown}")
         
-        if self.mine_cooldown == 0 and len(self.unit_mine_list) < self.mine_limit:
+        self.unit_mine_list = [mine for mine in self.unit_mine_list if not mine.is_exploded]
+        
+        if self.mine_cooldown <= 0 and len(self.unit_mine_list) < self.mine_limit:
             mine = Mine(image=self.mine_image,spawn_point=self.pos, explode_radius=100, owner_id=self.id, team=self.team)
             
             self.mine_cooldown = self.mine_cooldown_amount
@@ -850,6 +770,7 @@ class TankAI:
         
         # Defend
         self.dist_leave_defend = config.get("dist_leave_defend", 800)
+        self.defend_chance = config.get("defend_chance", 90)
         
         # Attack
         self.dist_leave_attack = config.get("dist_leave_attack", 200)
@@ -858,7 +779,8 @@ class TankAI:
         self.can_dodge_proj = config.get("can_dodge_proj", True)
         self.can_dodge_mine = config.get("can_dodge_mine", True)
         self.dist_start_dodge = config.get("dist_start_dodge", 45)
-        self.dodge_cooldown_val = config.get("dodge_cooldown_val", 30)
+        self.proj_dodge_cooldown_val = config.get("proj_dodge_cooldown_val", 30)
+        self.mine_dodge_cooldown_val = config.get("mine_dodge_cooldown_val", 30)
         
         self.dodge_cooldown = 0      
         self.dodge_nodes = []
@@ -896,6 +818,7 @@ class TankAI:
         self.timer = 0
         
         # Misc
+        self.random_movement = config.get("random_movement", False)
         self.current_target_angle = None  # Store the randomized target angle
         self.can_shoot = False
         self.debug_target_pos = (0,0)
@@ -903,6 +826,8 @@ class TankAI:
         # Mine
         self.mine_chance = config.get("mine_chance", 10000)
         self.mine_min_distance = config.get("mine_min_distance", 250)
+        self.random_mines = config.get("random_mines", False)
+        self.avoid_mine_dist = config.get("avoid_mine_dist", 300)
         self.closest_mine = (None, 0)
 
         # Ray predict data
@@ -923,19 +848,24 @@ class TankAI:
         if self.behavior_state == BehaviorStates.DODGE:
             self.handle_dodge_state()
             return
+            
         
         # Avoid projectiles
         if self.can_dodge_proj and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
             self.dodge()
-            self.dodge_cooldown = self.dodge_cooldown_val  # e.g. 30 frames cooldown
+            self.dodge_cooldown = self.proj_dodge_cooldown_val
             return
         
         # Avoid mines
         if self.can_dodge_mine and self.mines and self.closest_mine != None and self.dodge_cooldown == 0:
-            if self.closest_mine[1] < self.closest_mine[0].explode_radius:
+            if self.closest_mine[1] < self.avoid_mine_dist:
                 self.avoid_mine()
-                self.dodge_cooldown = self.dodge_cooldown_val # e.g. 30 frames cooldown
+                self.dodge_cooldown = self.mine_dodge_cooldown_val
+                
+        if self.random_movement:
+            self.wander()
+            return
     
         if self.behavior_state == BehaviorStates.IDLE:
             self.idle()
@@ -949,13 +879,11 @@ class TankAI:
             self.wander()
             
     # ======================= Behavior states =======================
-    def idle(self):
-        
-        
+    def idle(self):    
         
         if self.movement:
             self.behavior_state = BehaviorStates.PATROLLING
-            self.targeting_state = TargetingStates.TARGETING
+
         
         # Stays in idle if tank has no movement
         # When no movement the targeting state is searching
@@ -1014,13 +942,19 @@ class TankAI:
             return
                
     def wander(self):
-
+        
+        # If random movement is on the unit will wander with no goal
+        if self.random_movement:
+            if self.tank.go_to_waypoint == False: # or helper_functions.distance(self.tank.pos, self.tank.current_node) < 10:
+                self.find_random_path_without_mines()     
+            return
+            
         self.find_path_within_coord(self.tank.pos, self.wander_radius)
 
         if self.timer == 0:
             rand = random.randint(0,100)
             
-            if rand > 90:
+            if rand > self.defend_chance:
                 self.tank.abort_waypoint()
                 self.behavior_state = BehaviorStates.DEFENDING
             else:
@@ -1218,11 +1152,13 @@ class TankAI:
             self.dodge_cooldown -= 1
             
         # Mine laying
-        print(f"Mines layed: {len(self.mines)} LIMIT: {self.tank.mine_limit}")
         if self.tank.mine_limit > 0:
             randint = random.randint(0, self.mine_chance)
             if randint != 1:
                 return
+            
+            if self.random_mines:
+                self.tank.lay_mine()
 
             if helper_functions.distance(self.tank.pos, self.targeted_unit.pos) > self.mine_min_distance:
                 return
@@ -1355,6 +1291,22 @@ class TankAI:
         
         self.closest_mine = min(mines_data, key=lambda x: x[1])
 
+
+    def find_random_path_without_mines(self):
+        # Find destination coord without mine (path without mines can't be done unless we recalculate the grid_dict, which is expensive)
+        # Update valid nodes to exclude dangerous nodes
+        temp_nodes = []
+        for node in self.valid_nodes:
+            if all(helper_functions.distance(node, mine.pos) > mine.explode_radius * 2 for mine in self.mines):
+                temp_nodes.append(node)
+        
+        print(f"Possible nodes: {len(temp_nodes)}")
+        
+        if temp_nodes:
+            chosen_node = random.choice(temp_nodes)
+            print(f"Chosen node: {chosen_node}")
+            self.tank.find_waypoint(chosen_node)
+        
     def avoid_mine(self):
         # Return if unit is not within mine explosion distance.
         # Also create list of all mines and there distance to unit
@@ -1362,9 +1314,9 @@ class TankAI:
         # Update valid nodes to exclude dangerous nodes
         temp_nodes = []
         for node in self.valid_nodes:
-            for mine in self.mines:
-                if helper_functions.distance(node, mine.pos) > mine.explode_radius:
-                    temp_nodes.append(node)
+            if all(helper_functions.distance(node, mine.pos) > mine.explode_radius for mine in self.mines):
+                temp_nodes.append(node)
+                
         valid_nodes = np.array(temp_nodes)
 
         # Build a KD-tree for fast nearest-neighbor search
@@ -1447,32 +1399,6 @@ class TankAI:
         self.target_in_sight = True
         return True
     
-    # Skal Rettes skal fjernes:
-    def find_closest_projectile_old(self):
-        closest = None
-        min_dist = float("inf")
-
-        for proj in self.projectiles:
-            # Calculate the direction of the projectile
-            direction_vector = np.array(proj.pos) - np.array(proj.startpos)  # From start to current position
-            to_tank_vector = np.array(self.tank.pos) - np.array(proj.pos)     # From projectile to tank
-
-            # Compute the dot product to check if the projectile is moving towards the tank
-            dot_product = np.dot(direction_vector, to_tank_vector)
-
-            if dot_product > 0:  # Positive dot product means projectile is moving towards the tank
-                # Calculate the distance from the projectile's path to the tank
-                dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)
-
-                if dist < min_dist:
-                    min_dist = dist
-                    closest = proj
-
-        if closest:
-            self.closest_projectile = (closest, min_dist)
-        else:
-            self.closest_projectile = (None, 9999)
-
     def find_closest_projectile(self):
         closest = None
         min_dist = float("inf")
@@ -1499,7 +1425,6 @@ class TankAI:
                     break
 
         self.closest_projectile = (closest, min_dist if closest else 9999)
-
 
     def deflect_ray(self):        
         lines = []
@@ -1633,10 +1558,3 @@ class BehaviorStates:
     RETREAT = "retreat"
     WANDER = "wander"
     DODGE = "dodge"
-
-class TargetingStates:
-    SEARCHING = "searching"
-    TARGETING = "targeting"
-
-
-    

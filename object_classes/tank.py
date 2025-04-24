@@ -123,7 +123,7 @@ class Tank:
         
     def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
         self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None
-          
+    
     def init_sound_effects(self, sound_effects):
         self.sound_effects = sound_effects
         
@@ -262,8 +262,8 @@ class Tank:
         self.delta_time = delta_time
         
         
-        # Scale speed based on delta time
-        if self.time_alive < 6:
+        # Stop units moving for 0.5 a second of spawn
+        if self.time_alive < 0.5:
             self.speed = 0
         else:
             self.speed = self.speed_original * self.delta_time * 60  # 60 = target FPS
@@ -353,57 +353,7 @@ class Tank:
         # Find the nearest precomputed hitbox
         self.closest_angle = int(self.degrees / self.step) * self.step  # Round to nearest 5-degree step
         
-        
-        #self.rotate_hit_box(deg)
-                  
-    # def collision(self, line: tuple, collision_type: str) -> bool:
-    #     """line should be a tuple of 2 coords"""
-        
-    #     # Coords of the "surface" line in the polygon
-    #     line_coord1, line_coord2 = line
-        
-    #     # Find coord where tank and line meet. Try all 4 side of tank
-    #     # hit_box_lines = helper_functions.coord_to_coordlist(self.hitbox)
-    #     hit_box_lines = self.hitbox_lines
-        
-    #     # Check each line in hitbox if it itersect a line: surface/projectile/etc
-    #     for i in range(len(hit_box_lines)):
-    #         start_point, end_point = hit_box_lines[i]
-    #         intersect_coord = line_intersection.line_intersection(line_coord1[0], line_coord1[1], 
-    #                                                               line_coord2[0], line_coord2[1], 
-    #                                                               start_point[0], start_point[1], 
-    #                                                               end_point[0], end_point[1])
-        
-    #         # Only execute code when a collision is present. The code under will push the tank back with the normal vector to the line "surface" hit (with same magnitude as unit direction vector)
-    #         if intersect_coord != (-1.0, -1.0):
-    #             # print(f"Tank hit line at coord: ({float(intersect_coord[0]):.1f},  {float(intersect_coord[1]):.1f})")
-                
-    #             # If collision is a ____
-    #             if collision_type == "surface":
-    #                 # Find normal vector of line
-    #                 normal_vector1, normal_vector2 = df.find_normal_vectors(line_coord1, line_coord2)
-    #                 # - We only use normalvector2 since all the left sides of the hitbox lines point outwards
-                    
-    #                 # Calculate magnitude scalar of units direction vector
-    #                 magnitude_dir_vec = helper_functions.get_vector_magnitude(self.direction) 
-                    
-    #                 # Scale the normal vector with the previous magnitude scalar
-    #                 normal_scaled_x, normal_scaled_y = normal_vector2[0] * magnitude_dir_vec, normal_vector2[1] * magnitude_dir_vec
-                    
-    #                 # Update unit postion
-    #                 self.pos = [self.pos[0] + normal_scaled_x * self.speed, self.pos[1] + normal_scaled_y * self.speed]
-                    
-    #                 # Update each corner position in hitbox
-    #                 for i in range(len(self.hitbox)):
-    #                     x, y = self.hitbox[i]
-    #                     self.hitbox[i] = (x + normal_scaled_x * self.speed, y + normal_scaled_y * self.speed)
-                        
-                        
-    #             elif collision_type == "projectile":
-    #                 self.make_dead(True)
-    #                 return True
-    #             else:
-    #                 print("Hitbox collision: type is unknown")
+    
           
     def collision(self, line: tuple, collision_type: str) -> bool:
         """Check if the tank collides with a given line based on collision_type."""
@@ -507,8 +457,8 @@ class Tank:
         
     def lay_mine(self):
         
-        # Units can't lay mines within the first 10 seconds
-        if self.time_alive < 10:
+        # Units can't lay mines within the first 2 seconds
+        if self.time_alive < 2:
             return
         
         # Remove exploded mines
@@ -602,6 +552,12 @@ class Tank:
         self.top_left = top_left
         self.grid_dict = grid_dict
         self.valid_nodes = valid_nodes
+    
+    def update_pathfinding(self, grid_dict: dict, valid_nodes):
+        self.grid_dict = grid_dict
+        self.valid_nodes = valid_nodes
+        
+        self.ai.valid_nodes_original = self.valid_nodes.copy()
     
     def find_waypoint(self, destination_coord: tuple) -> None:
         """Starts a waypoint action. Unit will pathfind to the destination coordinate"""
@@ -840,6 +796,8 @@ class TankAI:
         self.max_bounces = self.tank.bounch_limit - 1 # Temp remove one since 1 is added for projectile logic to work properly
         self.ray_path = [((0,0),(0,0)),((0,0),(0,0))]
     
+    def update_obstacles(self, obstacles):
+        self.obstacles = obstacles
 
     def update(self):
         self.frame_counter += 1
@@ -853,9 +811,11 @@ class TankAI:
         if self.behavior_state == BehaviorStates.DODGE:
             self.handle_dodge_state()
             return
-            
         
         # Avoid projectiles
+        
+        print(f"Proj to close! {self.closest_projectile[1] < self.dist_start_dodge} closest {self.closest_projectile[1]} and dist start: {self.dist_start_dodge} Amount of projectiles: {self.projectiles}")
+
         if self.can_dodge_proj and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
             self.dodge()
@@ -1305,11 +1265,8 @@ class TankAI:
             if all(helper_functions.distance(node, mine.pos) > mine.explode_radius * 2 for mine in self.mines):
                 temp_nodes.append(node)
         
-        print(f"Possible nodes: {len(temp_nodes)}")
-        
         if temp_nodes:
             chosen_node = random.choice(temp_nodes)
-            print(f"Chosen node: {chosen_node}")
             self.tank.find_waypoint(chosen_node)
         
     def avoid_mine(self):
@@ -1411,16 +1368,20 @@ class TankAI:
         
         for proj in self.projectiles:
             proj_pos = np.array(proj.pos)  # Cache projectile position
-            direction_vector = proj_pos - np.array(proj.startpos)
+            direction_vector = proj_pos - np.array(proj.startpos_original)
             to_tank_vector = tank_pos - proj_pos
 
-            # Early continue if not moving toward tank
-            if np.dot(direction_vector, to_tank_vector) <= 0:
+            # Normalize vectors for accurate dot product
+            direction_vector_normalized = direction_vector / np.linalg.norm(direction_vector)
+            to_tank_normalized = to_tank_vector / np.linalg.norm(to_tank_vector)
+            
+            # Check if projectile is moving generally toward tank (allow some tolerance)
+            if np.dot(direction_vector_normalized, to_tank_normalized) < 0.3:  # 0.3 = ~72 degree tolerance
                 continue
                 
             # Calculate distance
+            print(f"startpos: {proj.startpos_original} projpos: {proj.pos}, tank pos: {self.tank.pos}")
             dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)
-            
             # Early update if better match found
             if dist < min_dist:
                 min_dist = dist

@@ -20,6 +20,5 @@ for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntim
 
 
 
-PT virker det at explodere des emner, men de skal laves en seperate rendering af disse destrutible elementer
-da de pt ikke fjernes da de er static fra start, dvs at i wrap_texture function skal måske laves en møde så man kan 
-manipulere med dem når de dør.
+DODGE FUNCTION VIRKER IKKE OPTIMALT
+Virker til closet projtile ikke registerer a projilet findes? Kun efter første bounce virker den

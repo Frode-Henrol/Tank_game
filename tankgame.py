@@ -71,9 +71,13 @@ class TankGame:
         self.units_player_controlled: list[Tank] = []
         
         self.projectiles: list[Projectile] = []
+        
         self.obstacles_sta: list[Obstacle] = [] # standard
         self.obstacles_des: list[Obstacle] = [] # destructible
         self.obstacles_pit: list[Obstacle] = [] # pit
+        self.obstacles_ai:  list[Obstacle] = [] # destructible + standard (changes based on whats destroyed)
+        self.prev_obstacles_des:  list[Obstacle] = [] # Store previous frame des data
+        
         self.mines: list[Mine] = []
         
         # Projectile collision distance
@@ -228,16 +232,20 @@ class TankGame:
             final_texture_surface.blit(texture_surface, (0, 0))
 
         self.texture_surface = final_texture_surface
+
         pg.image.save(self.texture_surface, "debug_texture_output.png")
 
 
-    def wrap_texture_on_polygon_type(self, polygons_points_list: list, images_list) -> None:
+    def wrap_texture_on_polygon_type(self, obstacle_list: list, images_list) -> None:
             """Takes a list of polygons and assigns textures to them"""
             
             # Load texture and prepare it
             # texture = pg.image.load(texture_path).convert()
             # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
-
+            
+            # Convert obstacles list to a list of list of corners
+            polygons_points_list = [obstacle.corners for obstacle in obstacle_list]
+            
             texture = random.choice(images_list)
             
             dim = self.WINDOW_DIM
@@ -438,6 +446,8 @@ class TankGame:
             if poly_type == 2:
                 self.obstacles_pit.extend([Obstacle(poly_corners, poly_type)])
         
+        self.prev_obstacles_des = self.obstacles_des.copy()
+        
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
         tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
         
@@ -504,7 +514,9 @@ class TankGame:
             ai_data = all_ai_data_json.get(unit.ai_type)
             print(f"Choosen ai: {unit.ai_type}")
             
-            unit.init_ai(self.obstacles_sta + self.obstacles_des, self.projectiles, self.mines, ai_data)     
+            # Create combined obstacle list for ai targeting
+            self.obstacles_ai = self.obstacles_sta + self.obstacles_des
+            unit.init_ai(self.obstacles_ai, self.projectiles, self.mines, ai_data)     
             
             if unit.ai_type == "player":
                 self.units_player_controlled.append(unit)
@@ -526,30 +538,26 @@ class TankGame:
             self.background_outer = pg.image.load(path).convert_alpha()
             self.background_outer = pg.transform.scale(self.background_outer, self.WINDOW_DIM)
             
-            path_sta = os.path.join(os.getcwd(), "map_files", "backgrounds","wall_textures")
    
-            # Load textures for each polygon type
             texture_paths = {
                 0: os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures_sta"),
                 1: os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures_des"), 
                 2: os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures_pit")
             }
             
-            # Create dictionary mapping types to their texture lists
-            texturing_dict = {
+            self.texture_dict = {
                 0: self.load_and_transform_images(texture_paths[0], scale=3),
-                1: self.load_and_transform_images(texture_paths[1], scale=3),
+                1: self.load_and_transform_images(texture_paths[0], scale=3),
                 2: self.load_and_transform_images(texture_paths[2], scale=3)
             }
             
-            # save dict for destructible obstacles
+            # Destructibles: 
+            self.images_des = self.load_and_transform_images(texture_paths[1], scale=3)
+            self.des_texture_surface = self.wrap_texture_on_polygon_type(self.obstacles_des, self.images_des)
             
-            self.polygons_des = [coord for coord, p_type in self.polygons_with_type_no_border if p_type == 2]
-            self.images_des = texturing_dict[2]
-            
-            
-            # self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
-            self.wrap_texture_on_polygons_static(self.polygons_with_type_no_border, texturing_dict)
+            # Standard and pit: 
+            self.polygons_sta_pit = [(coord, p_type) for coord, p_type in self.polygons_with_type_no_border if p_type == 0 or p_type == 2]
+            self.wrap_texture_on_polygons_static(self.polygons_sta_pit, self.texture_dict)
                 
             # After loading and scaling all background images
             self.cached_background = pg.Surface(self.WINDOW_DIM).convert()
@@ -685,9 +693,9 @@ class TankGame:
                 self.obstacles_sta.clear()
                 self.obstacles_des.clear()
                 self.obstacles_pit.clear()
-                
                 self.mines.clear()
                 self.load_map()
+                self.load_map_textures()
 
         self.update()
         self.draw()
@@ -752,7 +760,7 @@ class TankGame:
             mov_avg_fps = sum(self.fps_list) / len(self.fps_list)
             mov_delta_fps = sum(self.delta_time_list) / len(self.delta_time_list)
         
-            print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/self.delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
+            # print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/self.delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
            
         
         self.frame += 1
@@ -837,6 +845,7 @@ class TankGame:
         for unit in self.units:
             # Send new projectile info to AI
             if unit.ai is not None:
+                unit.ai.update_obstacles(self.obstacles_ai)
                 unit.ai.projectiles = self.projectiles
 
             # Check unit/surface collisions
@@ -847,6 +856,11 @@ class TankGame:
             for obstacle in self.obstacles_des:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")
+
+            for obstacle in self.obstacles_pit:
+                for corner_pair in obstacle.get_corner_pairs():
+                    unit.collision(corner_pair, collision_type="surface")
+
 
             # Check for unit-unit collision
             for other_unit in self.units:
@@ -866,19 +880,26 @@ class TankGame:
             
 
             # Mine logic
-            self.update_des_flag = False
             for mine in self.mines:
                 if mine.is_exploded:
-                    self.update_des_flag = True
                     self.handle_mine_explosion(mine)
+                    self.handle_destruction()
                     self.mines.remove(mine)
+                    self.update_des_flag = True
                 mine.get_unit_list(self.units)
                 mine.get_obstacles_des(self.obstacles_des)
                 mine.check_for_tank(unit)
 
 
         self.projectiles = temp_projectiles
-        
+    
+    
+    def handle_destruction(self):
+        if len(self.obstacles_des) != len(self.prev_obstacles_des):
+            self.update_des_flag = True
+            self.des_texture_surface = self.wrap_texture_on_polygon_type(self.obstacles_des, self.images_des)
+            self.prev_obstacles_des = self.obstacles_des.copy()
+            self.obstacles_ai = self.obstacles_sta + self.obstacles_des
  
     def draw(self):
 
@@ -889,8 +910,8 @@ class TankGame:
         
         # Re draw des obstacles if one was destroyed
         if self.update_des_flag:
-            des_texture_surface = self.wrap_texture_on_polygon_type(self.polygons_des, self.images_des)
-            self.screen.blit(des_texture_surface, (0, 0))
+            self.update_des_flag = False
+        self.screen.blit(self.des_texture_surface, (0, 0))
             
         # Draw tank track
         for track in self.tracks:
@@ -1024,7 +1045,7 @@ class TankGame:
                         pg.draw.line(self.screen, color, line[0], line[1], 3)
                         
                     pg.draw.circle(self.screen, "red", unit.ai.debug_target_pos, 5)
-                    print(f"{unit.ai.debug_target_pos=}")
+
             
         if self.show_debug_info:
             self.render_debug_info()

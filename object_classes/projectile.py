@@ -3,14 +3,14 @@ import pygame as pg
 import utils.deflect as df
 import copy
 import random
-from object_classes.animation import Animation
 from utils import line_intersection
 
 class Projectile:
     
-    def __init__(self, unit_pos, startpos: tuple, direction: tuple, speed: list[float], bounce_limit: int, id: int):   # Add color and more later!!!!
-        self.spawn_coord = unit_pos 
-        self.startpos = copy.copy(startpos)
+    def __init__(self, unit_pos: list, startpos: list, direction: tuple, speed: list[float], bounce_limit: int, id: int):   # Add color and more later!!!!
+        self.spawn_coord = list(tuple(unit_pos))
+        self.startpos = list(tuple(startpos))
+        self.startpos_original = list(tuple(startpos))  # quick fix to fix dodge problem with ai
         self.pos = self.startpos
         self.direction = direction
         self.degrees = 0

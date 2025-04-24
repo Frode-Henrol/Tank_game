@@ -464,7 +464,7 @@ class PolygonDrawer:
                 self.show_pathfinding_nodes = True
                 self.update_pathfinding_nodes()
                 print("No units added. Adding player tank at valid node")
-                self.units.append((self.valid_nodes[0], int(90), 0))
+                self.units.append((self.valid_nodes[0], int(90), 0, 0))
             
             for unit in self.units:
                 f.write(f"{unit}\n")

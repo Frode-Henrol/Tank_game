@@ -70,7 +70,7 @@
         "use_turret": true
     },
     "violet_tank": {
-        "tank_speed_modifier": 1.92,
+        "tank_speed_modifier": 0.0000192,
         "projectile_speed_modifier": 3.36,
         "firerate": 5,
         "bounch_limit": 1,

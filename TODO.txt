@@ -17,3 +17,9 @@ Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til can
 Add:
 for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntimer, hvor den ikke kan bounce inden for timeren
 
+
+
+
+PT virker det at explodere des emner, men de skal laves en seperate rendering af disse destrutible elementer
+da de pt ikke fjernes da de er static fra start, dvs at i wrap_texture function skal måske laves en møde så man kan 
+manipulere med dem når de dør.

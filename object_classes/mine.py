@@ -24,6 +24,9 @@ class Mine:
     
     def get_unit_list(self, unit_list: list):
         self.unit_list = unit_list
+        
+    def get_obstacles_des(self, obstacles_des: list):
+        self.obstacles_des = obstacles_des
 
     def draw(self, surface):
         pg.draw.circle(surface, self.color, self.pos, 10)
@@ -71,7 +74,14 @@ class Mine:
         for unit in self.unit_list:
             if self._is_in_radius(unit.pos):
                 unit.make_dead(True)
-
+        
+        for obstacle in self.obstacles_des:
+            for corner_pair in obstacle.corners:
+                print(f"CORNER PAIR: {corner_pair}")
+                if self._is_in_radius(corner_pair):
+                    self.obstacles_des.remove(obstacle)
+                    break
+        
         self.is_exploded = True
         self.color = "red"
         

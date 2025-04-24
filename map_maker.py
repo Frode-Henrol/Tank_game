@@ -488,16 +488,19 @@ class PolygonDrawer:
         map_path = os.path.join(self.map_folder_path, self.map_name)
         
         # Load the objects and units into map editor
-        polygons, units, self.node_spacing = helper_functions.load_map_data(map_path)
+        polygons, polygons_with_type, units, self.node_spacing = helper_functions.load_map_data(map_path)
+        for poly in polygons_with_type:
+            print(poly)
         
         # Make sure to use first polygon as map borders and remove from the polygon list (reason is border wont be filed with solid color)
         self.map_borders = polygons[0]
         polygons.pop(0)
+        polygons_with_type.pop(0)
 
         # Polygons need a class instance:
-        for polygon_points in polygons:
+        for polygon_points, polygon_type in polygons_with_type:
             print(f"Polygon points: {polygon_points}")
-            self.polygons.append(Polygon(polygon_points))
+            self.polygons.append(Polygon(polygon_points, polygon_type))
         
         print(f"Loaded {len(polygons)} obstacles.")
         print(f"Loaded {len(units)} units.")

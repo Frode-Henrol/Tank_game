@@ -71,7 +71,9 @@ class TankGame:
         self.units_player_controlled: list[Tank] = []
         
         self.projectiles: list[Projectile] = []
-        self.obstacles: list[Obstacle] = []
+        self.obstacles_sta: list[Obstacle] = [] # standard
+        self.obstacles_des: list[Obstacle] = [] # destructible
+        self.obstacles_pit: list[Obstacle] = [] # pit
         self.mines: list[Mine] = []
         
         # Projectile collision distance
@@ -117,6 +119,7 @@ class TankGame:
         self.fps_list = []
         self.delta_time_list = []
         
+        self.update_des_flag = False    # flag that updates des obstacles
         
         if self.godmode:
             self.godmode_toggle()
@@ -161,42 +164,108 @@ class TankGame:
                 print(f"Failed to load {filename}: {e}")
 
         return image_list
-    
-    def wrap_texture_on_polygons(self, polygons_points_list: list, images_list) -> None:
-        """Takes a list of polygons and assigns textures to them"""
-        
-        # Load texture and prepare it
-        # texture = pg.image.load(texture_path).convert()
-        # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
+   
+    def wrap_texture_on_polygons_static(self, polygons_data_list: list, texturing_dict: dict) -> None:
+        """Takes a list of polygons with types and assigns appropriate textures to them
 
-        texture = random.choice(images_list)
-        
+        Args:
+            polygons_data_list: List of tuples containing (polygon_points, polygon_type)
+            texturing_dict: Dictionary mapping types to lists of images (e.g., {0: [img1, img2], 1: [img3, img4]})
+        """
         dim = self.WINDOW_DIM
-        
-        # Create a surface for all polygons
-        polygon_surface = pg.Surface(dim, pg.SRCALPHA)
-        polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
 
-        # Draw all polygons on the surface
-        for polygon_points in polygons_points_list:
-            pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
+        # Create final texture surface
+        final_texture_surface = pg.Surface(dim, pg.SRCALPHA)
+        final_texture_surface.fill((0, 0, 0, 0))  # Start with transparent
 
-        # Use the polygon_surface as a mask
-        mask = pg.mask.from_surface(polygon_surface)
-        mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+        # Process each polygon type separately
+        for polygon_type, texture_list in texturing_dict.items():
+            # Create a surface for this type's polygons
+            type_surface = pg.Surface(dim, pg.SRCALPHA)
+            type_surface.fill((0, 0, 0, 0))
+            
+            # Create a mask surface for this type
+            mask_surface = pg.Surface(dim, pg.SRCALPHA)
+            mask_surface.fill((0, 0, 0, 0))
+            
+            # Draw all polygons of this type on the mask
+            for polygon_points, p_type in polygons_data_list:
+                if p_type == polygon_type:
+                    pg.draw.polygon(mask_surface, (255, 255, 255, 255), polygon_points)
+            
+            # Create mask from the drawn polygons
+            mask = pg.mask.from_surface(mask_surface)
+            mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+            
+            # Create texture for this type
+            texture_surface = pg.Surface(dim, pg.SRCALPHA)
+            texture_surface.fill((0, 0, 0, 0))
+            
+            # Get all polygons of this type to find bounding area
+            type_polygons = [points for points, p_type in polygons_data_list if p_type == polygon_type]
+            if not type_polygons:
+                continue
+                
+            # Get combined bounding rect for efficiency
+            all_points = [point for poly in type_polygons for point in poly]
+            min_x = min(p[0] for p in all_points)
+            max_x = max(p[0] for p in all_points)
+            min_y = min(p[1] for p in all_points)
+            max_y = max(p[1] for p in all_points)
+            
+            # Tile textures only within the bounding area
+            texture = random.choice(texture_list)
+            tex_width, tex_height = texture.get_size()
+            
+            for x in range(int(min_x), int(max_x) + tex_width, tex_width):
+                for y in range(int(min_y), int(max_y) + tex_height, tex_height):
+                    texture_surface.blit(random.choice(texture_list), (x, y))
+            
+            # Apply mask to this type's texture
+            texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+            
+            # Combine with final texture
+            final_texture_surface.blit(texture_surface, (0, 0))
 
-        # Prepare texture surface to match size
-        texture_surface = pg.Surface(dim, pg.SRCALPHA)
-        for x in range(0, dim[0], texture.get_width()):
-            texture = random.choice(images_list)
-            for y in range(0, dim[1], texture.get_height()):
-                texture_surface.blit(texture, (x, y))
-
-        # Apply mask to texture
-        texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
-        self.texture_surface = texture_surface
-        
+        self.texture_surface = final_texture_surface
         pg.image.save(self.texture_surface, "debug_texture_output.png")
+
+
+    def wrap_texture_on_polygon_type(self, polygons_points_list: list, images_list) -> None:
+            """Takes a list of polygons and assigns textures to them"""
+            
+            # Load texture and prepare it
+            # texture = pg.image.load(texture_path).convert()
+            # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
+
+            texture = random.choice(images_list)
+            
+            dim = self.WINDOW_DIM
+            
+            # Create a surface for all polygons
+            polygon_surface = pg.Surface(dim, pg.SRCALPHA)
+            polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
+
+            # Draw all polygons on the surface
+            for polygon_points in polygons_points_list:
+                pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
+
+            # Use the polygon_surface as a mask
+            mask = pg.mask.from_surface(polygon_surface)
+            mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+
+            # Prepare texture surface to match size
+            texture_surface = pg.Surface(dim, pg.SRCALPHA)
+            for x in range(0, dim[0], texture.get_width()):
+                texture = random.choice(images_list)
+                for y in range(0, dim[1], texture.get_height()):
+                    texture_surface.blit(texture, (x, y))
+
+            # Apply mask to texture
+            texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+            return texture_surface
+
+
     # ===============================================================================================================
     # ============================================ Load helper functions ============================================
     def load_gui(self) -> None:
@@ -347,6 +416,9 @@ class TankGame:
         self.polygon_list_no_border = self.polygon_list.copy()
         self.border_polygon = self.polygon_list_no_border.pop(0)    # Removes the border polygon and store seperate
         
+        self.polygons_with_type_no_border = self.polygons_with_type.copy()
+        self.polygons_with_type_no_border.pop(0)
+        
         self.map_size = (self.border_polygon[1][0] - self.border_polygon[0][0], self.border_polygon[1][1] - self.border_polygon[2][1])
         
         # Get pathfinding data from map.
@@ -357,9 +429,14 @@ class TankGame:
         print(f"VALID NODES: {self.valid_nodes}")
         
         # ==================== Load map obstacles and units ====================
-        for polygon in self.polygons_with_type:
-            poly_corners, poly_type = polygon
-            self.obstacles.extend([Obstacle(poly_corners, poly_type)])
+        for poly_corners, poly_type in self.polygons_with_type:
+            
+            if poly_type == 0:
+                self.obstacles_sta.extend([Obstacle(poly_corners, poly_type)])
+            if poly_type == 1:
+                self.obstacles_des.extend([Obstacle(poly_corners, poly_type)])
+            if poly_type == 2:
+                self.obstacles_pit.extend([Obstacle(poly_corners, poly_type)])
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
         tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
@@ -427,7 +504,7 @@ class TankGame:
             ai_data = all_ai_data_json.get(unit.ai_type)
             print(f"Choosen ai: {unit.ai_type}")
             
-            unit.init_ai(self.obstacles, self.projectiles, self.mines, ai_data)     
+            unit.init_ai(self.obstacles_sta + self.obstacles_des, self.projectiles, self.mines, ai_data)     
             
             if unit.ai_type == "player":
                 self.units_player_controlled.append(unit)
@@ -449,9 +526,30 @@ class TankGame:
             self.background_outer = pg.image.load(path).convert_alpha()
             self.background_outer = pg.transform.scale(self.background_outer, self.WINDOW_DIM)
             
-            path = os.path.join(os.getcwd(), "map_files", "backgrounds","wall_textures")
-            image_list = self.load_and_transform_images(path, scale=3)
-            self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
+            path_sta = os.path.join(os.getcwd(), "map_files", "backgrounds","wall_textures")
+   
+            # Load textures for each polygon type
+            texture_paths = {
+                0: os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures_sta"),
+                1: os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures_des"), 
+                2: os.path.join(os.getcwd(), "map_files", "backgrounds", "wall_textures_pit")
+            }
+            
+            # Create dictionary mapping types to their texture lists
+            texturing_dict = {
+                0: self.load_and_transform_images(texture_paths[0], scale=3),
+                1: self.load_and_transform_images(texture_paths[1], scale=3),
+                2: self.load_and_transform_images(texture_paths[2], scale=3)
+            }
+            
+            # save dict for destructible obstacles
+            
+            self.polygons_des = [coord for coord, p_type in self.polygons_with_type_no_border if p_type == 2]
+            self.images_des = texturing_dict[2]
+            
+            
+            # self.wrap_texture_on_polygons(self.polygon_list_no_border, image_list)
+            self.wrap_texture_on_polygons_static(self.polygons_with_type_no_border, texturing_dict)
                 
             # After loading and scaling all background images
             self.cached_background = pg.Surface(self.WINDOW_DIM).convert()
@@ -584,7 +682,10 @@ class TankGame:
             if keys[pg.K_f]:
                 self.units_player_controlled.clear()
                 self.units.clear()
-                self.obstacles.clear()
+                self.obstacles_sta.clear()
+                self.obstacles_des.clear()
+                self.obstacles_pit.clear()
+                
                 self.mines.clear()
                 self.load_map()
 
@@ -694,7 +795,11 @@ class TankGame:
                 proj.set_delta_time(self.delta_time) # Send frame delta time
                 proj.update()                   # Update the projectile
                 
-                for obstacle in self.obstacles:
+                for obstacle in self.obstacles_sta:
+                    for corner_pair in obstacle.get_corner_pairs():
+                        proj.collision(corner_pair)
+                        
+                for obstacle in self.obstacles_des:
                     for corner_pair in obstacle.get_corner_pairs():
                         proj.collision(corner_pair)
                         
@@ -735,7 +840,11 @@ class TankGame:
                 unit.ai.projectiles = self.projectiles
 
             # Check unit/surface collisions
-            for obstacle in self.obstacles:
+            for obstacle in self.obstacles_sta:
+                for corner_pair in obstacle.get_corner_pairs():
+                    unit.collision(corner_pair, collision_type="surface")
+                    
+            for obstacle in self.obstacles_des:
                 for corner_pair in obstacle.get_corner_pairs():
                     unit.collision(corner_pair, collision_type="surface")
 
@@ -757,12 +866,16 @@ class TankGame:
             
 
             # Mine logic
+            self.update_des_flag = False
             for mine in self.mines:
                 if mine.is_exploded:
+                    self.update_des_flag = True
                     self.handle_mine_explosion(mine)
                     self.mines.remove(mine)
                 mine.get_unit_list(self.units)
+                mine.get_obstacles_des(self.obstacles_des)
                 mine.check_for_tank(unit)
+
 
         self.projectiles = temp_projectiles
         
@@ -773,7 +886,12 @@ class TankGame:
 
         # Draw all static textures (backgrounds and obstacles)
         self.screen.blit(self.cached_background, (0, 0))
-    
+        
+        # Re draw des obstacles if one was destroyed
+        if self.update_des_flag:
+            des_texture_surface = self.wrap_texture_on_polygon_type(self.polygons_des, self.images_des)
+            self.screen.blit(des_texture_surface, (0, 0))
+            
         # Draw tank track
         for track in self.tracks:
             track.draw(self.screen)
@@ -809,7 +927,7 @@ class TankGame:
 
         if self.show_obstacle_corners:
             # Draw obstacles
-            for obstacle in self.obstacles:
+            for obstacle in self.obstacles_sta+self.obstacles_des+self.obstacles_pit:
                 # Debug: draw obstacle collision lines
                 for corner_pair in obstacle.get_corner_pairs():
                     pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
@@ -959,7 +1077,7 @@ class TankGame:
                 f"Main tank angle: {self.units_player_controlled[0].degrees}",
                 f"Units: {len(self.units)}",
                 f"Player units: {len(self.units_player_controlled)}",
-                f"Obstacles: {len(self.obstacles)}",
+                f"Obstacles: {len(self.obstacles_sta)}",
                 f"Tank 1: {self.units[1].ai.behavior_state}",
                 f"Path dist: {self.units[1].ai.dist_to_target_path}",
                 f"Direct dist: {self.units[1].ai.dist_to_target_direct}",

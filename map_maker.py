@@ -59,16 +59,17 @@ class PolygonDrawer:
         # Starting mode in the editor
         self.editor_mode = EditorMode.POLYGON
         
-        # UNIT MODE:
+        # Unit mode:
         self.selected_tank = None  # Keep track of the currently selected tank button
+        self.tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
         
+        # Polygon mode:
+        self.selected_polygon = 0   # Index: 0 = standard, 1 = destructible, 2 = pit
+        self.polygon_colors = {0: "blue", 1: "red", 2: "grey"}
+
         # Path finding:
         self.node_spacing = 50
         self.show_pathfinding_nodes = False
-        
-        # Units:
-        self.tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
-        
         
         # Assets to load last
         self.load_gui()
@@ -158,16 +159,22 @@ class PolygonDrawer:
         offset_x = 600
         width = 120
         self.buttons_units = [
-            Button(left+offset, 150, width, 60, "Player", action=lambda: self.tank_button(0), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 250, width, 60, "Brown", action=lambda: self.tank_button(1), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 350, width, 60, "Ash", action=lambda: self.tank_button(2), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 450, width, 60, "Marine", action=lambda: self.tank_button(3), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 550, width, 60, "Yellow", action=lambda: self.tank_button(4), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 150, width, 60, "Pink", action=lambda: self.tank_button(5), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 250, width, 60, "Green", action=lambda: self.tank_button(6), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 350, width, 60, "Violet", action=lambda: self.tank_button(7), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 450, width, 60, "White", action=lambda: self.tank_button(8), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 550, width, 60, "Black", action=lambda: self.tank_button(9), color_normal=standard_green_color, semi_disabled=True)
+            Button(left+offset, 150, width, 60, "Player", action=lambda: self.unit_button_select(0), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 250, width, 60, "Brown", action=lambda: self.unit_button_select(1), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 350, width, 60, "Ash", action=lambda: self.unit_button_select(2), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 450, width, 60, "Marine", action=lambda: self.unit_button_select(3), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset, 550, width, 60, "Yellow", action=lambda: self.unit_button_select(4), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 150, width, 60, "Pink", action=lambda: self.unit_button_select(5), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 250, width, 60, "Green", action=lambda: self.unit_button_select(6), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 350, width, 60, "Violet", action=lambda: self.unit_button_select(7), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 450, width, 60, "White", action=lambda: self.unit_button_select(8), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_x, 550, width, 60, "Black", action=lambda: self.unit_button_select(9), color_normal=standard_green_color, semi_disabled=True)
+        ]
+        
+        self.buttons_polygons = [
+              Button(left+offset, 150, width*1.8, 60, "Standard", action=lambda: self.polygon_button_select(0), color_normal=standard_green_color, semi_disabled=False),
+              Button(left+offset, 250, width*1.8, 60, "Destructible", action=lambda: self.polygon_button_select(1), color_normal=standard_green_color, semi_disabled=True),
+              Button(left+offset, 350, width*1.8, 60, "Pit", action=lambda: self.polygon_button_select(2), color_normal=standard_green_color, semi_disabled=True),
         ]
                 
     # ===============================================================
@@ -182,12 +189,21 @@ class PolygonDrawer:
         self.editor_mode = EditorMode.UNIT
         print("Unit placement button clicked, editor mode set to UNIT.")
         
-    def tank_button(self, tank_index):
+    def unit_button_select(self, tank_index):
         # Set the pressed tank button to green
         for i, button in enumerate(self.buttons_units):
             if i == tank_index:
                 self.selected_tank = tank_index  # Track the selected tank
                 print(f"Selected tank {i+1} with 0-index: {i}")
+            else:
+                button.set_semi_disabled(True)  # Semi-disable other buttons
+                
+    def polygon_button_select(self, type_index):
+        # Set the pressed button to green
+        for i, button in enumerate(self.buttons_polygons):
+            if i == type_index:
+                self.selected_polygon = type_index  # Track the selected wall type
+                print(f"Selected polygon type: {i}")
             else:
                 button.set_semi_disabled(True)  # Semi-disable other buttons
         
@@ -275,6 +291,9 @@ class PolygonDrawer:
         # If unit mode, then show the buttons for each unit
         if self.editor_mode == EditorMode.UNIT:
             self.handle_buttons(self.buttons_units, event_list, self.screen) 
+            
+        if self.editor_mode == EditorMode.POLYGON:
+            self.handle_buttons(self.buttons_polygons, event_list, self.screen)
         
         for event in event_list:    # Skal rettes - Dette er gentaget kode pt. 
             if event.type == pg.KEYDOWN:
@@ -343,7 +362,7 @@ class PolygonDrawer:
                     # If the first point is clicked again, close the polygon
                     if len(self.points) > 0 and self.is_point_near(snapped_pos, self.points[0]):
                         self.is_closed = True  # Close the polygon
-                        self.polygons.append(Polygon(self.points))
+                        self.polygons.append(Polygon(self.points, self.selected_polygon))
                         print("Polygone done")
                         self.points = []
                         
@@ -429,7 +448,7 @@ class PolygonDrawer:
             f.write(f"{self.map_name}\n")
             # Write the map borders
             f.write("Polygons:\n")
-            f.write(f"{self.map_borders}\n")
+            f.write(f"({self.map_borders},0)\n")    # The zero is to mark the border as standard polygon
             
             for polygon in self.polygons:
 
@@ -437,7 +456,7 @@ class PolygonDrawer:
                 no_tuple = [[x[0],x[1]] for x in polygon.get_polygon_points()]
                 print(no_tuple)
                 
-                f.write(f"{polygon.get_polygon_points()}\n")
+                f.write(f"({polygon.get_polygon_points()},{polygon.polygon_type})\n")
             
             f.write("Units:\n")
             # If no units are added, there will automaticly be added a tank at a valid position
@@ -516,7 +535,7 @@ class PolygonDrawer:
 
         # If the polygon is closed, fill it with a semi-transparent color
         for polygon in self.polygons:
-            pg.draw.polygon(self.screen, (0, 0, 255, 100), polygon.get_polygon_points())  # Fill with blue
+            pg.draw.polygon(self.screen, self.polygon_colors[polygon.polygon_type], polygon.get_polygon_points())  # Fill with blue
         
         for corner_pair in helper_functions.coord_to_coordlist(self.map_borders):
             pg.draw.line(self.screen, "red", corner_pair[0], corner_pair[1], 3)
@@ -581,8 +600,9 @@ class PolygonDrawer:
   
 class Polygon:
     
-    def __init__(self, points):
+    def __init__(self, points, polygon_type):
         self.points = points
+        self.polygon_type = polygon_type
 
     def get_polygon_points(self):
         return self.points

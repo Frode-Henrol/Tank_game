@@ -341,8 +341,8 @@ class TankGame:
         
         # ==================== Load map  ====================
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
-        self.polygon_list, unit_list, self.node_spacing = helper_functions.load_map_data(map_path)
-       
+        self.polygon_list, self.polygons_with_type, unit_list, self.node_spacing = helper_functions.load_map_data(map_path)
+
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
         self.polygon_list_no_border = self.polygon_list.copy()
         self.border_polygon = self.polygon_list_no_border.pop(0)    # Removes the border polygon and store seperate
@@ -357,8 +357,9 @@ class TankGame:
         print(f"VALID NODES: {self.valid_nodes}")
         
         # ==================== Load map obstacles and units ====================
-        for polygon_conrners in self.polygon_list:
-            self.obstacles.extend([Obstacle(polygon_conrners)])
+        for polygon in self.polygons_with_type:
+            poly_corners, poly_type = polygon
+            self.obstacles.extend([Obstacle(poly_corners, poly_type)])
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
         tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}

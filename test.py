@@ -1,116 +1,64 @@
 
-def update(self):        
-    
-    dt = 1/60
-    
-    self.frame += 1
-    self.time += dt
-        
-        
-    # Debug output
-    # if random.random() < 0.01:  # Print about 1% of frames to avoid spam
-    #     print(f"Delta: {dt:.10f}, FPS: {1/dt:.1f} ")
-    
-    # Track marks logic
-    self.track_counter += 60 * dt
-    if self.track_counter >= self.track_interval:
-        self.track_counter = 0
-        for unit in self.units:
-            unit.send_delta(dt) # Send delta time to tank instances
-            
-            if not unit.dead and unit.is_moving:
-                # Add track mark at tank's position
-                track_pos = unit.pos
-                track_angle = unit.degrees + 90
-                self.tracks.append(Track(tuple(track_pos), track_angle, self.track_img, lifetime=1/dt))
+import ast  
 
-    # Update and remove old tracks
-    self.tracks = [track for track in self.tracks if track.update(dt*60)]
-    
-    # Temp list is created and all units' projectiles are added to a single list
-    temp_projectiles = []
-    for unit in self.units:
-        unit.update(dt)
-        temp_projectiles.extend(unit.projectiles)
+def load_map_data(map_name: str) -> tuple[list,list,int]:
+    """Load the map and polygons/units from the text file. 
+    Returns: (polygons, units, node_spacing)
+    """
+    polygons = []
+    units = []
+    node_spacing = None  # Default in case it's not found
 
-    for mine in self.mines:
-        mine.update(dt)
-    
-    # Update projectiles and handle collisions
-    for unit in self.units:
-        for i, proj in enumerate(unit.projectiles):
-            
-            proj.set_delta_time(dt) # Send frame delta time
-            proj.update()                   # Update the projectile
-            
-            for obstacle in self.obstacles:
-                for corner_pair in obstacle.get_corner_pairs():
-                    proj.collision(corner_pair)
-                    
-            # Check projectile collision with other units
-            projectile_line = proj.get_line()
-            for other_unit in self.units:
-                if other_unit.dead:
-                    continue  # Ignore dead units
-                
-                # # Skip unit if the projecile has been newly-fired from the same unit (prevents tank exploding itself)
-                if proj.spawn_timer > 0 and proj.id == other_unit.id:
+    try:
+        with open(map_name, "r") as f:
+            lines = f.readlines()
+
+            current_section = None
+            for line in lines:
+                line = line.strip()
+
+                if not line:
                     continue
                 
-                if other_unit.collision(projectile_line, collision_type="projectile"):
-                    proj.alive = False
-            
-    # Projectile/projectile collision check
-    if temp_projectiles:
-        projectile_positions = np.array([proj.pos for proj in temp_projectiles])
-        tree = KDTree(projectile_positions)
+                # Identify section headers
+                if line == "Polygons:":
+                    current_section = "polygons"
+                    continue
+                elif line == "Units:":
+                    current_section = "units"
+                    continue
+                elif line.startswith("Nodespacing:"):
+                    try:
+                        node_spacing = int(line.split(":")[1].strip())
+                    except ValueError:
+                        print("Warning: Invalid node spacing value.")
+                    continue
+                
+                # Parse data based on section
+                if current_section == "polygons":
+                    try:
+                        polygon_data = ast.literal_eval(line)
+                        print(f"Polygon data: {polygon_data}")
+                        if isinstance(polygon_data, tuple):
+                            polygons.append(polygon_data)
+                    except Exception as e:
+                        print(f"Error parsing polygon: {e}")
+                elif current_section == "units":
+                    try:
+                        unit_data = ast.literal_eval(line)
+                        if isinstance(unit_data, tuple):
+                            units.append(unit_data)
+                    except Exception as e:
+                        print(f"Error parsing unit: {e}")
 
-        for i, proj in enumerate(temp_projectiles):
-            neighbors = tree.query_ball_point(proj.pos, self.projectile_collision_dist)
-            for j in neighbors:
-                if i != j:  # Avoid self-collision
-                    temp_projectiles[i].alive = False
-                    temp_projectiles[j].alive = False
+    except Exception as e:
+        print(f"Error loading map data: {e}")
 
-            # Check for mine hit
-            for mine in self.mines:
-                    if helper_functions.distance(mine.pos, proj.pos) < 10:
-                    mine.explode()
-                    temp_projectiles[i].alive = False
+    return polygons, units, node_spacing
 
-    for unit in self.units:
-        # Send new projectile info to AI
-        if unit.ai is not None:
-            unit.ai.projectiles = self.projectiles
+map_path: str = r"map_files\map_test1.txt"
 
-        # Check unit/surface collisions
-        for obstacle in self.obstacles:
-            for corner_pair in obstacle.get_corner_pairs():
-                unit.collision(corner_pair, collision_type="surface")
+data = load_map_data(map_path)
 
-        # Check for unit-unit collision
-        for other_unit in self.units:
-            if unit == other_unit or other_unit.dead:
-                continue  # Skip self and dead units
-
-            if not self.are_tanks_close(unit, other_unit):
-                continue  # Skip if tanks aren't close
-
-            # Skip collision check with dead tanks
-            if other_unit.dead or unit.dead:
-                continue
-            
-            # Push tanks when colliding
-            unit.apply_repulsion(other_unit, push_strength=0.5)
-            other_unit.apply_repulsion(unit, push_strength=0.5)  # Ensure symmetry
-        
-
-        # Mine logic
-        for mine in self.mines:
-            if mine.is_exploded:
-                self.handle_mine_explosion(mine)
-                self.mines.remove(mine)
-            mine.get_unit_list(self.units)
-            mine.check_for_tank(unit)
-
-    self.projectiles = temp_projectiles
+for i in data[0]:
+    print(i)

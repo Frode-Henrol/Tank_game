@@ -387,6 +387,8 @@ class Tank:
         
         # Push back using normal_vector2
         dx, dy = normal_vector2[0] * magnitude * self.speed, normal_vector2[1] * magnitude * self.speed
+        print(f"PUSHBACK from surface: {dx}, {dy}, speed: {self.speed}, magtnitude: {magnitude}")
+        
         
         self.pos[0] += dx
         self.pos[1] += dy
@@ -494,14 +496,13 @@ class Tank:
         repulsion_distance = push_strength * self.delta_time * 120
         repulsion_vector = (direction_x * repulsion_distance, direction_y * repulsion_distance)
         
-        # This is quick fix to prevent non moving tank being pushed through walls
+        # This is quick and dirty fix to prevent non moving tank being pushed through walls
         if not self.can_move:
-            self.speed = helper_functions.get_vector_magnitude(repulsion_vector)       
+            self.speed = helper_functions.get_vector_magnitude(repulsion_vector)
+            self.speed_original = self.speed       
             # Scaling repulsion amount linearly with delta time
             dir_amount = -130 * self.delta_time + 3
-            print(f"dir_amount {dir_amount}")
             self.direction = (dir_amount, dir_amount)
-        
             
         
         # Move this tank slightly away

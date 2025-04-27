@@ -89,8 +89,8 @@ class TankGame:
         self.load_gui()                   
         self.load_animations_and_misc()   
         self.load_sound_effects()           
-        self.load_map()                 
-        self.load_map_textures()
+        # self.load_map()                 
+        # self.load_map_textures()
         
         # Settings menu:
         self.show_obstacle_corners = False
@@ -128,6 +128,18 @@ class TankGame:
         if self.godmode:
             self.godmode_toggle()
     
+        # Playthrough
+
+        self.init_playthrough()
+        self.base_path_playthrough_maps = os.path.join(os.getcwd(),r"map_files")
+        self.wait_time_original = 3 # Time in seconds which before reseting after death
+        self.wait_time = 0
+    
+    def init_playthrough(self):
+        self.playthrough_started = False
+        self.current_level_number = 1
+        self.playthrough_lives = 3
+    
     def dpi_fix(self):
         try:
             ctypes.windll.user32.SetProcessDPIAware()
@@ -139,7 +151,15 @@ class TankGame:
             print(f"Toggled godemode for all player tanks")
             unit.toggle_godmode()
 
- 
+    
+    # def init_main_maps(self):
+        
+    #     self.main
+        
+    #     main_maps = {
+    #         1: ""
+    #     }
+    
     # ===============================================================================================================
     # ============================================ Load helper functions ============================================
     def load_gui(self) -> None:
@@ -153,10 +173,17 @@ class TankGame:
         left = x_mid - button_width // 2    # The x value were button starts
         
         self.menu_buttons = [
-            Button(left, 150, 300, 60, "Level selection", States.LEVEL_SELECT),
+            Button(left, 150, 300, 60, "Play", States.PLAYTHROUGH),
+            Button(left, 250, 300, 60, "Level selection", States.LEVEL_SELECT),
+            Button(left, 350, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 450, 300, 60, "Quick play", States.COUNTDOWN),
+            Button(left, 550, 300, 60, "Quit", States.EXIT)
+        ]
+        
+        self.pause_menu_buttons = [
+            Button(left, 150, 300, 60, "Resume", States.DELAY),
             Button(left, 250, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 350, 300, 60, "Quick play", States.COUNTDOWN),
-            Button(left, 450, 300, 60, "Quit", States.EXIT)
+            Button(left, 350, 300, 60, "Quit", States.MENU)
         ]
         
         self.setting_buttons = [
@@ -258,27 +285,7 @@ class TankGame:
             sound = pg.mixer.Sound(os.path.join(os.getcwd(), "sound_effects", "proj_explosion", f"projexp{i}.mp3"))
             sound.set_volume(0.1)
             self.sound_effects["proj_explosion"].append(sound)
-
-    
-    def load_unit_textures(self, name: str) -> list:
-        """Loads specific body and turret images for a given tank"""
-        try:
-            path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
-            turret_name = name.split("_")[0]
-            path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
             
-            tank_img = pg.image.load(path_tank).convert_alpha()
-            tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
-            
-            tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
-            tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
-            
-            return [tank_img, tank_turret_img]
-    
-        except FileNotFoundError:
-            print("Error: Image not found! Check your path.")
-            sys.exit()
-        
     def load_map(self, map_path: str = r"map_files\map_test1.txt") -> None:
         """Loads data from a map file"""
         
@@ -372,7 +379,7 @@ class TankGame:
                     
             except Exception as e:
                 print(f"Error: {e}")
-            
+        
         for unit in self.units:
             unit.set_units(self.units)  # Transfer unit list data to each tank
             
@@ -390,10 +397,12 @@ class TankGame:
             unit.init_sound_effects(self.sound_effects)
             unit.init_animations(self.animations)
         
+        
+        
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
 
-       # ============================================ Load helper functions ============================================
+    # ============================================ Load helper functions ============================================
     def load_and_transform_images_manuel(self, folder_path: str, scale: float = 1) -> list[pg.Surface]:
         """Load and scale all images in a folder using Pygame, sorted numerically. 
             Manuel scale input
@@ -525,7 +534,6 @@ class TankGame:
 
         pg.image.save(self.texture_surface, "debug_texture_output.png")
 
-
     def wrap_texture_on_polygon_type(self, obstacle_list: list, images_list) -> None:
             """Takes a list of polygons and assigns textures to them. ONLY used for single polygon type, like for the destructibles, that needs their own surface"""
             
@@ -566,7 +574,6 @@ class TankGame:
             texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
             return texture_surface
         
-
     def load_map_textures(self) -> None:
         """Load and scale game assets (e.g., images)."""
         try:
@@ -611,8 +618,26 @@ class TankGame:
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
             sys.exit()  
+    
+    def load_unit_textures(self, name: str) -> list:
+        """Loads specific body and turret images for a given tank"""
+        try:
+            path_tank = os.path.join(os.getcwd(),r"units\images", f"{name}.png")
+            turret_name = name.split("_")[0]
+            path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
             
-
+            tank_img = pg.image.load(path_tank).convert_alpha()
+            tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
+            
+            tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
+            tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
+            
+            return [tank_img, tank_turret_img]
+    
+        except FileNotFoundError:
+            print("Error: Image not found! Check your path.")
+            sys.exit()
+        
     # ============================================ Run loop states ==========================================
     def run(self):
         """Main game loop."""
@@ -628,12 +653,20 @@ class TankGame:
                     self.main_menu(event_list)
                 elif self.state == States.SETTINGS:
                     self.settings(event_list)
+                elif self.state == States.PAUSE_MENU:
+                    self.pause_menu(event_list)
+                elif self.state == States.PLAYTHROUGH:
+                    self.playthrough(event_list)
                 elif self.state == States.LEVEL_SELECT:
                     self.level_selection(event_list)
                 elif self.state == States.PLAYING:
                     self.playing(event_list)
                 elif self.state == States.COUNTDOWN:
                     self.count_down(event_list)
+                elif self.state == States.DELAY:
+                    self.delay(event_list)
+                elif self.state == States.INFO_SCREEN:
+                    self.info_screen(event_list)
                 elif self.state == States.EXIT:
                     self.exit()
                 
@@ -644,8 +677,17 @@ class TankGame:
 
     # ============================================ State methods ============================================
     def main_menu(self, event_list):
+        if self.playthrough_started:
+            self.playthrough_started = False
+            self.clear_all_map_data()
+        
         self.screen.fill("gray")
         self.handle_buttons(self.menu_buttons, event_list, self.screen)
+        pg.display.update()
+        
+    def pause_menu(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.pause_menu_buttons, event_list, self.screen)
         pg.display.update()
 
     def exit(self):
@@ -657,14 +699,76 @@ class TankGame:
         self.handle_buttons(self.setting_buttons, event_list, self.screen)
         pg.display.update()
     
+    
+    def playthrough(self, event_list):
+        
+        if self.playthrough_started == True:
+            if all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
+                print("Next level all enemies dead")
+                self.wait_time = 0
+                self.current_level_number += 1
+                self.clear_all_map_data()
+                self.start_map()
+                self.state = States.INFO_SCREEN
+                    
+            if self.units_player_controlled[0].dead:
+                print("Reseting")
+                self.wait_time = 0
+                self.playthrough_lives -= 1
+                self.clear_all_map_data()
+                self.start_map()
+                self.state = States.INFO_SCREEN
+                self.units_player_controlled[0].dead = False
+        
+        
+        if self.playthrough_started == False:
+            self.playthrough_started = True
+            self.clear_all_map_data()
+            self.start_map()
+            self.state = States.INFO_SCREEN
+            
+        
+
+        
+        pass
+    
     def level_selection(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.level_selection_buttons, event_list, self.screen)
         pg.display.update()
     
-    def count_down(self, eventlist):
+    def info_screen(self, event_list):
+        
+        font = pg.font.Font(None, 100)  # Large font for the countdown number
+        countdown_number = 3
+        
+        while countdown_number > 0:
+            self.screen.fill("gray")
+            
+            # If dead we show loser screen
+            if self.playthrough_lives == 0:
+                countdown_text = font.render(f"You lost", True, (0,0,0))
+                text_rect = countdown_text.get_rect(center=(self.WINDOW_W // 2, self.WINDOW_H // 2))  # Center the text
+            else:
+                countdown_text = font.render(f"Level: {self.current_level_number} Lives: {self.playthrough_lives}", True, (0,0,0))
+                text_rect = countdown_text.get_rect(center=(self.WINDOW_W // 2, self.WINDOW_H // 2))  # Center the text
+            self.screen.blit(countdown_text, text_rect)
+            countdown_number -= 1
+            pg.display.update()
+            time.sleep(1)
+        
+        # If all lives are used clear data and return to main menu
+        if self.playthrough_lives == 0:
+            self.state = States.MENU
+            self.clear_all_map_data()
+            self.init_playthrough()
+        else:
+            self.state = States.COUNTDOWN
+
+    def count_down(self, event_list):
         # Set countdown starting number (for example, 3 seconds)
-        countdown_number = 1
+        countdown_number = 3
+        
         font = pg.font.Font(None, 200)  # Large font for the countdown number
         
         while countdown_number > 0:
@@ -688,6 +792,23 @@ class TankGame:
     
         self.state = States.PLAYING
 
+    def delay(self, event_list):
+        # Set countdown starting number (for example, 3 seconds)
+        countdown_number = 0.2
+        while countdown_number > 0:
+            self.draw() # Drawing all objects
+
+            # Update the display
+            pg.display.update()
+
+            # Wait for a second before decreasing the countdown number
+            time.sleep(0.1)
+
+            # Decrease the countdown number
+            countdown_number -= 0.1
+    
+        self.state = States.PLAYING
+
     def playing(self, event_list):
         
         # Controls in game:
@@ -700,7 +821,7 @@ class TankGame:
             sys.exit()
         if keys[pg.K_ESCAPE]:
             print("ESCAPE PRESSED")
-            self.state = States.MENU
+            self.state = States.PAUSE_MENU
             return
         
         # If the player controlled units list is empty we dont take inputs
@@ -728,17 +849,26 @@ class TankGame:
                 self.units_player_controlled[0].abort_waypoint()
                 
             if keys[pg.K_f]:
-                self.units_player_controlled.clear()
-                self.units.clear()
-                self.obstacles_sta.clear()
-                self.obstacles_des.clear()
-                self.obstacles_pit.clear()
-                self.mines.clear()
+                self.clear_all_map_data()
                 self.load_map()
                 self.load_map_textures()
 
         self.update()
         self.draw()
+
+    def start_map(self):
+        map_path = os.path.join(self.base_path_playthrough_maps, f"lvl{self.current_level_number}.txt")
+        print(f"LOADING MAP: lvl{self.current_level_number}")
+        self.load_map(map_path)
+        self.load_map_textures()
+    
+    def clear_all_map_data(self):
+        self.units_player_controlled.clear()
+        self.units.clear()
+        self.obstacles_sta.clear()
+        self.obstacles_des.clear()
+        self.obstacles_pit.clear()
+        self.mines.clear()
 
     # ============================================ Handle methods ============================================
     
@@ -756,7 +886,6 @@ class TankGame:
             
     def handle_events(self, event_list):
         """Handle player inputs and game events."""
-
         for event in event_list:
             match event.type:
                 case pg.QUIT:
@@ -765,16 +894,18 @@ class TankGame:
                 case pg.KEYDOWN:
                     if event.key == pg.K_r:
                         print("RESPAWN")
-                        self.units_player_controlled[0].respawn() # The 0 indicates player tank
+                        if len(self.units_player_controlled):
+                            self.units_player_controlled[0].respawn() # The 0 indicates player tank
             
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
-            if event.type == pg.MOUSEBUTTONUP:
-                pos = pg.mouse.get_pos()
-                for poly in self.polygon_list_no_border:
+            # if event.type == pg.MOUSEBUTTONUP:
+            #     pos = pg.mouse.get_pos()
+            #     if len(self.polygon_list_no_border):
+            #         for poly in self.polygon_list_no_border:
 
-                    poly_pg_object = pg.draw.polygon(self.screen, (0,100,0), poly)
-                    if poly_pg_object.collidepoint(pos):
-                        print("True mouse inside polygone")
+            #             poly_pg_object = pg.draw.polygon(self.screen, (0,100,0), poly)
+            #             if poly_pg_object.collidepoint(pos):
+            #                 print("True mouse inside polygone")
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             
     # ============================================ Drawing/update ============================================     
@@ -786,6 +917,20 @@ class TankGame:
         self.last_frame_time = current_time
             
     def update(self):        
+        
+        # If playthrough has started
+        if self.playthrough_started:
+            
+            # If player dead or all enemies are dead
+            if self.units_player_controlled[0].dead or all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
+                self.wait_time += self.delta_time
+            
+            if self.wait_time >= self.wait_time_original:
+                
+                self.state = States.PLAYTHROUGH
+                
+                return
+            
         
         if self.time - self.last_print_time >= 0.5:
            
@@ -1187,7 +1332,11 @@ class TankGame:
 class States:
     MENU = "menu"
     SETTINGS = "settings"
+    PAUSE_MENU = "pause_menu"
+    PLAYTHROUGH = "playthrough"
     LEVEL_SELECT = "level_select"
     PLAYING = "playing"
     COUNTDOWN = "countdown"
+    DELAY = "delay"
+    INFO_SCREEN = "infoscreen"
     EXIT = "exit"

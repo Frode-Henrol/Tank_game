@@ -954,7 +954,11 @@ class TankAI:
 
         self.tank.abort_waypoint() 
         projectile = self.closest_projectile[0]
-        vx, vy = projectile.direction
+        
+        if self.advanced_dodge:
+            vx, vy = self.closest_projectile[2]  # predicted_direction
+        else:
+            vx, vy = projectile.direction
 
         # Get both perpendicular dodge directions (left and right)
         dodge_dirs = [(-vy, vx), (vy, -vx)]
@@ -1378,6 +1382,8 @@ class TankAI:
         return True
     
     def find_closest_projectile_simpel(self):
+        """Finds the closest projectile path relativ to tank postion
+        """
         closest = None
         min_dist = float("inf")
         tank_pos = np.array(self.tank.pos)  # Cache tank position
@@ -1408,7 +1414,8 @@ class TankAI:
         self.closest_projectile = (closest, min_dist if closest else 9999)
     
     def find_closest_projectile_advanced(self):
-        print(f"CLOSET: {self.closest_projectile}")
+        """Finds the closest projectile path relativ to tank postion, ADVANDED: accounts for bounces!
+        """
         closest = None
         min_dist = float("inf")
         tank_pos = np.array(self.tank.pos)  # Cache tank position
@@ -1437,13 +1444,23 @@ class TankAI:
                 # Distance from tank to current line segment
                 dist = helper_functions.point_to_line_distance(start, end, tank_pos)
                 
+                # When a better projectile is found
                 if dist < min_dist:
                     min_dist = dist
                     closest = proj
+                    # Check for closest segment/line/path (in the ray path)
+                    first_segment_direction = end - start
+                    if np.linalg.norm(first_segment_direction) != 0:
+                        first_segment_direction = first_segment_direction / np.linalg.norm(first_segment_direction)
+                    predicted_direction = (first_segment_direction[0], first_segment_direction[1])
+                    
                     if min_dist == 0:
-                        break  # Perfect hit possible
-            
-        self.closest_projectile = (closest, min_dist if closest else 9999)
+                        break
+
+        
+        self.closest_projectile = (closest, min_dist if closest else 9999, predicted_direction if closest else (0, 0))
+
+        # self.closest_projectile = (closest, min_dist if closest else 9999)
         
     
     # TODO Anvend generel func og slet:

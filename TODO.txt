@@ -19,10 +19,7 @@ for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntim
 
 
 
-1.
-Den nye advanced dodge kunne måske optimeres. For hver ai update udregnes ny deflect for projetiles.
-Disse skal blot regnes en gang når der skydes for at få path og så må dogde aktives med kombi at være for tæt på
-disse paths og den reelle afstand til projetiles. dog kan dett være lidt janky
-
-2. Den nye dodge tager ikke højde for hvilken ray line der tættest, så den laver blot dodge ud fra 
-fra projectiles bevægelse, dvs ikke tager højde for et potentiel bounce
+Lav count down der måske er 10 frames maks og som resetes når du rammer væg med tank
+Hvis denne count er over 0 på noget tidspunkt kan tanks ikke bruge predict angreb
+det forhindre at tanks prøver at skyde på anden side af væg når man konstant kører
+ind i væggen

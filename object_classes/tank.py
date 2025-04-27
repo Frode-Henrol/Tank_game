@@ -1462,7 +1462,6 @@ class TankAI:
 
         # self.closest_projectile = (closest, min_dist if closest else 9999)
         
-    
     # TODO Anvend generel func og slet:
     def deflect_ray(self, bounces):        
         lines = []
@@ -1593,8 +1592,6 @@ class TankAI:
         
         return lines
      
-            
-        
     def intercept_point(self, target_object, projectile = False):
         """Finds predictive coord for the unit and some target (other unit or projectile)"""
         # Calculate relative vector from shooter to target

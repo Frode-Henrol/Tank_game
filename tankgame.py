@@ -140,7 +140,7 @@ class TankGame:
     def init_playthrough(self):
         self.playthrough_started = False
         self.current_level_number = 1
-        self.playthrough_lives = 3
+        self.playthrough_lives = 10
     
     def dpi_fix(self):
         try:

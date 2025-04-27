@@ -80,8 +80,8 @@
         "use_turret": true
     },
     "white_tank": {
-        "tank_speed_modifier": 1.44,
-        "projectile_speed_modifier": 8.4,
+        "tank_speed_modifier": 2.4,
+        "projectile_speed_modifier": 6.72,
         "firerate": 0.8,
         "bounch_limit": 1,
         "mine_limit": 2,

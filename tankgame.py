@@ -729,10 +729,6 @@ class TankGame:
             self.start_map()
             self.state = States.INFO_SCREEN
             
-        
-
-        
-        pass
     
     def level_selection(self, event_list):
         self.screen.fill("gray")
@@ -1191,6 +1187,15 @@ class TankGame:
             for queue in self.all_unit_waypoint_queues:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
+            
+            # SKAL SLETTES ELLER HAVDE EGEN SETTING KNAP (skal under sin egen dodge setting debug)
+            if self.units[1].ai.proj_ray != None:
+                for c1, c2 in self.units[1].ai.proj_ray:
+                    pg.draw.line(self.screen, "red", c1, c2, 5) 
+                    
+            if unit.ai.behavior_state == "dodge":
+                for node in unit.ai.dodge_nodes:
+                    pg.draw.circle(self.screen, "red", node, 5)  # Draw nodes as circles
     
                         
         # Draw pathfinding paths
@@ -1216,9 +1221,6 @@ class TankGame:
                         for node in possible_nodes:
                             pg.draw.circle(self.screen, "orange", node, 5)  # Draw nodes as circles
                             
-                    if unit.ai.behavior_state == "dodge":
-                        for node in unit.ai.dodge_nodes:
-                            pg.draw.circle(self.screen, "red", node, 5)  # Draw nodes as circles
                             
                     if unit.ai.unit_target_line != None:
                         pg.draw.line(self.screen, unit.ai.unit_target_line_color, unit.ai.unit_target_line[0], unit.ai.unit_target_line[1], 3)

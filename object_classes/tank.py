@@ -566,7 +566,7 @@ class Tank:
         path = self.find_path(destination_coord)
         
         if path is None:
-            print("Could not find path")
+            # print("Could not find path")
             return
         
         # Save the path as the waypoint queue  (reversing since .pop() is used in move_to_node)
@@ -796,6 +796,13 @@ class TankAI:
         self.update_rate = 1
         self.max_bounces = self.tank.bounch_limit - 1 # Temp remove one since 1 is added for projectile logic to work properly
         self.ray_path = [((0,0),(0,0)),((0,0),(0,0))]
+        
+        # Dodge ray
+        self.dodge_ray_path = []
+        self.advanced_dodge = config.get("advanced_dodge", False)
+
+        self.proj_ray = None
+    
     
     def update_obstacles(self, obstacles):
         self.obstacles = obstacles
@@ -928,6 +935,7 @@ class TankAI:
                 self.behavior_state = BehaviorStates.ATTACKING
             self.timer = 180
 
+    
     def dodge(self):
         
         # Peform checks that will prevent from doing the dodge
@@ -939,6 +947,7 @@ class TankAI:
             self.behavior_state = BehaviorStates.DEFENDING
             return
         
+        # GENTAGELSE! se i update
         if self.closest_projectile[1] > self.dist_start_dodge:
             self.behavior_state = BehaviorStates.DEFENDING
             return
@@ -1020,7 +1029,7 @@ class TankAI:
             return
         
         if self.frame_counter % self.update_rate == 0:
-            self.ray_path = self.deflect_ray()
+            self.ray_path = self.deflect_ray(self.max_bounces)
                 
         self.can_shoot = True
         
@@ -1111,7 +1120,12 @@ class TankAI:
         if self.timer > 0:
             self.timer -= 1  
         
-        self.find_closest_projectile()
+        if self.advanced_dodge:
+            # Advanded mode account for future bounces
+            self.find_closest_projectile_advanced()
+        else:
+            # Simpel only accounts for direct path
+            self.find_closest_projectile_simpel()
         self.find_closest_mine()
             
         if self.dodge_cooldown > 0:
@@ -1259,7 +1273,6 @@ class TankAI:
         
         self.closest_mine = min(mines_data, key=lambda x: x[1])
 
-
     def find_random_path_without_mines(self):
         # Find destination coord without mine (path without mines can't be done unless we recalculate the grid_dict, which is expensive)
         # Update valid nodes to exclude dangerous nodes
@@ -1364,7 +1377,7 @@ class TankAI:
         self.target_in_sight = True
         return True
     
-    def find_closest_projectile(self):
+    def find_closest_projectile_simpel(self):
         closest = None
         min_dist = float("inf")
         tank_pos = np.array(self.tank.pos)  # Cache tank position
@@ -1393,8 +1406,48 @@ class TankAI:
                     break
 
         self.closest_projectile = (closest, min_dist if closest else 9999)
-
-    def deflect_ray(self):        
+    
+    def find_closest_projectile_advanced(self):
+        print(f"CLOSET: {self.closest_projectile}")
+        closest = None
+        min_dist = float("inf")
+        tank_pos = np.array(self.tank.pos)  # Cache tank position
+        
+        for proj in self.projectiles:
+            lines = self.deflect_ray_generel(proj.pos, proj.direction, proj.bounce_limit-proj.bounce_count-1)
+            self.proj_ray = lines
+            for start, end in lines:
+                start = np.array(start)
+                end = np.array(end)
+                
+                # Correct direction: from start to end
+                direction_vector = end - start
+                to_tank_vector = tank_pos - start
+                
+                # Normalize vectors
+                if np.linalg.norm(direction_vector) == 0 or np.linalg.norm(to_tank_vector) == 0:
+                    continue  # Avoid division by zero
+                direction_vector_normalized = direction_vector / np.linalg.norm(direction_vector)
+                to_tank_normalized = to_tank_vector / np.linalg.norm(to_tank_vector)
+                
+                # Check if projectile is moving generally toward tank
+                if np.dot(direction_vector_normalized, to_tank_normalized) < 0.3:  # 0.3 ≈ 72 degrees tolerance
+                    continue
+                
+                # Distance from tank to current line segment
+                dist = helper_functions.point_to_line_distance(start, end, tank_pos)
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    closest = proj
+                    if min_dist == 0:
+                        break  # Perfect hit possible
+            
+        self.closest_projectile = (closest, min_dist if closest else 9999)
+        
+    
+    # TODO Anvend generel func og slet:
+    def deflect_ray(self, bounces):        
         lines = []
         direction = self.turret_direction
         offset_start = 30
@@ -1404,7 +1457,7 @@ class TankAI:
         bounce_count = 0
         max_distance = 2000
         
-        while bounce_count <= self.max_bounces:
+        while bounce_count <= bounces:
             # Calculate end point of this ray segment
             end_point = (
                 current_point[0] + direction[0] * max_distance,
@@ -1458,6 +1511,73 @@ class TankAI:
         
         return lines
             
+    def deflect_ray_generel(self, start_point, direction, bounces, max_distance=2000):
+        lines = []
+        
+        # Start slightly offset in the direction
+        current_point = (
+            start_point[0] + direction[0], 
+            start_point[1] + direction[1]
+        )
+        bounce_count = 0
+        
+        while bounce_count <= bounces:
+            # Calculate end point of the current ray segment
+            end_point = (
+                current_point[0] + direction[0] * max_distance,
+                current_point[1] + direction[1] * max_distance
+            )
+            
+            closest_intersection = None
+            closest_distance = float('inf')
+            closest_normal = None
+            
+            # Find closest intersection with any obstacle
+            for obstacle in self.obstacles:
+                for corner_start, corner_end in obstacle.get_corner_pairs():
+                    intersect = line_intersection.line_intersection(
+                        corner_start[0], corner_start[1],
+                        corner_end[0], corner_end[1],
+                        current_point[0], current_point[1],
+                        end_point[0], end_point[1]
+                    )
+                    
+                    if intersect != (-1.0, -1.0):
+                        dist = helper_functions.distance(current_point, intersect)
+                        if dist < closest_distance and dist > 1:  # Avoid self-intersection
+                            closest_distance = dist
+                            closest_intersection = intersect
+                            # Get possible normals
+                            normal1, normal2 = df.find_normal_vectors(corner_start, corner_end)
+                            # Choose the correct normal based on incoming direction
+                            dot1 = normal1[0]*direction[0] + normal1[1]*direction[1]
+                            closest_normal = normal1 if dot1 < 0 else normal2
+            
+            # If no intersection found, ray goes infinitely
+            if not closest_intersection:
+                lines.append((tuple(current_point), tuple(end_point)))
+                break
+            
+            # Add current segment
+            lines.append((tuple(current_point), tuple(closest_intersection)))
+            
+            # Reflect direction based on the surface normal
+            if closest_normal:
+                direction = df.find_deflect_vector(closest_normal, direction)
+                # Slightly move the point along the new direction
+                current_point = (
+                    closest_intersection[0] + direction[0] * 0.1,
+                    closest_intersection[1] + direction[1] * 0.1
+                )
+            else:
+                current_point = closest_intersection
+            
+            bounce_count += 1
+        
+        return lines
+     
+            
+        
     def intercept_point(self, target_object, projectile = False):
         """Finds predictive coord for the unit and some target (other unit or projectile)"""
         # Calculate relative vector from shooter to target

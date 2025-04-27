@@ -211,7 +211,8 @@
     
         "can_dodge_proj": true,
         "dist_start_dodge": 50,
-        "proj_dodge_cooldown_val": 25,
+        "proj_dodge_cooldown_val": 20,
+        "advanced_dodge": true,
     
         "rotation_speed": 1.2,
         "aiming_angle": 20,

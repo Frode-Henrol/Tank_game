@@ -1165,7 +1165,8 @@ class TankAI:
         chosen_node = self.valid_nodes[random_indice]
         
         # Find a path to the node
-        self.tank.find_waypoint(chosen_node)
+        if self.tank.find_waypoint(chosen_node) == None:
+            self.find_random_path_without_mines()   #DBT01 - test
     
     def move_turret_to_target(self, target_coord: tuple[float, float], angle_inaccuracy: float):
         # Calculate target direction vector
@@ -1241,7 +1242,8 @@ class TankAI:
 
         if possible_nodes:
             chosen_node = random.choice(possible_nodes)
-            self.tank.find_waypoint(chosen_node[0])
+            if self.tank.find_waypoint(chosen_node[0]) == None:
+                self.find_random_path_without_mines()   #DBT01 - test
         
         self.possible_nodes = [x[0] for x in possible_nodes]
 

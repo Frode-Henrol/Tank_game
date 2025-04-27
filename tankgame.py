@@ -88,9 +88,11 @@ class TankGame:
 
         self.load_gui()                   
         self.load_animations_and_misc()   
-        self.load_sound_effects()           
-        # self.load_map()                 
-        # self.load_map_textures()
+        self.load_sound_effects()     
+        
+        # ONLY FOR THE QUICKPLAY DEBUG!      
+        self.load_map()                 
+        self.load_map_textures()
         
         # Settings menu:
         self.show_obstacle_corners = False

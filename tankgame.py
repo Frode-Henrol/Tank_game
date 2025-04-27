@@ -139,141 +139,7 @@ class TankGame:
             print(f"Toggled godemode for all player tanks")
             unit.toggle_godmode()
 
-    # ============================================ Load helper functions ============================================
-    def load_and_transform_images(self, folder_path: str, scale: float = 1) -> list[pg.Surface]:
-        """Load and scale all images in a folder using Pygame, sorted numerically."""
-        pg.init()
-        supported_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
-        image_list: list[pg.Surface] = []
-
-        # Helper to extract numeric value from filename
-        def extract_number(filename):
-            match = re.search(r'\d+', filename)
-            return int(match.group()) if match else float('inf')
-
-        # Sort filenames by extracted number
-        sorted_filenames = sorted(
-            [f for f in os.listdir(folder_path) if f.lower().endswith(supported_exts)],
-            key=extract_number
-        )
-
-        for filename in sorted_filenames:
-            track_path = os.path.join(folder_path, filename)
-            try:
-                track_img = pg.image.load(track_path).convert_alpha()
-                
-                scaled_img = pg.transform.scale(track_img, (self.WINDOW_DIM_SCALED[0]*scale, self.WINDOW_DIM_SCALED[1]*scale))
-                image_list.append(scaled_img)
-            except Exception as e:
-                print(f"Failed to load {filename}: {e}")
-
-        return image_list
-   
-    def wrap_texture_on_polygons_static(self, polygons_data_list: list, texturing_dict: dict) -> None:
-        """Takes a list of polygons with types and assigns appropriate textures to them
-
-        Args:
-            polygons_data_list: List of tuples containing (polygon_points, polygon_type)
-            texturing_dict: Dictionary mapping types to lists of images (e.g., {0: [img1, img2], 1: [img3, img4]})
-        """
-        dim = self.WINDOW_DIM
-
-        # Create final texture surface
-        final_texture_surface = pg.Surface(dim, pg.SRCALPHA)
-        final_texture_surface.fill((0, 0, 0, 0))  # Start with transparent
-
-        # Process each polygon type separately
-        for polygon_type, texture_list in texturing_dict.items():
-            # Create a surface for this type's polygons
-            type_surface = pg.Surface(dim, pg.SRCALPHA)
-            type_surface.fill((0, 0, 0, 0))
-            
-            # Create a mask surface for this type
-            mask_surface = pg.Surface(dim, pg.SRCALPHA)
-            mask_surface.fill((0, 0, 0, 0))
-            
-            # Draw all polygons of this type on the mask
-            for polygon_points, p_type in polygons_data_list:
-                if p_type == polygon_type:
-                    pg.draw.polygon(mask_surface, (255, 255, 255, 255), polygon_points)
-            
-            # Create mask from the drawn polygons
-            mask = pg.mask.from_surface(mask_surface)
-            mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-            
-            # Create texture for this type
-            texture_surface = pg.Surface(dim, pg.SRCALPHA)
-            texture_surface.fill((0, 0, 0, 0))
-            
-            # Get all polygons of this type to find bounding area
-            type_polygons = [points for points, p_type in polygons_data_list if p_type == polygon_type]
-            if not type_polygons:
-                continue
-                
-            # Get combined bounding rect for efficiency
-            all_points = [point for poly in type_polygons for point in poly]
-            min_x = min(p[0] for p in all_points)
-            max_x = max(p[0] for p in all_points)
-            min_y = min(p[1] for p in all_points)
-            max_y = max(p[1] for p in all_points)
-            
-            # Tile textures only within the bounding area
-            texture = random.choice(texture_list)
-            tex_width, tex_height = texture.get_size()
-            
-            for x in range(int(min_x), int(max_x) + tex_width, tex_width):
-                for y in range(int(min_y), int(max_y) + tex_height, tex_height):
-                    texture_surface.blit(random.choice(texture_list), (x, y))
-            
-            # Apply mask to this type's texture
-            texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
-            
-            # Combine with final texture
-            final_texture_surface.blit(texture_surface, (0, 0))
-
-        self.texture_surface = final_texture_surface
-
-        pg.image.save(self.texture_surface, "debug_texture_output.png")
-
-
-    def wrap_texture_on_polygon_type(self, obstacle_list: list, images_list) -> None:
-            """Takes a list of polygons and assigns textures to them"""
-            
-            # Load texture and prepare it
-            # texture = pg.image.load(texture_path).convert()
-            # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
-            
-            # Convert obstacles list to a list of list of corners
-            polygons_points_list = [obstacle.corners for obstacle in obstacle_list]
-            
-            texture = random.choice(images_list)
-            
-            dim = self.WINDOW_DIM
-            
-            # Create a surface for all polygons
-            polygon_surface = pg.Surface(dim, pg.SRCALPHA)
-            polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
-
-            # Draw all polygons on the surface
-            for polygon_points in polygons_points_list:
-                pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
-
-            # Use the polygon_surface as a mask
-            mask = pg.mask.from_surface(polygon_surface)
-            mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
-
-            # Prepare texture surface to match size
-            texture_surface = pg.Surface(dim, pg.SRCALPHA)
-            for x in range(0, dim[0], texture.get_width()):
-                texture = random.choice(images_list)
-                for y in range(0, dim[1], texture.get_height()):
-                    texture_surface.blit(texture, (x, y))
-
-            # Apply mask to texture
-            texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
-            return texture_surface
-
-
+ 
     # ===============================================================================================================
     # ============================================ Load helper functions ============================================
     def load_gui(self) -> None:
@@ -345,16 +211,16 @@ class TankGame:
             
             # Load muzzle animation
             muzzle_flash_path = os.path.join(animation_path, "muzzle_flash")
-            self.muzzle_flash_list = self.load_and_transform_images(muzzle_flash_path)
+            self.muzzle_flash_list = self.load_and_transform_images_manuel(muzzle_flash_path)
             self.animations["muzzle_flash"] = self.muzzle_flash_list
 
             # Load projectile explosion animation
             proj_explosion_path = os.path.join(animation_path, "proj_explosion")
-            self.proj_explosion_list = self.load_and_transform_images(proj_explosion_path)
+            self.proj_explosion_list = self.load_and_transform_images_manuel(proj_explosion_path)
             self.animations["proj_explosion"] = self.proj_explosion_list
             
             # Load projectile explosion animation (shares proj_explosion just scaled)
-            self.tank_explosion_list = self.load_and_transform_images(proj_explosion_path, scale=3)
+            self.tank_explosion_list = self.load_and_transform_images_manuel(proj_explosion_path, scale=3)
             self.animations["tank_explosion"] = self.tank_explosion_list
         except FileNotFoundError:
             print("Error: Image not found! Check your path.")
@@ -527,6 +393,180 @@ class TankGame:
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
 
+       # ============================================ Load helper functions ============================================
+    def load_and_transform_images_manuel(self, folder_path: str, scale: float = 1) -> list[pg.Surface]:
+        """Load and scale all images in a folder using Pygame, sorted numerically. 
+            Manuel scale input
+        """
+        pg.init()
+        supported_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+        image_list: list[pg.Surface] = []
+
+        # Helper to extract numeric value from filename
+        def extract_number(filename):
+            match = re.search(r'\d+', filename)
+            return int(match.group()) if match else float('inf')
+
+        # Sort filenames by extracted number
+        sorted_filenames = sorted(
+            [f for f in os.listdir(folder_path) if f.lower().endswith(supported_exts)],
+            key=extract_number
+        )
+        
+        for filename in sorted_filenames:
+            path = os.path.join(folder_path, filename)
+            try:
+                img = pg.image.load(path).convert_alpha()  
+                scaled_img = pg.transform.scale(img, (self.WINDOW_DIM_SCALED[0]*scale, self.WINDOW_DIM_SCALED[1]*scale))
+                image_list.append(scaled_img)
+            except Exception as e:
+                print(f"Failed to load {filename}: {e}")
+
+        return image_list
+
+    def load_and_transform_images_automatic(self, folder_path: str, node_spacing: int = 50) -> list[pg.Surface]:
+        """Load and scale all images in a folder using Pygame, so each image fits inside node_spacing x node_spacing.
+            Scale automatic based on nodespacing
+        """
+        pg.init()
+        supported_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+        image_list: list[pg.Surface] = []
+
+        def extract_number(filename):
+            match = re.search(r'\d+', filename)
+            return int(match.group()) if match else float('inf')
+
+        sorted_filenames = sorted(
+            [f for f in os.listdir(folder_path) if f.lower().endswith(supported_exts)],
+            key=extract_number
+        )
+
+        for filename in sorted_filenames:
+            path = os.path.join(folder_path, filename)
+            try:
+                img = pg.image.load(path).convert_alpha()
+
+                width, height = img.get_size()
+                scale_factor = node_spacing / max(width, height)  # <- make sure the *larger side* fits
+
+                new_width = int(width * scale_factor)
+                new_height = int(height * scale_factor)
+
+                scaled_img = pg.transform.scale(img, (new_width, new_height))
+                image_list.append(scaled_img)
+            except Exception as e:
+                print(f"Failed to load {filename}: {e}")
+
+        return image_list
+   
+    def wrap_texture_on_polygons_static(self, polygons_data_list: list, texturing_dict: dict) -> None:
+        """Takes a list of polygons with types and assigns appropriate textures to them. Outputs several polygons types on same surface.
+
+        Args:
+            polygons_data_list: List of tuples containing (polygon_points, polygon_type)
+            texturing_dict: Dictionary mapping types to lists of images (e.g., {0: [img1, img2], 1: [img3, img4]})
+        """
+        dim = self.WINDOW_DIM
+
+        # Create final texture surface
+        final_texture_surface = pg.Surface(dim, pg.SRCALPHA)
+        final_texture_surface.fill((0, 0, 0, 0))  # Start with transparent
+
+        # Process each polygon type separately
+        for polygon_type, texture_list in texturing_dict.items():
+            # Create a surface for this type's polygons
+            type_surface = pg.Surface(dim, pg.SRCALPHA)
+            type_surface.fill((0, 0, 0, 0))
+            
+            # Create a mask surface for this type
+            mask_surface = pg.Surface(dim, pg.SRCALPHA)
+            mask_surface.fill((0, 0, 0, 0))
+            
+            # Draw all polygons of this type on the mask
+            for polygon_points, p_type in polygons_data_list:
+                if p_type == polygon_type:
+                    pg.draw.polygon(mask_surface, (255, 255, 255, 255), polygon_points)
+            
+            # Create mask from the drawn polygons
+            mask = pg.mask.from_surface(mask_surface)
+            mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+            
+            # Create texture for this type
+            texture_surface = pg.Surface(dim, pg.SRCALPHA)
+            texture_surface.fill((0, 0, 0, 0))
+            
+            # Get all polygons of this type to find bounding area
+            type_polygons = [points for points, p_type in polygons_data_list if p_type == polygon_type]
+            if not type_polygons:
+                continue
+                
+            # Get combined bounding rect for efficiency
+            all_points = [point for poly in type_polygons for point in poly]
+            min_x = min(p[0] for p in all_points)
+            max_x = max(p[0] for p in all_points)
+            min_y = min(p[1] for p in all_points)
+            max_y = max(p[1] for p in all_points)
+            
+            # Tile textures only within the bounding area
+            texture = random.choice(texture_list)
+            tex_width, tex_height = texture.get_size()
+            
+            for x in range(int(min_x), int(max_x) + tex_width, tex_width):
+                for y in range(int(min_y), int(max_y) + tex_height, tex_height):
+                    texture_surface.blit(random.choice(texture_list), (x, y))
+            
+            # Apply mask to this type's texture
+            texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+            
+            # Combine with final texture
+            final_texture_surface.blit(texture_surface, (0, 0))
+
+        self.texture_surface = final_texture_surface
+
+        pg.image.save(self.texture_surface, "debug_texture_output.png")
+
+
+    def wrap_texture_on_polygon_type(self, obstacle_list: list, images_list) -> None:
+            """Takes a list of polygons and assigns textures to them. ONLY used for single polygon type, like for the destructibles, that needs their own surface"""
+            
+            # Load texture and prepare it
+            # texture = pg.image.load(texture_path).convert()
+            # texture = pg.transform.scale(texture, (500, 150))  # scale to approximate size
+            
+            # Convert obstacles list to a list of list of corners
+            polygons_points_list = [obstacle.corners for obstacle in obstacle_list]
+            
+            texture = random.choice(images_list)
+            
+            dim = self.WINDOW_DIM
+            
+            # Create a surface for all polygons
+            polygon_surface = pg.Surface(dim, pg.SRCALPHA)
+            polygon_surface.fill((0, 0, 0, 0))  # Fill the surface with transparency
+
+            # Draw all polygons on the surface
+            for polygon_points in polygons_points_list:
+                pg.draw.polygon(polygon_surface, (255, 255, 255, 255), polygon_points)
+
+            # Use the polygon_surface as a mask
+            mask = pg.mask.from_surface(polygon_surface)
+            mask_surface = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
+
+            # Start Pattern based at top-left of map:
+            topleft_x, topleft_y = self.border_polygon[3]
+            
+            # Prepare texture surface to match size
+            texture_surface = pg.Surface(dim, pg.SRCALPHA)
+            for x in range(topleft_x, dim[0], texture.get_width()):
+                texture = random.choice(images_list)
+                for y in range(topleft_y, dim[1], texture.get_height()):
+                    texture_surface.blit(texture, (x, y))
+
+            # Apply mask to texture
+            texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
+            return texture_surface
+        
+
     def load_map_textures(self) -> None:
         """Load and scale game assets (e.g., images)."""
         try:
@@ -546,13 +586,13 @@ class TankGame:
             }
             
             self.texture_dict = {
-                0: self.load_and_transform_images(texture_paths[0], scale=3),
-                1: self.load_and_transform_images(texture_paths[0], scale=3),
-                2: self.load_and_transform_images(texture_paths[2], scale=3)
+                0: self.load_and_transform_images_automatic(texture_paths[0]),
+                1: self.load_and_transform_images_automatic(texture_paths[1]),
+                2: self.load_and_transform_images_automatic(texture_paths[2])
             }
             
             # Destructibles: 
-            self.images_des = self.load_and_transform_images(texture_paths[1], scale=3)
+            self.images_des = self.texture_dict[1]
             self.des_texture_surface = self.wrap_texture_on_polygon_type(self.obstacles_des, self.images_des)
             
             # Standard and pit: 
@@ -747,7 +787,7 @@ class TankGame:
             
     def update(self):        
         
-        if self.time - self.last_print_time >= 0.1:
+        if self.time - self.last_print_time >= 0.5:
            
             self.last_print_time = self.time  # Update last print time
             self.fps_list.append(1/self.delta_time)
@@ -760,7 +800,7 @@ class TankGame:
             mov_avg_fps = sum(self.fps_list) / len(self.fps_list)
             mov_delta_fps = sum(self.delta_time_list) / len(self.delta_time_list)
         
-            # print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/self.delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
+            print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/self.delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
            
         
         self.frame += 1

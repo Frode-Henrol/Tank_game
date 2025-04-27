@@ -1380,10 +1380,6 @@ class TankAI:
                 continue
                 
             # Calculate distance
-            print(f"startpos: [{proj.startpos[0]:.1f}, {proj.startpos[1]:.1f}] "
-                f"projpos: [{proj.pos[0]:.1f}, {proj.pos[1]:.1f}] "
-                f"tank pos: [{self.tank.pos[0]:.1f}, {self.tank.pos[1]:.1f}]")
-
             dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)
             # Early update if better match found
             if dist < min_dist:

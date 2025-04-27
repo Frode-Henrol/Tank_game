@@ -11,7 +11,7 @@ class Projectile:
         self.spawn_coord = list(tuple(unit_pos))
         self.startpos = list(tuple(startpos))
         self.startpos_original = list(tuple(startpos))  # quick fix to fix dodge problem with ai
-        self.pos = self.startpos
+        self.pos = list(self.startpos)
         self.direction = direction
         self.degrees = 0
         self.speed_original = speed

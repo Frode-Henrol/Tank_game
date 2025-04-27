@@ -814,7 +814,7 @@ class TankAI:
         
         # Avoid projectiles
         
-        print(f"Proj to close! {self.closest_projectile[1] < self.dist_start_dodge} closest {self.closest_projectile[1]} and dist start: {self.dist_start_dodge} Amount of projectiles: {self.projectiles}")
+        #print(f"Proj to close! {self.closest_projectile[1] < self.dist_start_dodge} closest {self.closest_projectile[1]} and dist start: {self.dist_start_dodge} Amount of projectiles: {self.projectiles}")
 
         if self.can_dodge_proj and self.closest_projectile[1] < self.dist_start_dodge and self.dodge_cooldown == 0:
             self.behavior_state = BehaviorStates.DODGE
@@ -1380,7 +1380,10 @@ class TankAI:
                 continue
                 
             # Calculate distance
-            print(f"startpos: {proj.startpos_original} projpos: {proj.pos}, tank pos: {self.tank.pos}")
+            print(f"startpos: [{proj.startpos[0]:.1f}, {proj.startpos[1]:.1f}] "
+                f"projpos: [{proj.pos[0]:.1f}, {proj.pos[1]:.1f}] "
+                f"tank pos: [{self.tank.pos[0]:.1f}, {self.tank.pos[1]:.1f}]")
+
             dist = helper_functions.point_to_line_distance(proj.startpos, proj.pos, self.tank.pos)
             # Early update if better match found
             if dist < min_dist:

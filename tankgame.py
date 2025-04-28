@@ -198,7 +198,7 @@ class TankGame:
             Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
             Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
             Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
-            Button(left, 950, 300, 60, "Back", States.MENU)
+            Button(left, 950, 300, 60, "Back", action=self.settings_back_button)
         ]
         
         
@@ -215,6 +215,12 @@ class TankGame:
         if self.cap_fps:
             self.clear_all_projectiles()
             self.fps = int(self.setting_buttons[8].get_string()) # Skal rettes til dict! Nurværende løsning ikke robust            
+    
+    def settings_back_button(self):
+        if self.playthrough_started:
+            self.state = States.PAUSE_MENU
+        else:
+            self.state = States.MENU
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
@@ -712,6 +718,7 @@ class TankGame:
                 self.clear_all_map_data()
                 self.start_map()
                 self.state = States.INFO_SCREEN
+                return
                     
             if self.units_player_controlled[0].dead:
                 print("Reseting")
@@ -721,14 +728,14 @@ class TankGame:
                 self.start_map()
                 self.state = States.INFO_SCREEN
                 self.units_player_controlled[0].dead = False
-        
+                return
         
         if self.playthrough_started == False:
             self.playthrough_started = True
             self.clear_all_map_data()
             self.start_map()
             self.state = States.INFO_SCREEN
-            
+            return
     
     def level_selection(self, event_list):
         self.screen.fill("gray")
@@ -867,6 +874,7 @@ class TankGame:
         self.obstacles_des.clear()
         self.obstacles_pit.clear()
         self.mines.clear()
+        self.tracks.clear()
 
     # ============================================ Handle methods ============================================
     

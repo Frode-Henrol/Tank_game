@@ -404,6 +404,8 @@ class PolygonDrawer:
                     # Use arctan2 to compute the correct angle
                     angle_rad = np.arctan2(dx, dy)
                     angle_deg = np.degrees(angle_rad)
+                    self.rotate_offset = 90
+                    angle_deg = (self.rotate_offset + angle_deg) % 360
 
                     if self.selected_tank is None:
                         print(f"Error: No unit selected.")
@@ -550,11 +552,11 @@ class PolygonDrawer:
             tank_body_image, tank_turret_image = self.tank_images[unit_type]
             
             
-            rotated_unit_image = pg.transform.rotate(tank_body_image, unit_rotation)
+            rotated_unit_image = pg.transform.rotate(tank_body_image, unit_rotation - self.rotate_offset)
             rect = rotated_unit_image.get_rect(center=unit_pos)
             self.screen.blit(rotated_unit_image, rect.topleft)
             
-            rotated_unit_image = pg.transform.rotate(tank_turret_image, unit_rotation)
+            rotated_unit_image = pg.transform.rotate(tank_turret_image, unit_rotation - self.rotate_offset)
             rect = rotated_unit_image.get_rect(center=unit_pos)
             self.screen.blit(rotated_unit_image, rect.topleft)
             

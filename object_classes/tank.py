@@ -36,7 +36,7 @@ class Tank:
         
         self.pos = list(startpos)
         self.direction = (0,0)  # Skal rettes
-        self.degrees = spawn_degress
+        self.degrees = spawn_degress % 360
         self.speed = speed  # Used to control speed so it wont be fps bound
         self.speed_original = speed
         self.can_move = self.speed_original > 0
@@ -98,7 +98,7 @@ class Tank:
         
         # Use turret?
         self.use_turret = use_turret
-        self.turret_rotation_angle = 0
+        self.turret_rotation_angle = self.degrees
         
         # Pathfinding and waypoint logic
         self.go_to_waypoint = False     # Bool to control if tanks should follow waypoint queue
@@ -487,7 +487,6 @@ class Tank:
 
     def apply_repulsion(self, other_unit, push_strength=1.0):
         """Pushes colliding tanks in correct direction"""
-        print("AOSDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD")
         # Vector from other_unit to this tank
         dx = self.pos[0] - other_unit.pos[0]
         dy = self.pos[1] - other_unit.pos[1]

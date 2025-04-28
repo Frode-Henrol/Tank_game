@@ -4,7 +4,7 @@ Tank turret mangler at være animeret med en png fil der rotere korrekt.
 
 KNOW bugs:
 Spam clicking buttons makes them go towards a white color
-Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have
+
 Projetiles often register multiple intersection on when hitting a wall meaning the sound effect get played multiple times per hit
 
 Prediction can be abused when driving into wall. the enemy tank will fire at the predicted point even though you are not moving: fix would be to make tank not move/stutter when driving into wall
@@ -15,11 +15,5 @@ Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til can
 
 
 Add:
-for at undgå at dræbe dig selv når du skyder i væg, så laves lille spawntimer, hvor den ikke kan bounce inden for timeren
-
-
-
-Lav count down der måske er 10 frames maks og som resetes når du rammer væg med tank
-Hvis denne count er over 0 på noget tidspunkt kan tanks ikke bruge predict angreb
-det forhindre at tanks prøver at skyde på anden side af væg når man konstant kører
-ind i væggen
+Der skal laves noget i mapmaker så selve spil og map maker anvender samme rotations logic.
+Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have

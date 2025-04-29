@@ -240,20 +240,21 @@ class Tank:
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
             return
-
-        # Scale rotation by delta time
-        deg *= self.delta_time * 60  # Scale to match 60 FPS base
-
-        # Rotate tank
+        
+        # Scale rotation to match speed
+        deg *= self.speed
+        
+        # Rotate tank image
         self.degrees = (self.degrees + deg) % 360
-        rads = math.radians(self.degrees)
-
-        # Update direction vector (normalized)
-        self.direction = (math.cos(rads), math.sin(rads))
-
-        # Update hitbox rotation
-        self.closest_angle = int(self.degrees / self.step) * self.step
-        self.update_hitbox_position()
+        rads = np.radians(self.degrees)
+        
+        print(self.degrees)
+        # Update direction vector
+        self.direction = np.cos(rads), np.sin(rads)
+        
+        # When rotating we also rate the tank hitbox
+        # Find the nearest precomputed hitbox
+        self.closest_angle = int(self.degrees / self.step) * self.step  # Round to nearest 5-degree step
 
     def respawn(self):
         self.make_dead(False)
@@ -340,25 +341,6 @@ class Tank:
         rotated_turret = pg.transform.rotate(self.turret_image, -1 * self.turret_rotation_angle - 90)
         turret_rect = rotated_turret.get_rect(center=self.pos)
         surface.blit(rotated_turret, turret_rect.topleft)
- 
-            
-    def rotate(self, deg: int):
-        if self.dead and not self.godmode:
-            return
-        
-        # Scale rotation to match speed
-        deg *= self.speed
-        
-        # Rotate tank image
-        self.degrees = (self.degrees + deg) % 360
-        rads = np.radians(self.degrees)
-        
-        # Update direction vector
-        self.direction = np.cos(rads), np.sin(rads)
-        
-        # When rotating we also rate the tank hitbox
-        # Find the nearest precomputed hitbox
-        self.closest_angle = int(self.degrees / self.step) * self.step  # Round to nearest 5-degree step
         
     
           

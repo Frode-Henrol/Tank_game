@@ -404,8 +404,8 @@ class PolygonDrawer:
                     # Use arctan2 to compute the correct angle
                     angle_rad = np.arctan2(dx, dy)
                     angle_deg = np.degrees(angle_rad)
-                    self.rotate_offset = 90
-                    angle_deg = (self.rotate_offset + angle_deg) % 360
+                    angle_deg = (-angle_deg) % 360  # Reverse direction to match game (janky solution)
+                    angle_deg = (-90 + angle_deg) % 360
 
                     if self.selected_tank is None:
                         print(f"Error: No unit selected.")
@@ -549,14 +549,16 @@ class PolygonDrawer:
         for unit in self.units:
             unit_pos, unit_rotation, unit_type, _ = unit
            
+            # Reform the angle from the game angle to the map maker angle (For the future both should use same system)
             tank_body_image, tank_turret_image = self.tank_images[unit_type]
             
+            unit_rotation = - 90 + (-unit_rotation) % 360
             
-            rotated_unit_image = pg.transform.rotate(tank_body_image, unit_rotation - self.rotate_offset)
+            rotated_unit_image = pg.transform.rotate(tank_body_image, unit_rotation)
             rect = rotated_unit_image.get_rect(center=unit_pos)
             self.screen.blit(rotated_unit_image, rect.topleft)
             
-            rotated_unit_image = pg.transform.rotate(tank_turret_image, unit_rotation - self.rotate_offset)
+            rotated_unit_image = pg.transform.rotate(tank_turret_image, unit_rotation)
             rect = rotated_unit_image.get_rect(center=unit_pos)
             self.screen.blit(rotated_unit_image, rect.topleft)
             

@@ -3,9 +3,16 @@ import sys
 import pygame as pg
 import numpy as np
 import os
-import utils.helper_functions as helper_functions
-import utils.deflect as deflect
 import time
+import json
+from scipy.spatial import KDTree
+import random
+import re
+import ctypes
+import cProfile
+import math
+
+from object_classes.textfield import Textfield
 from object_classes.projectile import Projectile
 from object_classes.tank import Tank
 from object_classes.obstacle import Obstacle
@@ -13,14 +20,8 @@ from object_classes.button import Button
 from object_classes.mine import Mine 
 from object_classes.track import Track
 from object_classes.animation import Animation
-import json
 import pathfinding
-from scipy.spatial import KDTree
-import random
-import re
-import ctypes
-import cProfile
-from object_classes.textfield import Textfield
+import utils.helper_functions as helper_functions
 
 class TankGame:
     def __init__(self):
@@ -127,6 +128,9 @@ class TankGame:
         
         self.update_des_flag = False    # flag that updates des obstacles
         
+        # Infoscreen state etc
+        self.just_died = False  # Control visual effects in info screen when killed in game
+        
         if self.godmode:
             self.godmode_toggle()
     
@@ -140,7 +144,7 @@ class TankGame:
     def init_playthrough(self):
         self.playthrough_started = False
         self.current_level_number = 1
-        self.playthrough_lives = 10
+        self.playthrough_lives = 3
     
     def dpi_fix(self):
         try:
@@ -154,13 +158,6 @@ class TankGame:
             unit.toggle_godmode()
 
     
-    # def init_main_maps(self):
-        
-    #     self.main
-        
-    #     main_maps = {
-    #         1: ""
-    #     }
     
     # ===============================================================================================================
     # ============================================ Load helper functions ============================================
@@ -727,7 +724,7 @@ class TankGame:
                 self.clear_all_map_data()
                 self.start_map()
                 self.state = States.INFO_SCREEN
-                self.units_player_controlled[0].dead = False
+                self.just_died = True
                 return
         
         if self.playthrough_started == False:
@@ -743,26 +740,149 @@ class TankGame:
         pg.display.update()
     
     def info_screen(self, event_list):
-        
-        font = pg.font.Font(None, 100)  # Large font for the countdown number
-        countdown_number = 3
-        
-        while countdown_number > 0:
-            self.screen.fill("gray")
-            
-            # If dead we show loser screen
-            if self.playthrough_lives == 0:
-                countdown_text = font.render(f"You lost", True, (0,0,0))
-                text_rect = countdown_text.get_rect(center=(self.WINDOW_W // 2, self.WINDOW_H // 2))  # Center the text
+        clock = pg.time.Clock()
+
+        lost_life = self.just_died
+        previous_lives = self.playthrough_lives + 1 if lost_life else self.playthrough_lives
+        game_over_text = "Game over"
+
+        start_time = pg.time.get_ticks()
+
+        if self.playthrough_lives == 0:
+            duration = 7000
+        else:
+            duration = 4000
+
+        flash_duration = 2000
+        shake_duration = 700
+        fade_in_duration = 1000
+        game_over_fade_duration = 3000
+        max_alpha = 255
+        post_shake_red_duration = 1000
+        red_fade_duration = 1000
+        level_pulse_duration = 1000  # Duration for the level text pulse effect
+
+        level_switched = not lost_life  # True when level changes (not when losing life)
+        pulse_start_time = start_time + fade_in_duration  # Start pulse after fade in
+        level_changed = False  # Flag to track if we've changed the level number
+
+        while True:
+            now = pg.time.get_ticks()
+            elapsed = now - start_time
+
+            if elapsed >= duration:
+                break
+
+            self.screen.fill("black")
+
+            # General fade in
+            alpha = max_alpha if elapsed >= fade_in_duration else int((elapsed / fade_in_duration) * max_alpha)
+
+            # Animate Lives
+            lives_display = previous_lives
+            if lost_life and elapsed > flash_duration:
+                t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
+                lives_display = int(previous_lives - t)
+
+            # Fonts
+            base_font = pg.font.Font(None, 100)
+            lives_font_size = 100
+
+            if lost_life and flash_duration < elapsed < flash_duration + shake_duration:
+                lives_font_size = int(100 + 30 * math.sin((elapsed - flash_duration) / shake_duration * math.pi))
+            lives_font = pg.font.Font(None, lives_font_size)
+
+            # === Lives Color ===
+            if lost_life and flash_duration < elapsed < flash_duration + shake_duration:
+                t = (elapsed - flash_duration) / shake_duration
+                r = 255
+                g = int(255 - 155 * t)
+                b = int(255 - 155 * t)
+                lives_color = (r, g, b)
+            elif lost_life and flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
+                lives_color = (255, 100, 100)
+            elif lost_life and elapsed > flash_duration + shake_duration + post_shake_red_duration:
+                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
+                r = 255
+                g = int(100 + (255 - 100) * fade_t)
+                b = int(100 + (255 - 100) * fade_t)
+                lives_color = (r, g, b)
             else:
-                countdown_text = font.render(f"Level: {self.current_level_number} Lives: {self.playthrough_lives}", True, (0,0,0))
-                text_rect = countdown_text.get_rect(center=(self.WINDOW_W // 2, self.WINDOW_H // 2))  # Center the text
-            self.screen.blit(countdown_text, text_rect)
-            countdown_number -= 1
+                lives_color = (255, 255, 255)
+
+            # === Level Color ===
+            level_color = (255, 255, 255)  # Default white
+            pulse_progress = 0
+            
+            if level_switched and elapsed >= fade_in_duration:
+                pulse_elapsed = elapsed - fade_in_duration
+                if pulse_elapsed < level_pulse_duration:
+                    pulse_progress = pulse_elapsed / level_pulse_duration
+                    
+                    if pulse_progress < 0.5:
+                        # Fade to blue (peak at 0.5)
+                        t = pulse_progress * 2
+                        r = 255
+                        g = int(255 - (255 - 100) * t)
+                        b = 255
+                        level_color = (r, g, b)
+                        
+                        # Change level number exactly at peak blue (t = 1.0)
+                        if t >= 0.99 and not level_changed:
+                            level_changed = True
+                    else:
+                        # Fade back to white
+                        t = (pulse_progress - 0.5) * 2
+                        r = 255
+                        g = int(100 + (255 - 100) * t)
+                        b = 255
+                        level_color = (r, g, b)
+            
+            # Determine which level number to show
+            if level_switched:
+                if level_changed:
+                    level_number = self.current_level_number
+                else:
+                    level_number = self.current_level_number - 1
+            else:
+                level_number = self.current_level_number
+                
+            level_text_str = f"Level {level_number}"
+
+            level_surf = base_font.render(level_text_str, True, level_color).convert_alpha()
+            lives_surf = lives_font.render(f"Lives: {lives_display}", True, lives_color).convert_alpha()
+            level_surf.set_alpha(alpha)
+            lives_surf.set_alpha(alpha)
+
+            # Shake
+            offset_x = offset_y = 0
+            if lost_life and flash_duration < elapsed < flash_duration + shake_duration:
+                offset_x = random.randint(-10, 10)
+                offset_y = random.randint(-10, 10)
+
+            # Position
+            total_width = level_surf.get_width() + 40 + lives_surf.get_width()
+            x = self.WINDOW_W // 2 - total_width // 2
+            y = self.WINDOW_H // 2
+
+            self.screen.blit(level_surf, (x + offset_x, y + offset_y))
+            self.screen.blit(lives_surf, (x + level_surf.get_width() + 40 + offset_x, y + offset_y))
+
+            # Game Over text
+            if lost_life and self.playthrough_lives == 0 and elapsed > flash_duration + shake_duration:
+                t = min(max((elapsed - (flash_duration + shake_duration)) / game_over_fade_duration, 0), 1)
+                game_over_alpha = int(t * max_alpha)
+                game_over_font = pg.font.Font(None, 120)
+                game_over_surf = game_over_font.render(game_over_text, True, (255, 0, 0)).convert_alpha()
+                game_over_surf.set_alpha(game_over_alpha)
+                game_over_rect = game_over_surf.get_rect(center=(self.WINDOW_W // 2, self.WINDOW_H // 2 + 120))
+                self.screen.blit(game_over_surf, game_over_rect)
+
             pg.display.update()
-            time.sleep(1)
-        
-        # If all lives are used clear data and return to main menu
+            clock.tick(60)
+
+        self.just_died = False
+
         if self.playthrough_lives == 0:
             self.state = States.MENU
             self.clear_all_map_data()

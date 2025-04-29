@@ -164,12 +164,15 @@ class PolygonDrawer:
             Button(left+offset, 350, width, 60, "Ash", action=lambda: self.unit_button_select(2), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset, 450, width, 60, "Marine", action=lambda: self.unit_button_select(3), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset, 550, width, 60, "Yellow", action=lambda: self.unit_button_select(4), color_normal=standard_green_color, semi_disabled=True),
+            
             Button(left+offset_x, 150, width, 60, "Pink", action=lambda: self.unit_button_select(5), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset_x, 250, width, 60, "Green", action=lambda: self.unit_button_select(6), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset_x, 350, width, 60, "Violet", action=lambda: self.unit_button_select(7), color_normal=standard_green_color, semi_disabled=True),
             Button(left+offset_x, 450, width, 60, "White", action=lambda: self.unit_button_select(8), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 550, width, 60, "Black", action=lambda: self.unit_button_select(9), color_normal=standard_green_color, semi_disabled=True)
+            Button(left+offset_x, 550, width, 60, "Black", action=lambda: self.unit_button_select(9), color_normal=standard_green_color, semi_disabled=True),
         ]
+        
+        
         
         self.buttons_polygons = [
               Button(left+offset, 150, width*1.8, 60, "Standard", action=lambda: self.polygon_button_select(0), color_normal=standard_green_color, semi_disabled=False),

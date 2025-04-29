@@ -15,5 +15,4 @@ Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til can
 
 
 Add:
-Der skal laves noget i mapmaker så selve spil og map maker anvender samme rotations logic.
-Rotation for the tanks in map editor wont translate correctly to the main game - could be because of the 90 degree hard coded rotation the tank class have
+Info screen level flash needs fixing looks ugly

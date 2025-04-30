@@ -72,16 +72,12 @@ if __name__ == "__main__":
     # Find the 2 normal vectors
     nv_p1, nv_p2 = find_normal_vectors(p1, p2)
 
-    print(f"{nv_p1},{nv_p2}")
 
     projectile_vector = (p4[0] - p3[0], p4[1] - p3[1])
 
     deflect_v = find_deflect_vector(nv_p1, projectile_vector)
 
-    print(f"Deflect v: {deflect_v}")
-
     intersection = line_intersection(p1, p2, p3, p4)
-    print("Intersection:", intersection)
 
     if intersection != None:
         # Move tangent vector to intersection:
@@ -95,7 +91,6 @@ if __name__ == "__main__":
         nv_p1 = nv1_x + ix, nv1_y + iy
         nv_p2 = nv2_x + ix, nv2_y + iy
 
-    print(f"{nv_p1},{nv_p2}")
 
     fig, ax = plt.subplots()
     ax.plot([p1[0],p2[0]],[p1[1],p2[1]], "red", label="Line 1")

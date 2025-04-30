@@ -778,39 +778,20 @@ class TankGame:
         self.handle_buttons(self.level_selection_buttons, event_list, self.screen)
         pg.display.update()
     
-
     def info_screen(self, event_list):
         clock = pg.time.Clock()
 
         lost_life = self.just_died
         gain_life = self.added_life
-        level_up = not lost_life  # Level up is when neither life was lost nor gained
-            
-            
-        if lost_life:
-            # When losing a life, actual_previous_lives already reflects the new count
-            previous_lives = self.playthrough_lives + 1
-        elif gain_life:
-            # When gaining a life, actual_previous_lives already reflects the new count
-            # previous_lives = self.playthrough_lives - 1
-            previous_lives = self.playthrough_lives
-        else:
-            previous_lives = self.playthrough_lives
+        level_up = not lost_life and not gain_life
 
-        print(f"{lost_life=} {gain_life=} {level_up=}")
-        print(f"PREVIOUS LIVES: {previous_lives} ACTUEL LIVES: {self.playthrough_lives}")
-        
+        previous_lives = self.calculate_previous_lives()
         previous_level = self.current_level_number - 1
-        
         game_over_text = "Game over"
 
         start_time = pg.time.get_ticks()
 
-        if self.playthrough_lives == 0:
-            duration = 7000
-        else:
-            duration = 4000
-
+        duration = 7000 if self.playthrough_lives == 0 else 4000
         flash_duration = 2000
         shake_duration = 700
         fade_in_duration = 1000
@@ -822,7 +803,7 @@ class TankGame:
         next_level_sound_check = False
         gain_life_sound_check = False
         lost_life_sound_check = False
-        
+
         while True:
             now = pg.time.get_ticks()
             elapsed = now - start_time
@@ -832,165 +813,45 @@ class TankGame:
 
             self.screen.fill("black")
 
-            # General fade in
             alpha = max_alpha if elapsed >= fade_in_duration else int((elapsed / fade_in_duration) * max_alpha)
+            lives_display = self.calculate_lives_display(previous_lives, elapsed, flash_duration, shake_duration)
+            level_display = self.calculate_level_display(previous_level, elapsed, flash_duration, shake_duration)
 
-            # Animate Lives
-            lives_display = previous_lives
-            level_display = previous_level
-            
-            if lost_life:
-                level_display = previous_level + 1
-            
-            if lost_life and elapsed > flash_duration:
-                t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
-                lives_display = int(previous_lives - t)
-                
-                
-                # Play sound for lost life
-                if not lost_life_sound_check:
-                    self.sound_effects["lostlife"][0].play()
-                    lost_life_sound_check = True
-                    
-            elif gain_life and elapsed > flash_duration:
-                t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
-                lives_display = int(previous_lives + t)
-                
-                # Play sound for gained life
-                if not gain_life_sound_check:
-                    self.sound_effects["gainlife"][0].play()
-                    self.sound_effects["nextlevel"][0].play()  # Level-up style sound
-                    gain_life_sound_check = True
+            lost_life_sound_check, gain_life_sound_check, next_level_sound_check = self.play_sound_effects(
+                elapsed, flash_duration, gain_life_sound_check, lost_life_sound_check, next_level_sound_check
+            )
 
-            if level_up and elapsed > flash_duration:
-                t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
-                level_display = int(previous_level + t)
-
-            if level_up and not next_level_sound_check:
-                # Play sound for level up
-                self.sound_effects["nextlevel"][0].play()
-                next_level_sound_check = True
-            
-            # Fonts
-            lives_font_size = 100
-            level_font_size = 100
-
+            lives_font_size, level_font_size = 100, 100
             if (lost_life or gain_life or level_up) and flash_duration < elapsed < flash_duration + shake_duration:
-                # Apply same animation to both lives and level text
                 pulse_progress = (elapsed - flash_duration) / shake_duration
-                lives_font_size = int(100 + 30 * math.sin(pulse_progress * math.pi))
-                level_font_size = int(100 + 30 * math.sin(pulse_progress * math.pi))
-                
+                size_variation = int(30 * math.sin(pulse_progress * math.pi))
+                lives_font_size += size_variation
+                level_font_size += size_variation
+
             lives_font = pg.font.Font(None, lives_font_size)
             level_font = pg.font.Font(None, level_font_size)
 
-            # === Lost life ===
-            if lost_life and flash_duration < elapsed < flash_duration + shake_duration:
-                t = (elapsed - flash_duration) / shake_duration
-                r = 255
-                g = int(255 - 155 * t)
-                b = int(255 - 155 * t)
-                lives_color = (r, g, b)
-                level_color = (255, 255, 255)  # Keep level text white during life loss
-            elif lost_life and flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
-                lives_color = (255, 100, 100)
-                level_color = (255, 255, 255)
-            elif lost_life and elapsed > flash_duration + shake_duration + post_shake_red_duration:
-                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
-                r = 255
-                g = int(100 + (255 - 100) * fade_t)
-                b = int(100 + (255 - 100) * fade_t)
-                lives_color = (r, g, b)
-                level_color = (255, 255, 255)
+            lives_color, level_color = self.get_color_transition(
+                elapsed, flash_duration, shake_duration, post_shake_red_duration, red_fade_duration
+            )
 
-            # === Gain life ===
-            elif gain_life and flash_duration <= elapsed < flash_duration + shake_duration:
-                t = (elapsed - flash_duration) / shake_duration
-                # Lives counter animation (green)
-                r = int(255 - 155 * t)
-                g = 255
-                b = int(255 - 155 * t)
-                lives_color = (r, g, b)
-                
-                # Level number animation (blue to gold)
-                r_level = 255
-                g_level = 255
-                b_level = int(255 - 155 * t)
-                level_color = (r_level, g_level, b_level)
-                
-                # Play sounds at start of animation
-                if not gain_life_sound_check:
-                    self.sound_effects["gainlife"][0].play()
-                    self.sound_effects["nextlevel"][0].play()
-                    gain_life_sound_check = True
-                    
-            elif gain_life and flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
-                lives_color = (100, 255, 100)  # Solid green
-                level_color = (255, 255, 100)  # Solid gold
-                
-            elif gain_life and elapsed > flash_duration + shake_duration + post_shake_red_duration:
-                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
-                # Fade both back to white
-                r = int(100 + (255 - 100) * fade_t)
-                g = 255
-                b = int(100 + (255 - 100) * fade_t)
-                lives_color = (r, g, b)
-                
-                r_level = 255
-                g_level = 255
-                b_level = int(100 + (255 - 100) * fade_t)
-                level_color = (r_level, g_level, b_level)
-
-            # === Level up ===
-            elif level_up and flash_duration <= elapsed < flash_duration + shake_duration:
-                t = (elapsed - flash_duration) / shake_duration
-                r = 255
-                g = 255
-                b = int(255 - 155 * t)
-                level_color = (r, g, b)
-                lives_color = (255, 255, 255)
-            elif level_up and flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
-                level_color = (255, 255, 100)
-                lives_color = (255, 255, 255)
-            elif level_up and elapsed > flash_duration + shake_duration + post_shake_red_duration:
-                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
-                r = 255
-                g = 255
-                b = int(100 + (255 - 100) * fade_t)
-                level_color = (r, g, b)
-                lives_color = (255, 255, 255)
-            # Default colors
-            else:
-                level_color = (255, 255, 255)
-                lives_color = (255, 255, 255)
-                
-            # Prevents level 0 from showing when starting
             if self.current_level_number == 1:
                 level_display = 1
-                
-            # Render text surfaces
+
             level_text_str = f"Level {level_display}"
             level_surf = level_font.render(level_text_str, True, level_color).convert_alpha()
             lives_surf = lives_font.render(f"Lives: {lives_display}", True, lives_color).convert_alpha()
-            
+
             level_surf.set_alpha(alpha)
             lives_surf.set_alpha(alpha)
 
-            # Shake effect
             offset_x = offset_y = 0
             if (lost_life or gain_life or level_up) and flash_duration < elapsed < flash_duration + shake_duration:
                 offset_x = random.randint(-10, 10)
                 offset_y = random.randint(-10, 10)
 
-            # Position text
-            total_width = level_surf.get_width() + 40 + lives_surf.get_width()
-            x = self.WINDOW_W // 2 - total_width // 2
-            y = self.WINDOW_H // 2
+            self.render_centered_text_pair(level_surf, lives_surf, offset_x, offset_y)
 
-            self.screen.blit(level_surf, (x + offset_x, y + offset_y))
-            self.screen.blit(lives_surf, (x + level_surf.get_width() + 40 + offset_x, y + offset_y))
-
-            # Game Over text
             if lost_life and self.playthrough_lives == 0 and elapsed > flash_duration + shake_duration:
                 t = min(max((elapsed - (flash_duration + shake_duration)) / game_over_fade_duration, 0), 1)
                 game_over_alpha = int(t * max_alpha)
@@ -1012,6 +873,99 @@ class TankGame:
             self.init_playthrough()
         else:
             self.state = States.COUNTDOWN
+
+    # ===== HELPER METHODS =====
+
+    def calculate_previous_lives(self):
+        if self.just_died:
+            return self.playthrough_lives + 1
+        elif self.added_life:
+            return self.playthrough_lives
+        else:
+            return self.playthrough_lives
+
+    def calculate_lives_display(self, previous_lives, elapsed, flash_duration, shake_duration):
+        if self.just_died and elapsed > flash_duration:
+            t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
+            return int(previous_lives - t)
+        elif self.added_life and elapsed > flash_duration:
+            t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
+            return int(previous_lives + t)
+        return previous_lives
+
+    def calculate_level_display(self, previous_level, elapsed, flash_duration, shake_duration):
+        if (self.just_died or self.added_life or not self.just_died) and elapsed > flash_duration:
+            t = min(max((elapsed - flash_duration) / shake_duration, 0), 1)
+            return int(previous_level + t)
+        return previous_level
+
+    def play_sound_effects(self, elapsed, flash_duration, gain_life_sound_check, lost_life_sound_check, next_level_sound_check):
+        if self.just_died and elapsed > flash_duration and not lost_life_sound_check:
+            self.sound_effects["lostlife"][0].play()
+            lost_life_sound_check = True
+
+        if self.added_life and elapsed > flash_duration and not gain_life_sound_check:
+            self.sound_effects["gainlife"][0].play()
+            self.sound_effects["nextlevel"][0].play()
+            gain_life_sound_check = True
+
+        if not self.just_died and not self.added_life and elapsed > flash_duration and not next_level_sound_check:
+            self.sound_effects["nextlevel"][0].play()
+            next_level_sound_check = True
+
+        return lost_life_sound_check, gain_life_sound_check, next_level_sound_check
+
+    def get_color_transition(self, elapsed, flash_duration, shake_duration, post_shake_red_duration, red_fade_duration):
+        def interpolate(start, end, t):
+            return int(start + (end - start) * t)
+
+        if self.just_died:
+            if flash_duration < elapsed < flash_duration + shake_duration:
+                t = (elapsed - flash_duration) / shake_duration
+                return (255, interpolate(255, 100, t), interpolate(255, 100, t)), (255, 255, 255)
+            elif flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
+                return (255, 100, 100), (255, 255, 255)
+            elif elapsed > flash_duration + shake_duration + post_shake_red_duration:
+                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
+                g = interpolate(100, 255, fade_t)
+                b = interpolate(100, 255, fade_t)
+                return (255, g, b), (255, 255, 255)
+
+        elif self.added_life:
+            if flash_duration < elapsed < flash_duration + shake_duration:
+                t = (elapsed - flash_duration) / shake_duration
+                r = interpolate(255, 100, t)
+                b = interpolate(255, 100, t)
+                lb = interpolate(255, 100, t)
+                return (r, 255, b), (255, 255, lb)
+            elif flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
+                return (100, 255, 100), (255, 255, 100)
+            elif elapsed > flash_duration + shake_duration + post_shake_red_duration:
+                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
+                r = interpolate(100, 255, fade_t)
+                b = interpolate(100, 255, fade_t)
+                lb = interpolate(100, 255, fade_t)
+                return (r, 255, b), (255, 255, lb)
+
+        else:
+            if flash_duration < elapsed < flash_duration + shake_duration:
+                t = (elapsed - flash_duration) / shake_duration
+                return (255, 255, 255), (255, 255, interpolate(255, 100, t))
+            elif flash_duration + shake_duration <= elapsed < flash_duration + shake_duration + post_shake_red_duration:
+                return (255, 255, 255), (255, 255, 100)
+            elif elapsed > flash_duration + shake_duration + post_shake_red_duration:
+                fade_t = min(max((elapsed - (flash_duration + shake_duration + post_shake_red_duration)) / red_fade_duration, 0), 1)
+                b = interpolate(100, 255, fade_t)
+                return (255, 255, 255), (255, 255, b)
+
+        return (255, 255, 255), (255, 255, 255)
+
+    def render_centered_text_pair(self, left_surf, right_surf, offset_x=0, offset_y=0):
+        total_width = left_surf.get_width() + 40 + right_surf.get_width()
+        x = self.WINDOW_W // 2 - total_width // 2
+        y = self.WINDOW_H // 2
+        self.screen.blit(left_surf, (x + offset_x, y + offset_y))
+        self.screen.blit(right_surf, (x + left_surf.get_width() + 40 + offset_x, y + offset_y))
 
     def count_down(self, event_list):
         # Set countdown starting number (for example, 3 seconds)

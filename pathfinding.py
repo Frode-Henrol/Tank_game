@@ -62,9 +62,6 @@ def find_valid_nodes(corners: list[tuple], node_spacing: int, polygons: list[lis
 
     valid_nodes = []  # List to store nodes outside any polygon
     map_grid = np.zeros([grid_nodes_y,grid_nodes_x])
-    print(grid_nodes_y,grid_nodes_x)
-    print(f"{map_grid=}")
-    
     
     # Loop through the grid and collect valid nodes
     for x in range(start_offset, grid_size_x, node_spacing):
@@ -152,7 +149,6 @@ def get_mapgrid_dict(polygons: list[list[tuple]], node_spacing: int) -> dict:
         all_triangles += triangles
         
     if len(all_triangles) > 2:
-        print("get_mapgrad_dict: all_triagnles is empty")
         # Remove map triangles (two)
         all_triangles.pop(0)
         all_triangles.pop(0)

@@ -375,8 +375,6 @@ class Tank:
         
         # Push back using normal_vector2
         dx, dy = normal_vector2[0] * magnitude * self.speed, normal_vector2[1] * magnitude * self.speed
-        print(f"PUSHBACK from surface: {dx}, {dy}, speed: {self.speed}, magtnitude: {magnitude}")
-        
         
         self.pos[0] += dx
         self.pos[1] += dy
@@ -454,8 +452,6 @@ class Tank:
             return
         
         # Remove exploded mines
-        print(f"COOLDOWN {self.mine_cooldown}")
-        
         self.unit_mine_list = [mine for mine in self.unit_mine_list if not mine.is_exploded]
         
         if self.mine_cooldown <= 0 and len(self.unit_mine_list) < self.mine_limit:

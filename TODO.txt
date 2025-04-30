@@ -15,4 +15,14 @@ Cannon cooldown og firerate er det samme i tank class. Ændre det i bare til can
 
 
 Add:
-Info screen level flash needs fixing looks ugly
+Info screen level flash needs fixing looks ugl
+
+Infoscreen:
++ sound effects when losing life.
++ sound effect level up
++ sound effect when driving
++ different sound effect for bounce when speed and bounce count matches green tank
+    + projectile sound
+
+
+

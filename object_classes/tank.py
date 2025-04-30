@@ -248,7 +248,6 @@ class Tank:
         self.degrees = (self.degrees + deg) % 360
         rads = np.radians(self.degrees)
         
-        print(self.degrees)
         # Update direction vector
         self.direction = np.cos(rads), np.sin(rads)
         

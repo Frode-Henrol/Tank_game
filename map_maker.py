@@ -61,7 +61,29 @@ class PolygonDrawer:
         
         # Unit mode:
         self.selected_tank = None  # Keep track of the currently selected tank button
-        self.tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
+        self.tank_mappings = {0 : "player_tank", 
+                         1 : "brown_tank", 
+                         2 : "ash_tank", 
+                         3 : "marine_tank", 
+                         4 : "yellow_tank", 
+                         5 : "pink_tank", 
+                         6 : "green_tank", 
+                         7 : "violet_tank", 
+                         8 : "white_tank", 
+                         9 : "black_tank",
+                         
+                         10 : "zblue_tank",
+                         11 : "zbrown_tank", 
+                         12 : "zash_tank", 
+                         13 : "zmarine_tank", 
+                         14 : "zyellow_tank", 
+                         15 : "zpink_tank", 
+                         16 : "zgreen_tank", 
+                         17 : "zviolet_tank", 
+                         18 : "zwhite_tank", 
+                         19 : "zblack_tank"
+                        }
+        
         
         # Polygon mode:
         self.selected_polygon = 0   # Index: 0 = standard, 1 = destructible, 2 = pit
@@ -156,20 +178,35 @@ class PolygonDrawer:
         
         
         offset = 400
-        offset_x = 600
+        offset_unit1 = 350
+        offset_unit2 = 475
+        offset_unit3 = 600
+        offset_unit4 = 725
         width = 120
         self.buttons_units = [
-            Button(left+offset, 150, width, 60, "Player", action=lambda: self.unit_button_select(0), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 250, width, 60, "Brown", action=lambda: self.unit_button_select(1), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 350, width, 60, "Ash", action=lambda: self.unit_button_select(2), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 450, width, 60, "Marine", action=lambda: self.unit_button_select(3), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset, 550, width, 60, "Yellow", action=lambda: self.unit_button_select(4), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit1, 150, width, 60, "Player", action=lambda: self.unit_button_select(0), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit1, 225, width, 60, "Brown", action=lambda: self.unit_button_select(1), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit1, 300, width, 60, "Ash", action=lambda: self.unit_button_select(2), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit1, 375, width, 60, "Marine", action=lambda: self.unit_button_select(3), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit1, 450, width, 60, "Yellow", action=lambda: self.unit_button_select(4), color_normal=standard_green_color, semi_disabled=True),
             
-            Button(left+offset_x, 150, width, 60, "Pink", action=lambda: self.unit_button_select(5), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 250, width, 60, "Green", action=lambda: self.unit_button_select(6), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 350, width, 60, "Violet", action=lambda: self.unit_button_select(7), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 450, width, 60, "White", action=lambda: self.unit_button_select(8), color_normal=standard_green_color, semi_disabled=True),
-            Button(left+offset_x, 550, width, 60, "Black", action=lambda: self.unit_button_select(9), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit2, 150, width, 60, "Pink", action=lambda: self.unit_button_select(5), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit2, 225, width, 60, "Green", action=lambda: self.unit_button_select(6), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit2, 300, width, 60, "Violet", action=lambda: self.unit_button_select(7), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit2, 375, width, 60, "White", action=lambda: self.unit_button_select(8), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit2, 450, width, 60, "Black", action=lambda: self.unit_button_select(9), color_normal=standard_green_color, semi_disabled=True),
+            
+            Button(left+offset_unit3, 150, width, 60, "ZBlue", action=lambda: self.unit_button_select(10), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit3, 225, width, 60, "ZBrown", action=lambda: self.unit_button_select(11), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit3, 300, width, 60, "ZAsh", action=lambda: self.unit_button_select(12), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit3, 375, width, 60, "ZMarine", action=lambda: self.unit_button_select(13), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit3, 450, width, 60, "ZYellow", action=lambda: self.unit_button_select(14), color_normal=standard_green_color, semi_disabled=True),
+            
+            Button(left+offset_unit4, 150, width, 60, "ZPink", action=lambda: self.unit_button_select(15), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit4, 225, width, 60, "ZGreen", action=lambda: self.unit_button_select(16), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit4, 300, width, 60, "ZViolet", action=lambda: self.unit_button_select(17), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit4, 375, width, 60, "ZWhite", action=lambda: self.unit_button_select(18), color_normal=standard_green_color, semi_disabled=True),
+            Button(left+offset_unit4, 450, width, 60, "ZBlack", action=lambda: self.unit_button_select(19), color_normal=standard_green_color, semi_disabled=True),
         ]
         
         

@@ -358,7 +358,28 @@ class TankGame:
         self.prev_obstacles_des = self.obstacles_des.copy()
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
-        tank_mappings = {0 : "player_tank", 1 : "brown_tank", 2 : "ash_tank", 3 : "marine_tank", 4 : "yellow_tank", 5 : "pink_tank", 6 : "green_tank", 7 : "violet_tank", 8 : "white_tank", 9 : "black_tank"}
+        tank_mappings = {0 : "player_tank", 
+                         1 : "brown_tank", 
+                         2 : "ash_tank", 
+                         3 : "marine_tank", 
+                         4 : "yellow_tank", 
+                         5 : "pink_tank", 
+                         6 : "green_tank", 
+                         7 : "violet_tank", 
+                         8 : "white_tank", 
+                         9 : "black_tank",
+                         
+                         10 : "zblue_tank",
+                         11 : "zbrown_tank", 
+                         12 : "zash_tank", 
+                         13 : "zmarine_tank", 
+                         14 : "zyellow_tank", 
+                         15 : "zpink_tank", 
+                         16 : "zgreen_tank", 
+                         17 : "zviolet_tank", 
+                         18 : "zwhite_tank", 
+                         19 : "zblack_tank"
+                        }
         
         # Load ai config
         with open(r"units\ai.json", 'r') as json_file:
@@ -863,13 +884,14 @@ class TankGame:
                 if lost_life and not lost_life_sound_check:
                     self.sound_effects["lostlife"][0].play()
                     lost_life_sound_check = True
-                if gain_life and not gain_life_sound_check:
+                if gain_life and not gain_life_sound_check and not lost_life:
                     self.sound_effects["gainlife"][0].play()
                     self.sound_effects["nextlevel"][0].play()
                     gain_life_sound_check = True
-                if level_up and not next_level_sound_check:
-                    self.sound_effects["nextlevel"][0].play()
-                    next_level_sound_check = True
+                    
+            if level_up and not lost_life and not next_level_sound_check:
+                self.sound_effects["nextlevel"][0].play()
+                next_level_sound_check = True
                 
             # Font sizes with pulse effect
             lives_font_size = 100

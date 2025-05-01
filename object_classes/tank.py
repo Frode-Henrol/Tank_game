@@ -831,6 +831,8 @@ class TankAI:
         self.random_mines = config.get("random_mines", False)
         self.avoid_mine_dist = config.get("avoid_mine_dist", 300)
         self.closest_mine = (None, 0)
+        
+        self.suicide = config.get("suicide", False)
 
         # Ray predict data
         self.update_rate = 1
@@ -849,6 +851,7 @@ class TankAI:
 
     def update(self):
         self.frame_counter += 1
+        
         self.targeting()
         
         self.misc_updates()
@@ -859,6 +862,16 @@ class TankAI:
         if self.behavior_state == BehaviorStates.DODGE:
             self.handle_dodge_state()
             return
+        
+        # If sucide is on, we drive strait towards target
+        if self.suicide:
+            
+            update_freq = self.dist_to_target_direct // 6
+            
+            if self.frame_counter % update_freq == 0:
+                self.tank.find_waypoint(self.targeted_unit.pos)
+            return
+        
         
         # Avoid projectiles
         

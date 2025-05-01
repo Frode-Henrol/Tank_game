@@ -234,5 +234,257 @@
 
         "mine_chance": 1,
         "mine_min_distance": 150
+    },    
+    "zblue": {
+        "rotation_speed": 1,
+        "aiming_angle": 25,
+        "rotation_mult_max": 2,
+        "rotation_mult_min": 0.8,
+        "perfect_aim": true,
+        "advanced_targeting": true,
+        "predictive_targeting": false,
+        "shoot_threshold": 10,
+        "safe_threshold": 50,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 100,
+        "salvo_cooldown_amount": 120,
+        "wander_radius": 200,
+        "mine_chance": 1,
+        "mine_min_distance": 400,
+        "random_mines": true,
+        "avoid_mine_dist": 0,
+        "advanced_dodge": false,
+        "suicide" : true
+    },
+    "zbrown": {
+        "rotation_speed": 0.8,
+        "rotation_mult_max": 1.0,
+        "rotation_mult_min": 0.75,
+        
+        "perfect_aim": true,
+        "advanced_targeting": true,
+        "predictive_targeting": false,
+        "predictive_targeting_chance": 50,
+        "salvo_cooldown_amount": 220,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": false
+    },
+    "zash": {
+        "patrol_radius": 250,
+        "dist_leave_patrol": 450,
+        "dist_leave_defend": 800,
+        "dist_leave_attack": 250,
+    
+        "can_dodge_proj": true,
+        "dist_start_dodge": 50,
+        "proj_dodge_cooldown_val": 50,
+    
+        "rotation_speed": 0.8,
+        "aiming_angle": 45,
+        "rotation_mult_max": 1.0,
+        "rotation_mult_min": 0.75,
+    
+        "perfect_aim": false,
+        "advanced_targeting": false,
+        "predictive_targeting": true,
+        "predictive_targeting_chance": 60,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": false,
+    
+        "wander_radius": 150,
+        "defend_time": 2000
+
+    },
+    "zmarine": {
+        "patrol_radius": 250,
+        "dist_leave_patrol": 450,
+        "dist_leave_defend": 9999,
+        "dist_leave_attack": 9999,
+    
+        "can_dodge_proj": true,
+        "dist_start_dodge": 50,
+        "proj_dodge_cooldown_val": 25,
+    
+        "rotation_speed": 1.2,
+        "aiming_angle": 1,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+        "salvo_cooldown_amount": 120,
+    
+        "perfect_aim": true,
+        "predictive_targeting": false,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": false,
+        "advanced_dodge": true,
+    
+        "wander_radius": 150,
+        "defend_time": 999999
+
+    },
+    "zyellow": {
+        "patrol_radius": 200,
+        "dist_leave_patrol": 500,
+        "dist_leave_defend": 1,
+        "defend_chance": 1,
+        "dist_leave_attack": 1,
+        "can_dodge_proj": true,
+        "can_dodge_mine": false,
+        "dist_start_dodge": 45,
+        "proj_dodge_cooldown_val": 30,
+        "mine_dodge_cooldown_val": 30,
+        "rotation_speed": 1,
+        "aiming_angle": 25,
+        "rotation_mult_max": 2,
+        "rotation_mult_min": 0.8,
+        "perfect_aim": true,
+        "advanced_targeting": false,
+        "predictive_targeting": false,
+        "shoot_threshold": 10,
+        "safe_threshold": 50,
+        "shoot_enemy_projectiles": false,
+        "shoot_enemy_projectiles_range": 100,
+        "salvo_cooldown_amount": 120,
+        "wander_radius": 200,
+        "defend_time": 1,
+        "random_movement": false,
+        "mine_chance": 1,
+        "mine_min_distance": 75,
+        "random_mines": false,
+        "avoid_mine_dist": 300,
+        "advanced_dodge": false,
+        "suicide" : true
+    },
+    "zpink": {
+        "patrol_radius": 250,
+        "dist_leave_patrol": 450,
+        "dist_leave_defend": 800,
+        "dist_leave_attack": 250,
+    
+        "can_dodge_proj": true,
+        
+
+        "salvo_cooldown_amount": 400,
+        "rotation_speed": 0.7,
+        "aiming_angle": 10,
+        "rotation_mult_max": 0.7,
+        "rotation_mult_min": 0.7,
+    
+        "perfect_aim": false,
+        "advanced_targeting": true,
+        "predictive_targeting": true,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": false,
+    
+        "wander_radius": 150,
+        "defend_time": 200
+    },
+    "zgreen": {
+        "rotation_speed": 1,
+        "aiming_angle": 70,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+
+        "advanced_targeting": true,
+        "predictive_targeting": true,
+        "predictive_targeting_chance": 50,
+        "can_dodge_proj": true,
+        
+        "salvo_cooldown_amount": 150,
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 90,
+
+        "advanced_dodge": true,
+        "random_movement": true
+
+    },
+    "zviolet": {
+        "patrol_radius": 250,
+        "dist_leave_patrol": 450,
+        "dist_leave_defend": 800,
+        "dist_leave_attack": 250,
+        
+        "perfect_aim": true,
+        "can_dodge_proj": true,
+        "advanced_dodge": true,
+        "dist_start_dodge": 50,
+        "proj_dodge_cooldown_val": 25,
+    
+        "rotation_speed": 1.2,
+        "aiming_angle": 45,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+    
+        "advanced_targeting": true,
+        "predictive_targeting": true,
+        "predictive_targeting_chance": 50,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 90,
+    
+        "wander_radius": 150,
+        "defend_time": 200,
+
+        "mine_chance": 1500
+    },
+    "zwhite": {
+        "rotation_speed": 1,
+        "aiming_angle": 110,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+
+        "advanced_targeting": true,
+        "predictive_targeting": true,
+        "predictive_targeting_chance": 50,
+        
+        "salvo_cooldown_amount": 150,
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 90
+    },
+    "zblack": {
+        "patrol_radius": 250,
+        "dist_leave_patrol": 850,
+        "dist_leave_defend": 800,
+        "dist_leave_attack": 100,
+    
+        "can_dodge_proj": true,
+        "dist_start_dodge": 50,
+        "proj_dodge_cooldown_val": 20,
+        "advanced_dodge": true,
+        "salvo_cooldown_amount": 200,
+    
+        "rotation_speed": 1.2,
+        "aiming_angle": 20,
+        "rotation_mult_max": 2.0,
+        "rotation_mult_min": 0.75,
+    
+        "perfect_aim": true,
+        "advanced_targeting": true,
+        "predictive_targeting": false,
+    
+        "shoot_threshold": 15,
+        "safe_threshold": 60,
+        "shoot_enemy_projectiles": true,
+        "shoot_enemy_projectiles_range": 90,
+    
+        "wander_radius": 150,
+        "defend_time": 100,
+
+        "mine_chance": 1,
+        "mine_min_distance": 150
     }
+
 }

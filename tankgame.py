@@ -98,11 +98,12 @@ class TankGame:
         # Settings menu:
         self.show_obstacle_corners = False
         self.draw_hitbox = False # Not implemented 
-        self.godmode = True    # Not used in tankgame class ATM
+        self.godmode = False    # Not used in tankgame class ATM
         self.show_pathfinding_nodes = False
         self.show_pathfinding_paths = False
         self.show_ai_debug = False
         self.show_debug_info = False
+        self.show_ai_dodge = False
         self.cap_fps = True
 
         # Pathfinding
@@ -144,7 +145,7 @@ class TankGame:
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 50
+        self.current_level_number = 1
         self.playthrough_lives_original = 3
         self.playthrough_lives = self.playthrough_lives_original
         self.last_level = 50
@@ -176,32 +177,37 @@ class TankGame:
         left = x_mid - button_width // 2    # The x value were button starts
         
         self.menu_buttons = [
-            Button(left, 150, 300, 60, "Play", States.PLAYTHROUGH),
-            Button(left, 250, 300, 60, "Level selection", States.LEVEL_SELECT),
+            Button(left, 250, 300, 60, "Play", States.PLAYTHROUGH),
             Button(left, 350, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 450, 300, 60, "Quick play", States.COUNTDOWN),
-            Button(left, 550, 300, 60, "Quit", States.EXIT)
+            Button(left, 450, 300, 60, "Quit", States.EXIT)
         ]
+        
+        # Level selection is not implemented 
+        # Button(left, 250, 300, 60, "Level selection", States.LEVEL_SELECT),
         
         self.pause_menu_buttons = [
-            Button(left, 150, 300, 60, "Resume", States.DELAY),
-            Button(left, 250, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 350, 300, 60, "Quit", States.MENU)
+            Button(left, 250, 300, 60, "Resume", States.DELAY),
+            Button(left, 350, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 450, 300, 60, "Quit", States.MENU)
         ]
         
+        
+        left_offset = 175
+        right_offset = 175
         self.setting_buttons = [
-            Button(left, 150, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
-            Button(left, 250, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
-            Button(left, 350, 300, 60, "Godmode", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "godmode"), self.godmode_toggle())),
-            Button(left, 450, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
-            Button(left, 550, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
-            Button(left, 650, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
-            Button(left, 750, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
-            Button(left, 850, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
-            Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
-            Button(left, 950, 300, 60, "Back", action=self.settings_back_button)
+            Button(left-left_offset, 250, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
+            Button(left-left_offset, 350, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
+            Button(left-left_offset, 450, 300, 60, "Show ai dodge debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "show_ai_dodge"), self.godmode_toggle())),
+            Button(left-left_offset, 550, 300, 60, "Show pathfinding nodes", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_nodes")),
+            Button(left-left_offset, 650, 300, 60, "Show pathfinding paths", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_pathfinding_paths")),
+            Button(left+right_offset, 250, 300, 60, "Show ai debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_ai_debug")),
+            Button(left+right_offset, 350, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
+            Button(left+right_offset, 450, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
+            Button(left+right_offset, 550, 300, 60, "Test map", States.COUNTDOWN),
+            Button(left, 750, 300, 60, "Back", action=self.settings_back_button)
         ]
-        
+        # Custom fps choice field removed for now:
+        # Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
         
         self.level_selection_buttons = [
             Button(left, 150, 300, 60, "Level 1", States.PLAYING),
@@ -1035,8 +1041,6 @@ class TankGame:
             pg.time.delay(30)
 
         self.state = States.MENU
-
-    
         
     def count_down(self, event_list):
         # Set countdown starting number (for example, 3 seconds)
@@ -1089,9 +1093,10 @@ class TankGame:
         mouse_buttons = pg.mouse.get_pressed()
         mouse_pos = pg.mouse.get_pos()  # Mouse position
         
-        if keys[pg.K_q]:
-            pg.quit()
-            sys.exit()
+        # q for quit disabled
+        # if keys[pg.K_q]:
+        #     pg.quit()
+        #     sys.exit()
         if keys[pg.K_ESCAPE]:
             print("ESCAPE PRESSED")
             self.state = States.PAUSE_MENU
@@ -1120,11 +1125,12 @@ class TankGame:
 
             if keys[pg.K_o]:
                 self.units_player_controlled[0].abort_waypoint()
-                
-            if keys[pg.K_f]:
-                self.clear_all_map_data()
-                self.load_map()
-                self.load_map_textures()
+            
+            if not self.playthrough_started:
+                if keys[pg.K_f]:
+                    self.clear_all_map_data()
+                    self.load_map()
+                    self.load_map_textures()
 
         self.update()
         self.draw()
@@ -1465,6 +1471,7 @@ class TankGame:
                 for c1, c2 in queue:
                     pg.draw.line(self.screen, "green", c1, c2, 5)  # Already converted to Pygame
             
+        if self.show_ai_dodge:
             # SKAL SLETTES ELLER HAVDE EGEN SETTING KNAP (skal under sin egen dodge setting debug)
             if self.units[1].ai.proj_ray != None:
                 for c1, c2 in self.units[1].ai.proj_ray:
@@ -1553,6 +1560,10 @@ class TankGame:
         
         
         self.total  +=self.clock.get_fps()
+        
+        if self.frame == 0:
+            self.frame = 0.000001
+        
         avg = self.total / self.frame
         
         font = pg.font.Font(None, 24)  # Default font, size 24

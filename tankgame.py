@@ -144,9 +144,10 @@ class TankGame:
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 1
+        self.current_level_number = 50
         self.playthrough_lives_original = 3
         self.playthrough_lives = self.playthrough_lives_original
+        self.last_level = 50
         self.levels_that_gave_life = set()  # Track which levels have given a life
     
     def dpi_fix(self):
@@ -724,6 +725,8 @@ class TankGame:
                     self.delay(event_list)
                 elif self.state == States.INFO_SCREEN:
                     self.info_screen(event_list)
+                elif self.state == States.END_SCREEN:    
+                    self.end_screen(event_list)
                 elif self.state == States.EXIT:
                     self.exit()
                 
@@ -786,6 +789,10 @@ class TankGame:
                 self.wait_time = 0
                 self.current_level_number += 1
                 self.clear_all_map_data()
+                if self.current_level_number > self.last_level:
+                    self.state = States.END_SCREEN
+                    return
+                
                 self.start_map()
                 self.state = States.INFO_SCREEN
                 print(f"Next level: {self.current_level_number-1} -> {self.current_level_number}")
@@ -830,7 +837,6 @@ class TankGame:
 
         game_over_text = "Game over"
         start_time = pg.time.get_ticks()
-
 
         if self.playthrough_lives == 0:
             duration = 7000
@@ -995,7 +1001,43 @@ class TankGame:
         else:
             self.state = States.COUNTDOWN
 
+    def end_screen(self, event_list):
+        font = pg.font.SysFont(None, 100)
+        text_surface = font.render("You won", True, (255, 255, 255))
+        text_surface = text_surface.convert_alpha()
 
+        start_time = pg.time.get_ticks()
+        duration = 8000  # total screen duration in ms
+        fade_duration = 2000  # duration of fade-in effect
+
+        while True:
+            now = pg.time.get_ticks()
+            elapsed = now - start_time
+
+            if elapsed >= duration:
+                break
+
+            # Calculate fade-in alpha
+            if elapsed < fade_duration:
+                alpha = int((elapsed / fade_duration) * 255)
+            else:
+                alpha = 255
+
+            # Apply alpha to text
+            text_surface.set_alpha(alpha)
+
+            # Fill and draw
+            self.screen.fill("black")
+            text_rect = text_surface.get_rect(center=self.screen.get_rect().center)
+            self.screen.blit(text_surface, text_rect)
+
+            pg.display.update()
+            pg.time.delay(30)
+
+        self.state = States.MENU
+
+    
+        
     def count_down(self, event_list):
         # Set countdown starting number (for example, 3 seconds)
         countdown_number = 3
@@ -1102,6 +1144,7 @@ class TankGame:
         self.mines.clear()
         self.tracks.clear()
 
+
     # ============================================ Handle methods ============================================
     
     def handle_buttons(self, button_list, event_list, screen):
@@ -1161,8 +1204,7 @@ class TankGame:
                 
                 self.state = States.PLAYTHROUGH
                 
-                return
-            
+                return 
         
         if self.time - self.last_print_time >= 0.5:
            
@@ -1182,8 +1224,7 @@ class TankGame:
         
         self.frame += 1
         self.time += self.delta_time
-            
-            
+             
         # Debug output
         # if random.random() < 0.01:  # Print about 1% of frames to avoid spam
         #     print(f"Delta: {self.delta_time:.10f}, FPS: {1/self.delta_time:.1f} ")
@@ -1579,4 +1620,5 @@ class States:
     COUNTDOWN = "countdown"
     DELAY = "delay"
     INFO_SCREEN = "infoscreen"
+    END_SCREEN = "endscreen"
     EXIT = "exit"

@@ -27,8 +27,11 @@ def split_polygon_into_triangles(polygon: list[tuple]) -> list[tuple]:
     }
     
     # Perform constrained triangulation
-    triangulation = tr.triangulate(segments, "p")
-    
+    try:
+        triangulation = tr.triangulate(segments, "p")
+    except Exception as e:
+        print(f"ERROR with triangulation: {e}")
+        
     # Extract vertices and triangles
     vertices = triangulation["vertices"]  # All unique vertices
     triangles = triangulation["triangles"]  # Indices of triangles

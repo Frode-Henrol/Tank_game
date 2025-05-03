@@ -200,9 +200,8 @@
         "shoot_enemy_projectiles_range": 100,
     
         "wander_radius": 150,
-        "defend_time": 200,
+        "defend_time": 200
 
-        "mine_chance": 15000
     },
     "black": {
         "patrol_radius": 250,
@@ -287,8 +286,9 @@
         "rotation_mult_min": 0.75,
     
         "perfect_aim": false,
-        "advanced_targeting": false,
+        "advanced_targeting": true,
         "predictive_targeting": true,
+        "advanced_dodge": true,
         "predictive_targeting_chance": 60,
     
         "shoot_threshold": 15,
@@ -296,7 +296,7 @@
         "shoot_enemy_projectiles": false,
     
         "wander_radius": 150,
-        "defend_time": 2000
+        "defend_time": 50
 
     },
     "zmarine": {

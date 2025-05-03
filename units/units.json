@@ -1,7 +1,7 @@
 {
     "player_tank": {
         "tank_speed_modifier": 1.92,
-        "projectile_speed_modifier": 3.36,
+        "projectile_speed_modifier": 23.36,
         "firerate": 2.8,
         "bounch_limit": 1,
         "mine_limit": 4,
@@ -80,12 +80,12 @@
         "use_turret": true
     },
     "white_tank": {
-        "tank_speed_modifier": 2.4,
+        "tank_speed_modifier": 0.5,
         "projectile_speed_modifier": 6.72,
         "firerate": 0.8,
         "bounch_limit": 1,
-        "mine_limit": 2,
-        "projectile_limit": 5,
+        "mine_limit": 0,
+        "projectile_limit": 3,
         "ai_personality": "white",
         "use_turret": true
     },

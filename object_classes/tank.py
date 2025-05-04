@@ -7,7 +7,7 @@ from object_classes.animation import Animation
 import utils.helper_functions as helper_functions
 import numpy as np
 import random
-import pathfinding
+import utils.pathfinding as pathfinding
 from scipy.spatial import KDTree
 import heapq
 import time
@@ -35,8 +35,9 @@ class Tank:
                  draw_hitbox = True):
         
         self.pos = list(startpos)
-        self.direction = (0,0)  # Skal rettes
         self.degrees = spawn_degress % 360
+        rads = np.radians(self.degrees)
+        self.direction = np.cos(rads), np.sin(rads)  # Initialize direction vector
         self.speed = speed  # Used to control speed so it wont be fps bound
         self.speed_original = speed
         self.can_move = self.speed_original > 0
@@ -119,11 +120,9 @@ class Tank:
         self.collision_timer = 0
     
         # AI
-        # TEST DIC
         self.ai_type = ai_type  
         self.pos_dir = (0,0)
         self.units = []
-
         
     def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
         self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None

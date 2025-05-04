@@ -5,7 +5,7 @@ from object_classes.button import Button
 from object_classes.textfield import Textfield
 import numpy as np
 import os
-import pathfinding
+import utils.pathfinding as pathfinding
 
 def main():
     

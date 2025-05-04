@@ -20,7 +20,7 @@ from object_classes.button import Button
 from object_classes.mine import Mine 
 from object_classes.track import Track
 from object_classes.animation import Animation
-import pathfinding
+import utils.pathfinding as pathfinding
 import utils.helper_functions as helper_functions
 
 class TankGame:
@@ -177,9 +177,9 @@ class TankGame:
         left = x_mid - button_width // 2    # The x value were button starts
         
         self.menu_buttons = [
-            Button(left, 250, 300, 60, "Play", States.PLAYTHROUGH),
+            Button(left, 250, 300, 60, "Start game", States.PLAYTHROUGH),
             Button(left, 350, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 450, 300, 60, "Quit", States.EXIT)
+            Button(left, 450, 300, 60, "Quit game", States.EXIT)
         ]
         
         # Level selection is not implemented 
@@ -188,9 +188,8 @@ class TankGame:
         self.pause_menu_buttons = [
             Button(left, 250, 300, 60, "Resume", States.DELAY),
             Button(left, 350, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 450, 300, 60, "Quit", States.MENU)
+            Button(left, 450, 300, 60, "Main menu", States.MENU)
         ]
-        
         
         left_offset = 175
         right_offset = 175
@@ -327,8 +326,7 @@ class TankGame:
         sound = pg.mixer.Sound(os.path.join(os.getcwd(), "sound_effects", "ui", f"lostgame.mp3"))
         sound.set_volume(0.2)
         self.sound_effects["lostgame"].append(sound)
-            
-            
+                  
     def load_map(self, map_path: str = r"map_files\map_test1.txt") -> None:
         """Loads data from a map file"""
         
@@ -596,7 +594,8 @@ class TankGame:
 
         self.texture_surface = final_texture_surface
 
-        pg.image.save(self.texture_surface, "debug_texture_output.png")
+        # Output textures as image
+        # pg.image.save(self.texture_surface, "debug_texture_output.png")
 
     def wrap_texture_on_polygon_type(self, obstacle_list: list, images_list) -> None:
             """Takes a list of polygons and assigns textures to them. ONLY used for single polygon type, like for the destructibles, that needs their own surface"""
@@ -705,41 +704,45 @@ class TankGame:
     # ============================================ Run loop states ==========================================
     def run(self):
         """Main game loop."""
-        profiler = cProfile.Profile()
-        profiler.enable()
-        try:
-            while True:
-                self.update_delta_time()
-                
-                event_list = pg.event.get()
-                
-                if self.state == States.MENU:
-                    self.main_menu(event_list)
-                elif self.state == States.SETTINGS:
-                    self.settings(event_list)
-                elif self.state == States.PAUSE_MENU:
-                    self.pause_menu(event_list)
-                elif self.state == States.PLAYTHROUGH:
-                    self.playthrough(event_list)
-                elif self.state == States.LEVEL_SELECT:
-                    self.level_selection(event_list)
-                elif self.state == States.PLAYING:
-                    self.playing(event_list)
-                elif self.state == States.COUNTDOWN:
-                    self.count_down(event_list)
-                elif self.state == States.DELAY:
-                    self.delay(event_list)
-                elif self.state == States.INFO_SCREEN:
-                    self.info_screen(event_list)
-                elif self.state == States.END_SCREEN:    
-                    self.end_screen(event_list)
-                elif self.state == States.EXIT:
-                    self.exit()
-                
-                self.handle_events(event_list)
-        finally:
-            profiler.disable()
-            profiler.dump_stats('game_profile.prof')
+        
+        while True:
+            self.update_delta_time()
+            
+            event_list = pg.event.get()
+            
+            if self.state == States.MENU:
+                self.main_menu(event_list)
+            elif self.state == States.SETTINGS:
+                self.settings(event_list)
+            elif self.state == States.PAUSE_MENU:
+                self.pause_menu(event_list)
+            elif self.state == States.PLAYTHROUGH:
+                self.playthrough(event_list)
+            elif self.state == States.LEVEL_SELECT:
+                self.level_selection(event_list)
+            elif self.state == States.PLAYING:
+                self.playing(event_list)
+            elif self.state == States.COUNTDOWN:
+                self.count_down(event_list)
+            elif self.state == States.DELAY:
+                self.delay(event_list)
+            elif self.state == States.INFO_SCREEN:
+                self.info_screen(event_list)
+            elif self.state == States.END_SCREEN:    
+                self.end_screen(event_list)
+            elif self.state == States.EXIT:
+                self.exit()
+            
+            self.handle_events(event_list)
+            
+        # Profiler. Use snakeviz for visuals
+        # profiler = cProfile.Profile()
+        # profiler.enable()
+        # try:
+        #     insert while loop here to profile
+        # finally:
+        #     profiler.disable()
+        #     profiler.dump_stats('game_profile.prof')
 
     # ============================================ State methods ============================================
     def main_menu(self, event_list):
@@ -756,6 +759,12 @@ class TankGame:
         self.screen.fill("gray")
         self.handle_buttons(self.pause_menu_buttons, event_list, self.screen)
         pg.display.update()
+        
+        # keys = pg.key.get_pressed()
+        # if keys[pg.K_ESCAPE]:
+        #     print("ESCAPE PRESSED")
+        #     self.state = States.DELAY
+        #     return
 
     def exit(self):
         pg.quit()

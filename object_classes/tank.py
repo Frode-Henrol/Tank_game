@@ -30,6 +30,7 @@ class Tank:
                  images: dict, 
                  use_turret,
                  team,
+                 order_id,
                  ai_type = None,
                  godmode = False,
                  draw_hitbox = True):
@@ -49,6 +50,8 @@ class Tank:
         self.time_of_death = 0
         
         self.time_alive = 0
+        
+        self.order_id = order_id # Id for map respawn logic
         
         # Team
         self.team = team
@@ -382,6 +385,10 @@ class Tank:
         # When collision it detected timer is reset
         self.collision_timer = self.collision_timer_original
 
+    def make_dead_silent(self):
+        self.dead = True
+        self.active_image = self.death_image
+    
     def make_dead(self, active):
         if active and not self.godmode:
             print("Tank dead")

@@ -92,6 +92,7 @@ class TankGame:
         self.load_sound_effects()     
         
         # ONLY FOR THE QUICKPLAY DEBUG!      
+        self.dead_enemies_before_death = set()
         self.load_map()                 
         self.load_map_textures()
         
@@ -145,8 +146,8 @@ class TankGame:
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 1
-        self.playthrough_lives_original = 3
+        self.current_level_number = 4
+        self.playthrough_lives_original = 10
         self.playthrough_lives = self.playthrough_lives_original
         self.last_level = 50
         self.levels_that_gave_life = set()  # Track which levels have given a life
@@ -395,7 +396,9 @@ class TankGame:
             all_units_data_json: dict = json.load(json_file)
         
         # Unpack each unit map data
-        for unit in unit_list:
+        for i, unit in enumerate(unit_list):
+            
+            
             unit_pos, unit_angle, unit_type, unit_team = unit
             
             # Get unit type in json format
@@ -430,7 +433,8 @@ class TankGame:
                                     projectile_limit   = specific_unit_data["projectile_limit"],
                                     images             = image_dict,
                                     use_turret         = True,
-                                    team               = unit_team,    
+                                    team               = unit_team,
+                                    order_id           = i,    
                                     ai_type            = ai_type
                                     )
                 
@@ -443,6 +447,7 @@ class TankGame:
                 print(f"Error: {e}")
         
         for unit in self.units:
+                
             unit.set_units(self.units)  # Transfer unit list data to each tank
             
             # Get specific data for the choosen ai
@@ -459,7 +464,13 @@ class TankGame:
             unit.init_sound_effects(self.sound_effects)
             unit.init_animations(self.animations)
         
+        # For loop makes sure we dont respawn killed tanks from a level
+        temp_units = []
+        for unit in self.units:
+            if unit.order_id not in self.dead_enemies_before_death:
+                temp_units.append(unit)
         
+        self.units = temp_units
         
         print(f"Units loaded: {len(self.units)} where {len(self.units_player_controlled)} are player controlled.")  
         print(f"Player controlled units: {self.units_player_controlled[0]}")
@@ -790,6 +801,14 @@ class TankGame:
             # If dead
             if self.units_player_controlled[0].dead:
                 print("Reseting")
+                
+                # Store orderIDs of dead enemies before clearing
+                current_dead_enemies = {
+                unit.order_id for unit in self.units 
+                if unit.team != self.units_player_controlled[0].team and unit.dead
+                }
+                self.dead_enemies_before_death.update(current_dead_enemies)
+
                 self.wait_time = 0
                 self.playthrough_lives -= 1
                 self.clear_all_map_data()
@@ -801,6 +820,7 @@ class TankGame:
 
             # If level clear
             if all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
+                self.dead_enemies_before_death = set()
                 self.wait_time = 0
                 self.current_level_number += 1
                 self.clear_all_map_data()
@@ -1020,6 +1040,7 @@ class TankGame:
         font = pg.font.SysFont(None, 100)
         text_surface = font.render("You won", True, (255, 255, 255))
         text_surface = text_surface.convert_alpha()
+        self.dead_enemies_before_death = set()
 
         start_time = pg.time.get_ticks()
         duration = 8000  # total screen duration in ms

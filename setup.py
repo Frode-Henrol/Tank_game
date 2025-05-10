@@ -12,11 +12,6 @@ setup(
         "scipy==1.13.0",
         "triangle==20250106"
     ],
-    entry_points={
-        "console_scripts": [
-            "tank_game = tank_game.main:main",
-        ]
-    },
     license="GPL-3.0",
     python_requires='>=3.8',
 )

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="Tank game", 
-    version="1.0.0",
+    version="0.1.0",
     description="Tank game inspired by wii tanks",
     author="Frode Henrol",
     packages=find_packages(),

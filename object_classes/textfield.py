@@ -1,4 +1,3 @@
-import pygame 
 import pygame as pg
 
 class Textfield:

@@ -1,4 +1,3 @@
 add:
-+   Level should not reset completely when killed - dead tanks should not respawn
 +   Make alternativ control for tanks - toggle in menu?
 +   Update colors of original tanks - should be more distinct, less pale

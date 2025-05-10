@@ -146,8 +146,8 @@ class TankGame:
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 4
-        self.playthrough_lives_original = 10
+        self.current_level_number = 1
+        self.playthrough_lives_original = 3
         self.playthrough_lives = self.playthrough_lives_original
         self.last_level = 50
         self.levels_that_gave_life = set()  # Track which levels have given a life
@@ -701,7 +701,7 @@ class TankGame:
             path_tank_turret = os.path.join(os.getcwd(),r"units\images", f"{turret_name}_turret.png")
             
             tank_img = pg.image.load(path_tank).convert_alpha()
-            tank_img = pg.transform.scale(tank_img, self.WINDOW_DIM_SCALED)
+            tank_img = pg.transform.scale(tank_img, (self.WINDOW_DIM_SCALED[0],self.WINDOW_DIM_SCALED[1]*1.2))
             
             tank_turret_img = pg.image.load(path_tank_turret).convert_alpha()
             tank_turret_img = pg.transform.scale(tank_turret_img, (self.WINDOW_DIM_SCALED[0]*0.5, self.WINDOW_DIM_SCALED[1]*2))
@@ -1135,9 +1135,9 @@ class TankGame:
         # If the player controlled units list is empty we dont take inputs
         if self.units_player_controlled:
             if keys[pg.K_a]:
-                self.units_player_controlled[0].rotate(-1)
+                self.units_player_controlled[0].rotate(-1.3)
             if keys[pg.K_d]:
-                self.units_player_controlled[0].rotate(1)
+                self.units_player_controlled[0].rotate(1.3)
             if keys[pg.K_w]:
                 self.units_player_controlled[0].move("forward")
             if keys[pg.K_s]:

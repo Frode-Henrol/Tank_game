@@ -1,5 +1,3 @@
-
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -79,37 +77,3 @@ if __name__ == "__main__":
 
     intersection = line_intersection(p1, p2, p3, p4)
 
-    if intersection != None:
-        # Move tangent vector to intersection:
-        ix, iy = intersection
-
-        # Unpack the 2 normal vector points
-        nv1_x, nv1_y  = nv_p1
-        nv2_x, nv2_y  = nv_p2
-
-        # Add intersection amount to x and y
-        nv_p1 = nv1_x + ix, nv1_y + iy
-        nv_p2 = nv2_x + ix, nv2_y + iy
-
-
-    fig, ax = plt.subplots()
-    ax.plot([p1[0],p2[0]],[p1[1],p2[1]], "red", label="Line 1")
-    ax.plot([p3[0],p4[0]],[p3[1],p4[1]], "blue", label="Line 2")
-
-    if intersection != None:
-        # Normal vektor:
-        ax.plot([nv_p1[0],nv_p2[0]],[nv_p1[1],nv_p2[1]], "green", label="Normal vektor")
-
-        # Deflect vektor:
-        # adds deflect vector to the intercept point. 
-        ax.plot([ix, ix + deflect_v[0]],[iy, iy + deflect_v[1]], "purple", label="Deflect vektor")
-
-        # Intersect point:
-        ax.plot([intersection[0]],[intersection[1]],"o",label="Intersect")
-
-    if intersection == None:
-        print("No intersect")
-        
-    ax.legend()
-
-    plt.show()

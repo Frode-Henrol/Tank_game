@@ -88,7 +88,7 @@ class Tank:
         self.dead = False
         
         # Ekstra features
-        self.godmode = godmode     # Toggle godmode for all tanks
+        self.godmode = godmode
         
         # Tank images:
         self.image = images["tank_body"]

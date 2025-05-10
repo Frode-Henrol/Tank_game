@@ -90,8 +90,7 @@ class TankGame:
         self.load_gui()                   
         self.load_animations_and_misc()   
         self.load_sound_effects()     
-        
-        # ONLY FOR THE QUICKPLAY DEBUG!      
+          
         self.dead_enemies_before_death = set()
         self.load_map()                 
         self.load_map_textures()
@@ -143,10 +142,15 @@ class TankGame:
         self.wait_time = 0
         self.new_life_interval = 5  # How many rounds before we get new life
         self.added_life = False
+        
+        control_img_path = os.path.join(os.getcwd(),"misc_images","control_page.png")
+        scale = 0.75
+        self.control_img = self.load_image(control_img_path, (self.WINDOW_DIM[0]//(2*scale),self.WINDOW_DIM[1]//(2*scale)))
+        
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 1
+        self.current_level_number = 49
         self.playthrough_lives_original = 3
         self.playthrough_lives = self.playthrough_lives_original
         self.last_level = 50
@@ -178,7 +182,7 @@ class TankGame:
         left = x_mid - button_width // 2    # The x value were button starts
         
         self.menu_buttons = [
-            Button(left, 250, 300, 60, "Start game", States.PLAYTHROUGH),
+            Button(left, 250, 300, 60, "Start game", States.CONTROL_SCREEN),
             Button(left, 350, 300, 60, "Settings", States.SETTINGS),
             Button(left, 450, 300, 60, "Quit game", States.EXIT)
         ]
@@ -647,7 +651,17 @@ class TankGame:
             # Apply mask to texture
             texture_surface.blit(mask_surface, (0, 0), special_flags=pg.BLEND_RGBA_MULT)
             return texture_surface
-        
+    
+    def load_image(self, path: str, scale: tuple[float,float]):
+        """Load image from path"""
+        try:
+            path = os.path.join(path)
+            image = pg.image.load(path).convert_alpha()
+            return pg.transform.scale(image, (scale[0], scale[1]))    
+        except FileNotFoundError:
+            print(f"Error: Image not found at {path} ! Check your path.")
+            sys.exit() 
+    
     def load_map_textures(self) -> None:
         """Load and scale game assets (e.g., images)."""
         try:
@@ -741,6 +755,8 @@ class TankGame:
                 self.info_screen(event_list)
             elif self.state == States.END_SCREEN:    
                 self.end_screen(event_list)
+            elif self.state == States.CONTROL_SCREEN:
+                self.control_screen(event_list)
             elif self.state == States.EXIT:
                 self.exit()
             
@@ -759,6 +775,7 @@ class TankGame:
     def main_menu(self, event_list):
         if self.playthrough_started:
             self.playthrough_started = False
+            self.dead_enemies_before_death = set()
             self.clear_all_map_data()
             self.init_playthrough()
         
@@ -991,6 +1008,7 @@ class TankGame:
             level_text_str = f"Level {level_display}"
             level_surf = level_font.render(level_text_str, True, level_color).convert_alpha()
             lives_surf = lives_font.render(f"Lives: {lives_display}", True, lives_color).convert_alpha()
+        
             
             level_surf.set_alpha(alpha)
             lives_surf.set_alpha(alpha)
@@ -1005,7 +1023,7 @@ class TankGame:
             total_width = level_surf.get_width() + 40 + lives_surf.get_width()
             x = self.WINDOW_W // 2 - total_width // 2
             y = self.WINDOW_H // 2
-
+                
             self.screen.blit(level_surf, (x + offset_x, y + offset_y))
             self.screen.blit(lives_surf, (x + level_surf.get_width() + 40 + offset_x, y + offset_y))
 
@@ -1098,6 +1116,49 @@ class TankGame:
             countdown_number -= 1
     
         self.state = States.PLAYING
+    
+    def control_screen(self, event_list):
+        # Calculate centered position
+        img_width, img_height = self.control_img.get_size()
+        x_pos = (self.WINDOW_W - img_width) // 2
+        y_pos = (self.WINDOW_H - img_height) // 2
+        
+        # Create copy for alpha manipulation
+        fade_img = self.control_img.copy()
+        alpha = 0  # Start fully transparent
+        fade_speed = 5
+        fade_phase = "in"  # "in", "hold", or "out"
+        
+        clock = pg.time.Clock()
+        running = True
+        
+        while running:
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    pg.quit()
+                    exit()
+                elif event.type == pg.KEYDOWN:
+                    if event.key == pg.K_RETURN and fade_phase == "hold":
+                        fade_phase = "out"
+            
+            # Handle fade phases
+            if fade_phase == "in":
+                alpha = min(255, alpha + fade_speed)
+                if alpha >= 255:
+                    fade_phase = "hold"  # Stay visible
+            elif fade_phase == "out":
+                alpha = max(0, alpha - fade_speed)
+                if alpha <= 0:
+                    running = False
+            
+            # Update display
+            fade_img.set_alpha(alpha)
+            self.screen.fill("black")
+            self.screen.blit(fade_img, (x_pos, y_pos))
+            pg.display.update()
+            clock.tick(60)
+
+        self.state = States.PLAYTHROUGH
 
     def delay(self, event_list):
         # Set countdown starting number (for example, 3 seconds)
@@ -1232,14 +1293,18 @@ class TankGame:
         # If playthrough has started
         if self.playthrough_started:
             
-            # If player dead or all enemies are dead
-            if self.units_player_controlled[0].dead or all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
+            # If all enemies die set player to godmode
+            if all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
+                self.units_player_controlled[0].godmode = True
+                self.wait_time += self.delta_time
+                
+            # If player dead:
+            if self.units_player_controlled[0].dead:
                 self.wait_time += self.delta_time
             
             if self.wait_time >= self.wait_time_original:
                 
                 self.state = States.PLAYTHROUGH
-                
                 return 
         
         if self.time - self.last_print_time >= 0.5:
@@ -1662,4 +1727,5 @@ class States:
     DELAY = "delay"
     INFO_SCREEN = "infoscreen"
     END_SCREEN = "endscreen"
+    CONTROL_SCREEN = "controlscreen"
     EXIT = "exit"

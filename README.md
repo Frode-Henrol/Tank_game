@@ -13,6 +13,21 @@ The first 20 levels closely replicate the original Wii Tanks gameplay. The final
 
 ---
 
+## Installation
+
+Follow the steps below to get **Tank Game** up and running on your machine:
+
+### 1. Install Dependencies
+
+Ensure the required libraries are installed. Run:
+
+```bash
+pip install -r requirements.txt
+
+```bash
+python setup.py install
+
+
 ## Included Scripts
 
 - `main.py` – Runs the main game.

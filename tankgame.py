@@ -150,7 +150,8 @@ class TankGame:
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 1
+        self.current_level_number_original = 1
+        self.current_level_number = self.current_level_number_original
         self.playthrough_lives_original = 3
         self.playthrough_lives = self.playthrough_lives_original
         self.last_level = 50
@@ -183,8 +184,9 @@ class TankGame:
         
         self.menu_buttons = [
             Button(left, 250, 300, 60, "Start game", States.CONTROL_SCREEN),
-            Button(left, 350, 300, 60, "Settings", States.SETTINGS),
-            Button(left, 450, 300, 60, "Quit game", States.EXIT)
+            Button(left, 350, 300, 60, "Level Select", States.LEVEL_SELECT),
+            Button(left, 450, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 550, 300, 60, "Quit game", States.EXIT)
         ]
         
         # Level selection is not implemented 
@@ -214,12 +216,19 @@ class TankGame:
         # Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
         
         self.level_selection_buttons = [
-            Button(left, 150, 300, 60, "Level 1", States.PLAYING),
-            Button(left, 250, 300, 60, "Level 2", States.PLAYING),
-            Button(left, 350, 300, 60, "Level 3", States.PLAYING),
-            Button(left, 450, 300, 60, "Level 4", States.PLAYING),
-            Button(left, 550, 300, 60, "Back", States.MENU)  
+            Textfield(left, 250, 300, 60, "Level num"),
+            Button(left, 350, 300, 60, "Play", States.CONTROL_SCREEN, action=self.lvl_select),
+            Button(left, 450, 300, 60, "Back", States.MENU)  
         ]  
+        
+    
+    def lvl_select(self):
+        # Get lvl num from textfield:
+        lvl_num = self.level_selection_buttons[0].get_string()
+        if lvl_num.isdigit():
+            lvl_num_int = int(lvl_num)
+            if 0 < lvl_num_int <= 50:
+                self.current_level_number = lvl_num_int
         
     def fps_button(self):
         if self.cap_fps:

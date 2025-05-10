@@ -470,14 +470,14 @@
         "dist_leave_attack": 100,
     
         "can_dodge_proj": true,
-        "dist_start_dodge": 50,
+        "dist_start_dodge": 60,
         "proj_dodge_cooldown_val": 20,
         "advanced_dodge": true,
         "salvo_cooldown_amount": 200,
     
-        "rotation_speed": 2,
+        "rotation_speed": 3,
         "aiming_angle": 20,
-        "rotation_mult_max": 4.0,
+        "rotation_mult_max": 6.0,
         "rotation_mult_min": 0.75,
     
         "perfect_aim": true,

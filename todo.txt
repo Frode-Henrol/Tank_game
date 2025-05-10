@@ -1,3 +1,12 @@
 add:
 +   Make alternativ control for tanks - toggle in menu?
 +   Update colors of original tanks - should be more distinct, less pale
++   Add team select in map_maker and fix bug: 2 poly crash, clockwise only poly generation
+
+Fix:
+- white hue control screen
+
+Major features
+-   simpel multiplayer
+-   Reinforcement Learnt ai
+

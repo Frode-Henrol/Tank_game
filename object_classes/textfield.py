@@ -90,13 +90,13 @@ class Textfield:
                 self.set_semi_disabled(False)  # Clicking when semi-disabled enables the button
         
         if self.active:
-            if event.type == pygame.KEYDOWN: 
+            if event.type == pg.KEYDOWN: 
 
-                if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
+                if event.key == pg.K_ESCAPE or event.key == pg.K_RETURN:
                     self.handle_mouse_leave()
                 
                 # Check for backspace 
-                if event.key == pygame.K_BACKSPACE: 
+                if event.key == pg.K_BACKSPACE: 
 
                     # get text input from 0 to -1 i.e. end. 
                     self.text = self.text[:-1] 

@@ -467,16 +467,21 @@ class Tank:
             
             self.unit_mine_list.append(mine)
             self.global_mine_list.append(mine)
-
+            
+        
     def apply_repulsion(self, other_unit, push_strength=1.0):
-        """Pushes colliding tanks in correct direction"""
+        """Pushes colliding tanks in correct direction with slight perpendicular push"""
         # Vector from other_unit to this tank
         dx = self.pos[0] - other_unit.pos[0]
         dy = self.pos[1] - other_unit.pos[1]
         dist_sq = dx ** 2 + dy ** 2
 
         if dist_sq == 0:
-            return  # Avoid division by zero
+            # If exactly on top of each other, add random direction
+            angle = random.uniform(0, 2 * 3.14159)
+            dx = math.cos(angle)
+            dy = math.sin(angle)
+            dist_sq = dx ** 2 + dy ** 2
 
         dist = dist_sq ** 0.5
         
@@ -484,8 +489,19 @@ class Tank:
         direction_x = dx / dist
         direction_y = dy / dist
         
+        # Calculate perpendicular vector (90 degrees left)
+        perp_x = -direction_y
+        perp_y = direction_x
+        
+        # Combine main repulsion with small perpendicular push (20% strength)
         repulsion_distance = push_strength * self.delta_time * 120
-        repulsion_vector = (direction_x * repulsion_distance, direction_y * repulsion_distance)
+        perp_push_strength = 0.2 * repulsion_distance  # 20% of main push strength
+        
+        
+        repulsion_vector = (
+            direction_x * repulsion_distance + perp_x * perp_push_strength,
+            direction_y * repulsion_distance + perp_y * perp_push_strength
+        )
         
         # This is quick and dirty fix to prevent non moving tank being pushed through walls
         if not self.can_move:
@@ -504,61 +520,6 @@ class Tank:
         for i in range(len(self.hitbox)):
             x, y = self.hitbox[i]
             self.hitbox[i] = (x + repulsion_vector[0], y + repulsion_vector[1])
-    
-    
-    def apply_repulsion_test(self, other_unit, push_strength=1.0):
-        """Pushes colliding tanks in correct direction with slight random wobble"""
-        
-        # Vector from other_unit to this tank
-        dx = self.pos[0] - other_unit.pos[0]
-        dy = self.pos[1] - other_unit.pos[1]
-        dist_sq = dx ** 2 + dy ** 2
-
-        if dist_sq == 0:
-            # If they are exactly on top of each other, randomize direction
-            angle = random.uniform(0, 2 * 3.14159)
-            dx = math.cos(angle)
-            dy = math.sin(angle)
-            dist_sq = dx ** 2 + dy ** 2
-
-        dist = dist_sq ** 0.5
-        
-        # Calculate the normalized direction vector
-        direction_x = dx / dist
-        direction_y = dy / dist
-
-        # Add slight random "wobble" to the direction
-        wobble_strength = 0.2  # Tune this value
-        wobble_x = random.uniform(-wobble_strength, wobble_strength)
-        wobble_y = random.uniform(-wobble_strength, wobble_strength)
-        direction_x += wobble_x
-        direction_y += wobble_y
-
-        # Normalize again after wobble
-        magnitude = (direction_x**2 + direction_y**2) ** 0.5
-        if magnitude > 0:
-            direction_x /= magnitude
-            direction_y /= magnitude
-
-        repulsion_distance = push_strength * self.delta_time * 120
-        repulsion_vector = (direction_x * repulsion_distance, direction_y * repulsion_distance)
-
-        # This is quick and dirty fix to prevent non moving tank being pushed through walls
-        if not self.can_move:
-            self.speed = helper_functions.get_vector_magnitude(repulsion_vector)
-            self.speed_original = self.speed
-            dir_amount = -130 * self.delta_time + 3
-            self.direction = (dir_amount, dir_amount)
-
-        # Move this tank slightly away
-        self.pos[0] += repulsion_vector[0]
-        self.pos[1] += repulsion_vector[1]
-
-        # Also move hitbox accordingly
-        for i in range(len(self.hitbox)):
-            x, y = self.hitbox[i]
-            self.hitbox[i] = (x + repulsion_vector[0], y + repulsion_vector[1])
-
         
         
     def __str__(self):

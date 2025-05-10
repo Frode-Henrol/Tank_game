@@ -150,7 +150,7 @@ class TankGame:
     
     def init_playthrough(self):
         self.playthrough_started = False
-        self.current_level_number = 49
+        self.current_level_number = 1
         self.playthrough_lives_original = 3
         self.playthrough_lives = self.playthrough_lives_original
         self.last_level = 50

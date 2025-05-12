@@ -8,6 +8,8 @@ class Button:
                  is_toggle_on=False,
                  color_normal=None, 
                  color_clicked=None, 
+                 color_disabled= (150, 150, 150),
+                 text_color = (255, 255, 255),
                  hover_enabled=True, 
                  disabled=False, 
                  semi_disabled=False, 
@@ -24,11 +26,13 @@ class Button:
         # Colors
         self.default_color_normal = (100, 100, 200)
         self.default_color_clicked = (50, 50, 150)
-        self.disabled_color = (150, 150, 150)
+        self.disabled_color = color_disabled
         self.semi_disabled_color = (120, 120, 180)
         
         self.color_normal = color_normal or self.default_color_normal
         self.color_clicked = color_clicked or self.default_color_clicked
+        
+        self.text_color = text_color
 
         # Flags
         self.hover_enabled = hover_enabled
@@ -108,7 +112,7 @@ class Button:
 
     def draw(self, surface):
         pg.draw.rect(surface, self.color, self.rect)
-        text_surface = self.font.render(self.text, True, (255, 255, 255))
+        text_surface = self.font.render(self.text, True, self.text_color)
         surface.blit(
             text_surface,
             (

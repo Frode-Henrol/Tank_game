@@ -77,7 +77,6 @@ class Mine:
         
         for obstacle in self.obstacles_des:
             for corner_pair in obstacle.corners:
-                print(f"CORNER PAIR: {corner_pair}")
                 if self._is_in_radius(corner_pair):
                     self.obstacles_des.remove(obstacle)
                     break

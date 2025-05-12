@@ -231,9 +231,16 @@ class TankGame:
         ]  
         
         self.lobby_menu_buttons = [
-            Button(left, 350, 300, 60, "Host", States.MENU),
-            Button(left, 350, 300, 60, "Join", States.MENU),
-            Button(left, 450, 300, 60, "Back", States.MENU)  
+            Button(left, 175, 300, 60, "Host Game", States.MENU, color_disabled = "grey", disabled=True, text_color="black"),
+            Textfield(left, 250, 300, 60, "Port (default 7777)"),
+            Button(left, 325, 300, 60, "Start Host", States.MENU),
+            
+            Button(left, 475, 300, 60, "Join Game", States.MENU, color_disabled = "grey", disabled=True, text_color="black"),
+            Textfield(left, 550, 300, 60, "Host ip"),
+            Textfield(left, 625, 300, 60, "Port (default 7777)"),
+            Button(left, 700, 300, 60, "Join Game", States.MENU),
+            
+            Button(left, 850, 300, 60, "Back", States.MENU)  
         ]
         
     

@@ -22,6 +22,7 @@ from object_classes.track import Track
 from object_classes.animation import Animation
 import utils.pathfinding as pathfinding
 import utils.helper_functions as helper_functions
+import tankgame.utils.networking as networking
 
 MODULE_DIR = os.path.dirname(__file__) 
 MAP_DIR = os.path.join(os.path.dirname(__file__), "map_files")
@@ -155,6 +156,10 @@ class TankGame:
         scale = 0.75
         self.control_img = self.load_image(control_img_path, (self.WINDOW_DIM[0]//(2*scale),self.WINDOW_DIM[1]//(2*scale)))
         
+        # Multiplayer
+        self.network = networking.Multiplayer()
+        self.hosting_game = False
+        self.joined_game = False
     
     def init_playthrough(self):
         self.playthrough_started = False
@@ -194,7 +199,7 @@ class TankGame:
             Button(left, 250, 300, 60, "Start game", States.CONTROL_SCREEN),
             Button(left, 350, 300, 60, "Multiplayer", States.LOBBY_MENU),
             Button(left, 450, 300, 60, "Level Select", States.LEVEL_SELECT),
-            Button(left, 550, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 550, 300, 60, "Settings", States.SETTINGS_MAIN),
             Button(left, 650, 300, 60, "Quit game", States.EXIT)
         ]
         
@@ -203,13 +208,28 @@ class TankGame:
         
         self.pause_menu_buttons = [
             Button(left, 250, 300, 60, "Resume", States.DELAY),
-            Button(left, 350, 300, 60, "Settings", States.SETTINGS),
+            Button(left, 350, 300, 60, "Settings", States.SETTINGS_MAIN),
             Button(left, 450, 300, 60, "Main menu", States.MENU)
+        ]
+        
+        
+        self.settings_buttons_main = [
+            Button(left, 250, 300, 60, "Debug", States.SETTINGS_DEBUG),
+            Button(left, 350, 300, 60, "Multiplayer", States.SETTINGS_MULTIPLAYER),
+            Button(left, 450, 300, 60, "Back", action=self.settings_back_button)
+        ]
+        
+        self.settings_buttons_multiplayer = [
+            Button(left, 250, 300, 60, "Stop socket", action=lambda: self.network.stop()),
+            Button(left+400, 250, 300, 60, "send_join_request to server", action=lambda: self.network.send_join_request()),
+            Button(left+400, 350, 300, 60, "send_input to server", action=lambda: self.network.send_input("DORIT".encode())),
+            Button(left, 350, 300, 60, "Henrol", States.SETTINGS_MULTIPLAYER),
+            Button(left, 450, 300, 60, "Back", States.SETTINGS_MAIN)
         ]
         
         left_offset = 175
         right_offset = 175
-        self.setting_buttons = [
+        self.settings_buttons_debug = [
             Button(left-left_offset, 250, 300, 60, "Show obstacle corners", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "show_obstacle_corners")),
             Button(left-left_offset, 350, 300, 60, "Draw hitbox", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "draw_hitbox")),
             Button(left-left_offset, 450, 300, 60, "Show ai dodge debug", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:(helper_functions.toggle_bool(self, "show_ai_dodge"), self.godmode_toggle())),
@@ -219,7 +239,7 @@ class TankGame:
             Button(left+right_offset, 350, 300, 60, "Show debug info", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "show_debug_info")),
             Button(left+right_offset, 450, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
             Button(left+right_offset, 550, 300, 60, "Test map", States.COUNTDOWN),
-            Button(left, 750, 300, 60, "Back", action=self.settings_back_button)
+            Button(left, 750, 300, 60, "Back", States.SETTINGS_MAIN)
         ]
         # Custom fps choice field removed for now:
         # Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
@@ -233,12 +253,12 @@ class TankGame:
         self.lobby_menu_buttons = [
             Button(left, 175, 300, 60, "Host Game", States.MENU, color_disabled = "grey", disabled=True, text_color="black"),
             Textfield(left, 250, 300, 60, "Port (default 7777)"),
-            Button(left, 325, 300, 60, "Start Host", States.MENU),
+            Button(left, 325, 300, 60, "Start Host", States.MENU, action=self.host_game_button),
             
             Button(left, 475, 300, 60, "Join Game", States.MENU, color_disabled = "grey", disabled=True, text_color="black"),
             Textfield(left, 550, 300, 60, "Host ip"),
             Textfield(left, 625, 300, 60, "Port (default 7777)"),
-            Button(left, 700, 300, 60, "Join Game", States.MENU),
+            Button(left, 700, 300, 60, "Join Game", States.MENU, action=self.join_game_button),
             
             Button(left, 850, 300, 60, "Back", States.MENU)  
         ]
@@ -255,13 +275,23 @@ class TankGame:
     def fps_button(self):
         if self.cap_fps:
             self.clear_all_projectiles()
-            self.fps = int(self.setting_buttons[8].get_string()) # Skal rettes til dict! Nurværende løsning ikke robust            
+            self.fps = int(self.settings_buttons_debug[8].get_string()) # Skal rettes til dict! Nurværende løsning ikke robust            
     
     def settings_back_button(self):
         if self.playthrough_started:
             self.state = States.PAUSE_MENU
         else:
             self.state = States.MENU
+            
+    def host_game_button(self):
+        self.hosting_game = True
+        self.network.start_host()
+        
+    
+    def join_game_button(self):
+        self.joined_game = True
+        self.network.start_client(host_ip="127.0.0.1")
+    
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
@@ -766,12 +796,18 @@ class TankGame:
             
             self.update_delta_time()
             
+
+            
             event_list = pg.event.get()
             
             if self.state == States.MENU:
                 self.main_menu(event_list)
-            elif self.state == States.SETTINGS:
-                self.settings(event_list)
+            elif self.state == States.SETTINGS_MAIN:
+                self.settings_main(event_list)
+            elif self.state == States.SETTINGS_DEBUG:
+                self.settings_debug(event_list)
+            elif self.state == States.SETTINGS_MULTIPLAYER:
+                self.settings_multiplayer(event_list)
             elif self.state == States.PAUSE_MENU:
                 self.pause_menu(event_list)
             elif self.state == States.PLAYTHROUGH:
@@ -806,6 +842,9 @@ class TankGame:
         #     profiler.disable()
         #     profiler.dump_stats('game_profile.prof')
 
+    def multiplayer_run():
+        pass
+    
     # ============================================ State methods ============================================
     def main_menu(self, event_list):
         if self.playthrough_started:
@@ -833,9 +872,19 @@ class TankGame:
         pg.quit()
         sys.exit()
         
-    def settings(self, event_list):
+    def settings_main(self, event_list):
         self.screen.fill("gray")
-        self.handle_buttons(self.setting_buttons, event_list, self.screen)
+        self.handle_buttons(self.settings_buttons_main, event_list, self.screen)
+        pg.display.update()
+    
+    def settings_debug(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.settings_buttons_debug, event_list, self.screen)
+        pg.display.update()
+        
+    def settings_multiplayer(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.settings_buttons_multiplayer, event_list, self.screen)
         pg.display.update()
     
     def lobby_menu(self, event_list):
@@ -1771,11 +1820,13 @@ class TankGame:
 
 class States:
     MENU = "menu"
-    SETTINGS = "settings"
+    SETTINGS_MAIN = "settings_main"
+    SETTINGS_DEBUG = "settings_debug"
+    SETTINGS_MULTIPLAYER = "settings_multiplayer"
     PAUSE_MENU = "pause_menu"
     PLAYTHROUGH = "playthrough"
     LEVEL_SELECT = "level_select"
-    LOBBY_MENU = "lobby_meny"
+    LOBBY_MENU = "lobby_menu"
     PLAYING = "playing"
     COUNTDOWN = "countdown"
     DELAY = "delay"

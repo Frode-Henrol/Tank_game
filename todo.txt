@@ -9,4 +9,14 @@ Fix:
 Major features
 -   simpel multiplayer
 -   Reinforcement Learnt ai
+-   Determin to use accumalter for physics and cap at 60 fps? that mean removing accumatlor in tankAI also
+
+
+Multplayer:
+
+Host:
+-   Send data each frame of all tank postions, rotation, projectile postions/dir + obstacles destroyed
+
+Client:
+-   Only send own tank pos, rotation, and projectile list pos, dir
 

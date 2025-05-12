@@ -19,14 +19,10 @@ Follow the steps below to get **Tank Game** up and running on your machine:
 
 ### 1. Install Dependencies
 
-Ensure the required libraries are installed. Run:
-```bash
-pip install -r requirements.txt
-```
-
-Then run:
-```bash
-python setup.py install
+git clone https://github.com/Frode-Henrol/Tank_game
+cd Tank_game
+pip install -e .
+python -m main
 ```
 
 ## Included Scripts

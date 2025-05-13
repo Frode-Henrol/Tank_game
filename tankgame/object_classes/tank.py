@@ -718,6 +718,7 @@ class TankAI:
         
         # Tank that is under targeting
         self.targeted_unit = None
+        self.potential_targets = [target for target in self.units if target.team != tank.team]
         
         # Controls how often we do a update
         self.frame_counter = 0
@@ -1094,7 +1095,21 @@ class TankAI:
                 if self.is_point_within_segment_and_threshold(start, end, target_pos, self.shoot_threshold):
                     self.tank.shoot(None)
                     return
-
+    
+    def update_targeted_unit(self):
+        """Determines what unit to target"""
+        if not self.potential_targets:
+            self.targeted_unit = None
+            return
+    
+        self.targeted_unit = min(
+            self.potential_targets,
+            key=lambda unit: (
+                not self.target_in_sight,  # False < True, so in-sight units first
+                helper_functions.distance(self.tank.pos, unit.pos)
+            )
+        )
+                
     # ======================= Target filtering =====================
     def is_point_within_segment_and_threshold(self, segment_start, segment_end, point, threshold):
         """Check if point is between segment points and within shoot threshold"""

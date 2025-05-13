@@ -223,7 +223,7 @@ class TankGame:
             Button(left, 250, 300, 60, "Stop socket", action=lambda: self.network.stop()),
             Button(left+400, 250, 300, 60, "send_join_request to server", action=lambda: self.network.send_join_request()),
             Button(left+400, 350, 300, 60, "send_input to server", action=lambda: self.network.send_input("DORIT".encode())),
-            Button(left, 350, 300, 60, "Henrol", States.SETTINGS_MULTIPLAYER),
+            Button(left, 350, 300, 60, "Run mp method for test", action=lambda: self.multiplayer_run()),
             Button(left, 450, 300, 60, "Back", States.SETTINGS_MAIN)
         ]
         
@@ -842,16 +842,7 @@ class TankGame:
         #     profiler.disable()
         #     profiler.dump_stats('game_profile.prof')
         
-        
-    def multiplayer_run(self):
-        
-        # Test that end player position
-        if self.hosting_game and not self.joined_game:
-            data = self.units_player_controlled[0].pos
-            self.network.broadcast_data(data.encode)
-
-        if self.joined_game and not self.hosting_game:
-            pass
+    
     
     # ============================================ State methods ============================================
     def main_menu(self, event_list):
@@ -1325,12 +1316,29 @@ class TankGame:
             self.fixed_delta_time_accumulator += self.delta_time
             
             while self.fixed_delta_time_accumulator >= self.delta_time:
-                self.update()
                 self.fixed_delta_time_accumulator -= self.delta_time
+                self.update()
+                self.multiplayer_run()
+                
+                
             self.draw()
         else:     
             self.update()
             self.draw()
+
+    def multiplayer_run(self):
+        
+        print(f"Host: {self.hosting_game} Client: {self.joined_game}")
+        # Test that end player position
+        if self.hosting_game and not self.joined_game:
+            data = self.units_player_controlled[0].pos
+            print(f"Sending test data: {data}")
+            data = f"{str(data[0])},{str(data[1])}"
+            self.network.broadcast_data(data.encode())
+            
+        if self.joined_game and not self.hosting_game:
+            print(f" Data from host {self.network.client_data_test}")
+            self.units_player_controlled[0].pos = self.network.client_data_test
 
     def start_map(self):
         map_path = os.path.join(self.base_path_playthrough_maps, f"lvl{self.current_level_number}.txt")
@@ -1397,6 +1405,7 @@ class TankGame:
         else:
             # For multiplayer
             self.delta_time = self.fixed_delta_time_step
+
             
     def update(self):        
         

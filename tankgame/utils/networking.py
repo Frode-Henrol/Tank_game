@@ -25,6 +25,8 @@ class Multiplayer:
         self.role = NetRole.NONE
         self.clients = set()      # Host only
         self.server_address = None  # Client only
+        
+        self.client_data_test = tuple # ONLY TEST NEED TO BE DELETED
 
     def start_host(self, port=DEFAULT_PORT):
         """Start hosting a game on given port."""
@@ -111,9 +113,18 @@ class Multiplayer:
         elif data.startswith(b'INPT'):
             player_input = data[4:]
             # Process input, update state, broadcast new state
+            print(f"Host received: {player_input.decode()}")
 
     def _handle_client_packet(self, data):
         """Process packets received by the client."""
         if data.startswith(b'STAT'):
             state_data = data[4:]
             # Update local game state with server state
+            print(f"Client received: {state_data.decode()}")
+            
+            # THIS is Just a test !!!!!!!!! need to be deleted
+            s = state_data.decode()
+            self.client_data_test = list(map(float, s.strip("()").split(",")))
+
+            # we need to add a smart way for the states to be stored: if host/client:
+            # self.game_state.update_state(decoded_message) - maybe like this with seperate file

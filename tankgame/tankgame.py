@@ -851,7 +851,7 @@ class TankGame:
             self.network.broadcast_data(data.encode)
 
         if self.joined_game and not self.hosting_game:
-            self.network.
+            pass
     
     # ============================================ State methods ============================================
     def main_menu(self, event_list):

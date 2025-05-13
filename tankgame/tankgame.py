@@ -841,9 +841,17 @@ class TankGame:
         # finally:
         #     profiler.disable()
         #     profiler.dump_stats('game_profile.prof')
+        
+        
+    def multiplayer_run(self):
+        
+        # Test that end player position
+        if self.hosting_game and not self.joined_game:
+            data = self.units_player_controlled[0].pos
+            self.network.broadcast_data(data.encode)
 
-    def multiplayer_run():
-        pass
+        if self.joined_game and not self.hosting_game:
+            self.network.
     
     # ============================================ State methods ============================================
     def main_menu(self, event_list):

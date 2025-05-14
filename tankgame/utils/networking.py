@@ -123,8 +123,15 @@ class Multiplayer:
             print(f"Client received: {state_data.decode()}")
             
             # THIS is Just a test !!!!!!!!! need to be deleted
-            s = state_data.decode()
-            self.client_data_test = list(map(float, s.strip("()").split(",")))
+            s = state_data.decode().split(",")
+            pos = [float(s[0]), float(s[1])]
+            rotation_body_angle = float(s[2])
+            rotation_turret_angle = float(s[3])
+            shot_fired = s[4]
+            aim_pos = [float(s[5]), float(s[6])]
+            
+            self.client_data_test = [pos, rotation_body_angle, rotation_turret_angle, shot_fired, aim_pos]
+            
 
             # we need to add a smart way for the states to be stored: if host/client:
             # self.game_state.update_state(decoded_message) - maybe like this with seperate file

@@ -127,6 +127,11 @@ class Tank:
         self.pos_dir = (0,0)
         self.units = []
         
+        # Multiplayer
+        self.shot_fired = 0
+        self.shot_fired_counter = 0
+        self.aim_pos = (0,0)
+        
     def init_ai(self, obstacles: list[Obstacle], projectiles: list[Projectile], mines: list[Mine], all_ai_data_json: dict):
         self.ai = TankAI(self, None, self.valid_nodes, self.units.copy(), obstacles, projectiles, mines, config=all_ai_data_json) if self.ai_type != "player" else None
     
@@ -270,7 +275,7 @@ class Tank:
         self.update_hitbox_position()
         self.time_alive += self.delta_time
         self.delta_time = delta_time
-        
+    
         
         # Stop units moving for 0.5 a second of spawn
         if self.time_alive < 0.5:
@@ -322,6 +327,13 @@ class Tank:
             self.is_moving_false_time -= self.delta_time * 60
         if self.is_moving_false_time <= 0: 
             self.is_moving = False
+            
+        # Update shot fired counter
+        if self.shot_fired == 1:
+            self.shot_fired_counter += 1
+            if self.shot_fired_counter >= 5:  # After 5 frames
+                self.shot_fired = 0
+                self.shot_fired_counter = 0
 
     def draw(self, surface):
         """Draw the tank and its components"""
@@ -413,6 +425,10 @@ class Tank:
             return
         if self.cannon_cooldown > 0:
             return
+        
+        self.shot_fired = 1
+        self.shot_fired_counter = 0  # Reset counter when shooting
+        self.aim_pos = aim_pos
         
         self.cannon_cooldown = self.firerate * 5
         # At the moment the distance is hard coded, IT must be bigger than hit box or tank will shot itself.

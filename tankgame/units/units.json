@@ -1,5 +1,5 @@
 {
-    "player_tank": {
+    "player1_tank": {
         "tank_speed_modifier": 1.92,
         "projectile_speed_modifier": 3.36,
         "firerate": 2,

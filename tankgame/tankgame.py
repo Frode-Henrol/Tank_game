@@ -449,7 +449,7 @@ class TankGame:
         self.prev_obstacles_des = self.obstacles_des.copy()
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
-        tank_mappings = {0 : "player_tank", 
+        tank_mappings = {0 : "player1_tank", 
                          1 : "brown_tank", 
                          2 : "ash_tank", 
                          3 : "marine_tank", 
@@ -469,7 +469,10 @@ class TankGame:
                          16 : "zgreen_tank", 
                          17 : "zviolet_tank", 
                          18 : "zwhite_tank", 
-                         19 : "zblack_tank"
+                         19 : "zblack_tank",
+                         20 : "player2_tank",    # Make player2 tank use same json as player1
+                         21 : "player3_tank"     # Make player3 tank use same json as player1
+                         
                         }
         
         # Load ai config
@@ -490,8 +493,11 @@ class TankGame:
             # Get unit type in json format
             unit_type_json_format = tank_mappings[unit_type]
             
-            # Fetch specific unit data 
-            specific_unit_data = all_units_data_json[unit_type_json_format]
+            # Fetch specific unit data
+            if unit_type_json_format == "player2_tank" or unit_type_json_format == "player3_tank":  # This if is just a way to make player 2 and 3 share same json info as player 1
+                specific_unit_data = all_units_data_json["player1_tank"]
+            else:
+                specific_unit_data = all_units_data_json[unit_type_json_format]
             
             # TODO Tank image most be based on specific tank type! - Right know it is using the same. (the json already has a mapping for image name (could be removed, since type could be used to find correct picture))
             
@@ -1366,8 +1372,6 @@ class TankGame:
         if self.joined_game:
             
             all_player_names = self.network.client_list
-            
-
         
         if all_player_names:
             if len(all_player_names) == 1:

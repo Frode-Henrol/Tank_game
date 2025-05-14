@@ -160,6 +160,7 @@ class TankGame:
         self.network = networking.Multiplayer()
         self.hosting_game = False
         self.joined_game = False
+        self.username = f"Unknown{random.randint(0,1000)}"
     
     def init_playthrough(self):
         self.playthrough_started = False
@@ -191,6 +192,7 @@ class TankGame:
         
         # ==================== Button for states ====================
         # Last argument for button tells the button which state it should change to
+        # The whole button lists should be dictionaries instead - that for future improvement
         
         button_width = 300
         left = x_mid - button_width // 2    # The x value were button starts
@@ -202,9 +204,6 @@ class TankGame:
             Button(left, 550, 300, 60, "Settings", States.SETTINGS_MAIN),
             Button(left, 650, 300, 60, "Quit game", States.EXIT)
         ]
-        
-        # Level selection is not implemented 
-        # Button(left, 250, 300, 60, "Level selection", States.LEVEL_SELECT),
         
         self.pause_menu_buttons = [
             Button(left, 250, 300, 60, "Resume", States.DELAY),
@@ -251,18 +250,35 @@ class TankGame:
         ]  
         
         self.lobby_menu_buttons = [
-            Button(left, 175, 300, 60, "Host Game", States.MENU, color_disabled = "grey", disabled=True, text_color="black"),
+            Button(left, 175, 300, 60, "Host Game", color_disabled = "grey", disabled=True, text_color="black"),
             Textfield(left, 250, 300, 60, "Port (default 7777)"),
-            Button(left, 325, 300, 60, "Start Host", States.MENU, action=self.host_game_button),
+            Button(left, 325, 300, 60, "Start Host", States.LOBBY_MENU_MAIN, action=self.host_game_button),
             
-            Button(left, 475, 300, 60, "Join Game", States.MENU, color_disabled = "grey", disabled=True, text_color="black"),
+            Button(left, 475, 300, 60, "Join Game", color_disabled = "grey", disabled=True, text_color="black"),
             Textfield(left, 550, 300, 60, "Host ip"),
             Textfield(left, 625, 300, 60, "Port (default 7777)"),
-            Button(left, 700, 300, 60, "Join Game", States.MENU, action=self.join_game_button),
+            Button(left, 700, 300, 60, "Join Game", States.LOBBY_MENU_MAIN, action=self.join_game_button),
             
             Button(left, 850, 300, 60, "Back", States.MENU)  
         ]
         
+        spacing_player = 75
+        self.lobby_menu_main_buttons = [
+            Button(left, 250, 300, 60, "Start Game", States.CONTROL_SCREEN),
+            
+            Button(left, 350, 300, 60, "Players", color_disabled = "grey", disabled=True, text_color="black"),
+            Button(left, 350+spacing_player, 300, 60, "Player 1 (host)", disabled=False),
+            Button(left, 350+spacing_player*2, 300, 60, "---", disabled=False),
+            Button(left, 350+spacing_player*3, 300, 60, "---", disabled=False),
+            
+            Button(left, 850, 300, 60, "Back", States.LOBBY_MENU, action=lambda: self.shut_down_socket()) 
+        ]
+        
+        # Buttons saved for easier access (should be dict)
+        self.player1_button = self.lobby_menu_main_buttons[2]
+        self.player2_button = self.lobby_menu_main_buttons[3]
+        self.player3_button = self.lobby_menu_main_buttons[4]
+    
     
     def lvl_select(self):
         # Get lvl num from textfield:
@@ -285,13 +301,17 @@ class TankGame:
             
     def host_game_button(self):
         self.hosting_game = True
-        self.network.start_host()
+        self.network.start_host(username=self.username)
         
     
     def join_game_button(self):
         self.joined_game = True
-        self.network.start_client(host_ip="127.0.0.1")
+        self.network.start_client(username=self.username, host_ip="127.0.0.1")
     
+    def shut_down_socket(self):
+        self.hosting_game = False
+        self.joined_game = False
+        self.network.stop()
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
@@ -796,7 +816,9 @@ class TankGame:
             
             self.update_delta_time()
             
-
+            # Update lobby menu if host or client
+            if self.hosting_game or self.joined_game:
+                self.multiplayer_run_lobby()
             
             event_list = pg.event.get()
             
@@ -816,6 +838,8 @@ class TankGame:
                 self.level_selection(event_list)
             elif self.state == States.LOBBY_MENU:
                 self.lobby_menu(event_list)
+            elif self.state == States.LOBBY_MENU_MAIN:
+                self.lobby_menu_main(event_list)
             elif self.state == States.PLAYING:
                 self.playing(event_list)
             elif self.state == States.COUNTDOWN:
@@ -889,6 +913,11 @@ class TankGame:
     def lobby_menu(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.lobby_menu_buttons, event_list, self.screen)
+        pg.display.update()
+    
+    def lobby_menu_main(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.lobby_menu_main_buttons, event_list, self.screen)
         pg.display.update()
     
     def playthrough(self, event_list):
@@ -1318,20 +1347,43 @@ class TankGame:
             while self.fixed_delta_time_accumulator >= self.delta_time:
                 self.fixed_delta_time_accumulator -= self.delta_time
                 self.update()
-                self.multiplayer_run()
+                self.multiplayer_run_playing()
                 
                 
             self.draw()
         else:     
             self.update()
             self.draw()
+    
+    def multiplayer_run_lobby(self):
+        
+        if self.hosting_game:
+            all_player_names = [value["username"] for _, value in self.network.clients_meta.items()]  # Get all connected client names
+            all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
+            broadcast_data = str(all_player_names).encode()
+            self.network.broadcast_data(b"CLNT" + broadcast_data)    # Send all names to clients
+        
+        if self.joined_game:
+            
+            all_player_names = self.network.client_list
+            
 
-    def multiplayer_run(self):
+        
+        if all_player_names:
+            if len(all_player_names) == 1:
+                self.player1_button.change_button_text(str(all_player_names[0]))
+            if len(all_player_names) == 2:
+                self.player2_button.change_button_text(str(all_player_names[1]))
+            if len(all_player_names) == 3:
+                self.player3_button.change_button_text(str(all_player_names[2]))
+    
+    def multiplayer_run_playing(self):
         
         print(f"Host: {self.hosting_game} Client: {self.joined_game}")
         # Test that end player position
         if self.hosting_game and not self.joined_game:
             
+            # Data transfer
             unit = self.units_player_controlled[0]
             
             pos = unit.pos
@@ -1342,7 +1394,7 @@ class TankGame:
             
             data = f"{str(pos[0])},{str(pos[1])},{str(rotation_body_angle)}, {str(rotation_turret_angle)}, {str(shot_fired)}, {str(aim_pos[0])}, {str(aim_pos[1])}"
             print(f"Sending test data: {data}")
-            self.network.broadcast_data(data.encode())
+            self.network.broadcast_data(b'STAT' + data.encode())
             
         if self.joined_game and not self.hosting_game:
             
@@ -1356,6 +1408,9 @@ class TankGame:
             if int(shot_fired) == 1:
                 #print(f"Trying to shoot with aimpos: {aim_pos}")
                 self.units_player_controlled[0].shoot(aim_pos)
+
+
+
 
     def start_map(self):
         map_path = os.path.join(self.base_path_playthrough_maps, f"lvl{self.current_level_number}.txt")
@@ -1861,6 +1916,7 @@ class States:
     PLAYTHROUGH = "playthrough"
     LEVEL_SELECT = "level_select"
     LOBBY_MENU = "lobby_menu"
+    LOBBY_MENU_MAIN = "lobby_menu_main"
     PLAYING = "playing"
     COUNTDOWN = "countdown"
     DELAY = "delay"

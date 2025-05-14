@@ -24,11 +24,12 @@ class Multiplayer:
         self.running = False
         self.role = NetRole.NONE
         self.clients = set()      # Host only
+        self.clients_meta = {}    # Meta data
+        self.client_list = []     # For client to store the list of connected clients
         self.server_address = None  # Client only
-        
-        self.client_data_test = tuple # ONLY TEST NEED TO BE DELETED
+        self.client_data_test = tuple  # ONLY TEST NEED TO BE DELETED
 
-    def start_host(self, port=DEFAULT_PORT):
+    def start_host(self, username, port=DEFAULT_PORT):
         """Start hosting a game on given port."""
         self.role = NetRole.HOST
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -37,27 +38,30 @@ class Multiplayer:
         threading.Thread(target=self._host_loop, daemon=True).start()
         print("Hosting started")
 
-    def start_client(self, host_ip, port=DEFAULT_PORT):
+    def start_client(self, host_ip, username, port=DEFAULT_PORT):
         """Join a hosted game at host_ip:port."""
         self.role = NetRole.CLIENT
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_address = (host_ip, port)
         self.running = True
         threading.Thread(target=self._client_loop, daemon=True).start()
-        self.send_join_request()
+        self.send_join_request(username)
         print("Client started")
 
     def stop(self):
         """Stop the socket and networking threads."""
         self.running = False
         if self.socket:
+            self.clients.clear()
+            self.clients_meta.clear()
             self.socket.close()
             print("Stopping socket")
 
-    def send_join_request(self):
+    def send_join_request(self, username):
         """Send a join request to the server."""
         if self.role == NetRole.CLIENT:
-            self.socket.sendto(b'JOIN', self.server_address)
+            payload = username.encode()
+            self.socket.sendto(b'JOIN' + payload, self.server_address)
 
     def send_input(self, data):
         """Send player input to the host."""
@@ -68,7 +72,7 @@ class Multiplayer:
         """Send data updates to all connected clients."""
         if self.role == NetRole.HOST:
             for client in self.clients:
-                self.socket.sendto(b'STAT' + data, client)
+                self.socket.sendto(data, client)
                 
     def pack_input(self, x, y, angle, firing, inventory_count):
         """Pack input data into bytes for sending."""
@@ -108,12 +112,31 @@ class Multiplayer:
     def _handle_host_packet(self, data, addr):
         """Process packets received by the host."""
         if data.startswith(b'JOIN'):
-            print(f"Client joined: {addr}")
-            # Send welcome or initial state here
+            print(f"Player joined:")
+            
+            parts = data.decode()[4:]
+            username = parts
+            
+            
+            print(f"Addr: {addr}")
+            print(f"Username: {username}")
+            
+            self.clients_meta[addr] = {
+                "username": username,
+                "joined_at": time.time()
+            }
+            print(f"Client joined: {username} @ {addr}")
         elif data.startswith(b'INPT'):
             player_input = data[4:]
             # Process input, update state, broadcast new state
             print(f"Host received: {player_input.decode()}")
+        
+        elif data.startswith(b'LIST'):
+            """Send back the list of clients to the requesting client."""
+            client_list = [f"{addr}: {meta['username']}" for addr, meta in self.clients_meta.items()]
+            response = "\n".join(client_list).encode()
+            self.socket.sendto(b'CLNT' + response, addr)
+            
 
     def _handle_client_packet(self, data):
         """Process packets received by the client."""
@@ -135,3 +158,16 @@ class Multiplayer:
 
             # we need to add a smart way for the states to be stored: if host/client:
             # self.game_state.update_state(decoded_message) - maybe like this with seperate file
+            
+        
+        elif data.startswith(b'CLNT'):
+            """Process the list of clients received from the host."""
+            client_list_str = data[4:].decode()
+            client_lobby_info = eval(client_list_str)
+            self.client_list = client_lobby_info
+        
+    def request_client_list(self):
+        """Request the list of connected clients from the host."""
+        if self.role == NetRole.CLIENT:
+            self.socket.sendto(b'LIST', self.server_address)
+            

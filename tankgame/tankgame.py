@@ -1401,6 +1401,8 @@ class TankGame:
         
         # print(f"Host: {self.hosting_game} Client: {self.joined_game}")
         # Test that end player position
+        
+        # IF HOSTING
         if self.hosting_game and not self.joined_game:
             
             # Data transfer
@@ -1415,19 +1417,20 @@ class TankGame:
             data = f"{str(pos[0])},{str(pos[1])},{str(rotation_body_angle)}, {str(rotation_turret_angle)}, {str(shot_fired)}, {str(aim_pos[0])}, {str(aim_pos[1])}"
             print(f"Sending test data: {data}")
             self.network.broadcast_data(b'STAT' + data.encode())
-            
+        
+        # IF JOINING (CLIENT)
         if self.joined_game and not self.hosting_game:
             
             #print(f" Data from host {self.network.client_data_test}")
             pos, rotation_body_angle, rotation_turret_angle, shot_fired, aim_pos = self.network.client_data_test
-            self.units_player_controlled[0].pos = pos
-            self.units_player_controlled[0].degrees = rotation_body_angle
-            self.units_player_controlled[0].turret_rotation_angle = rotation_turret_angle
+            self.units_player_controlled[1].pos = pos
+            self.units_player_controlled[1].degrees = rotation_body_angle
+            self.units_player_controlled[1].turret_rotation_angle = rotation_turret_angle
             
         
             if int(shot_fired) == 1:
                 #print(f"Trying to shoot with aimpos: {aim_pos}")
-                self.units_player_controlled[0].shoot(aim_pos)
+                self.units_player_controlled[1].shoot(aim_pos)
 
 
 

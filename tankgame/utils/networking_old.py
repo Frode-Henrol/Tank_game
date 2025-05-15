@@ -147,14 +147,12 @@ class Multiplayer:
             
             # THIS is Just a test !!!!!!!!! need to be made into struct
             s = state_data.decode().split(",")
-            
-            id = s[0] # int
-            pos = [float(s[1]), float(s[2])]
-            aim_pos = [float(s[3]), float(s[4])]
-            rotation_body_angle = float(s[5])
-            rotation_turret_angle = float(s[6])
-            shot_fired = s[7]   # 0 or 1
-            mine_layed = s[8]   # 0 or 1
+            pos = [float(s[0]), float(s[1])]
+            rotation_body_angle = float(s[2])
+            rotation_turret_angle = float(s[3])
+            shot_fired = s[4]
+            aim_pos = [float(s[5]), float(s[6])]
+            # id = s[7] # Need to be implemented
             
             self.client_data_test = [pos, rotation_body_angle, rotation_turret_angle, shot_fired, aim_pos]
             

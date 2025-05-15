@@ -216,7 +216,7 @@
     
         "rotation_speed": 2,
         "aiming_angle": 20,
-        "rotation_mult_max": 4.0,
+        "rotation_mult_max": 5.0,
         "rotation_mult_min": 0.75,
     
         "perfect_aim": true,
@@ -475,9 +475,9 @@
         "advanced_dodge": true,
         "salvo_cooldown_amount": 200,
     
-        "rotation_speed": 3,
+        "rotation_speed": 4,
         "aiming_angle": 20,
-        "rotation_mult_max": 6.0,
+        "rotation_mult_max": 8.0,
         "rotation_mult_min": 0.75,
     
         "perfect_aim": true,

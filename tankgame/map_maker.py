@@ -101,6 +101,9 @@ class PolygonDrawer:
         # Assets to load last
         self.load_gui()
         self.load_assets()
+        
+        # Teams
+        self.team = 1
     
     
     def load_unit_images(self, name: str):
@@ -217,6 +220,10 @@ class PolygonDrawer:
             Button(left+offset_unit4, 600, width, 60, "Player3", action=lambda: self.unit_button_select(21), color_normal=standard_green_color, semi_disabled=True),
         ]
         
+        self.team_buttons = [
+            Button(left+offset_unit1, 550, width, 60, "Team 1", action=lambda: self.team1_button(), color_normal=standard_green_color),
+            Button(left+offset_unit2, 550, width, 60, "Team 2", action=lambda: self.team2_button(), color_normal=standard_green_color, semi_disabled=True),
+        ]
         
         
         self.buttons_polygons = [
@@ -226,7 +233,17 @@ class PolygonDrawer:
         ]
                 
     # ===============================================================
-    # functions for the buttons - this is a temp solution:
+    # functions for the buttons
+    def team1_button(self):
+        self.team_buttons[1].set_semi_disabled(True) 
+        self.team = 1
+        print(f"Changed to team {self.team}")
+        
+    def team2_button(self):
+        self.team_buttons[0].set_semi_disabled(True)  
+        self.team = 2
+        print(f"Changed to team {self.team}")
+    
     def polygon_button(self):
         self.buttons_editor_menu[2].set_semi_disabled(True)     # Semi disable unit button
         self.editor_mode = EditorMode.POLYGON
@@ -339,6 +356,7 @@ class PolygonDrawer:
         # If unit mode, then show the buttons for each unit
         if self.editor_mode == EditorMode.UNIT:
             self.handle_buttons(self.buttons_units, event_list, self.screen) 
+            self.handle_buttons(self.team_buttons, event_list, self.screen)
             
         if self.editor_mode == EditorMode.POLYGON:
             self.handle_buttons(self.buttons_polygons, event_list, self.screen)
@@ -468,13 +486,8 @@ class PolygonDrawer:
                     if self.snapped_pos == (0, 0):  
                         return    
                     
-                    # For now teams are player vs other
-                    if self.selected_tank > 0:
-                        team = 2
-                    else:
-                        team = 1
                     # Unit position, angle, type team saved is saved
-                    self.units.append((self.snapped_pos, int(angle_deg), self.selected_tank, team))
+                    self.units.append((self.snapped_pos, int(angle_deg), self.selected_tank, self.team))
                     print(f"Added unit at {self.snapped_pos} with angle {angle_deg} to the units list.")
                 
 # ===============================================================================================================================================

@@ -733,8 +733,8 @@ class TankAI:
         self.mines = mines              # All mines
         
         # Tank that is under targeting
-        self.targeted_unit = None
-        self.potential_targets = [target for target in self.units if target.team != tank.team]
+        self.potential_targets = [target for target in self.units if target.team != tank.team and not target.dead]
+        self.targeted_unit = self.potential_targets[0] if self.potential_targets else None
         
         # Controls how often we do a update
         self.frame_counter = 0
@@ -746,7 +746,10 @@ class TankAI:
         self.movement = self.tank.speed != 0
         
         # Tank that is under targeting
-        self.targeted_unit = self.units[0] if self.units else None              # TEST using player as hardcoded target
+        # self.targeted_unit = self.units[0] if self.units else None              # TEST using player as hardcoded target skal slettes
+        self.potential_targets = [target for target in self.units if target.team != tank.team and not target.dead]  
+        self.targeted_unit = self.potential_targets[0] if self.potential_targets else None
+        
         self.unit_target_line = None                    # Init line between target and tank
         self.unit_target_line_color = (255, 182, 193) 
         self.target_in_sight = False
@@ -840,9 +843,15 @@ class TankAI:
     def update(self):
         self.frame_counter += 1
         
-        self.targeting()
+        # If not units left then do nothing
+        if self.targeted_unit == None:
+            return 
         
+        self.targeting()
         self.misc_updates()
+        
+        if self.frame_counter % 120 == 0:
+            self.update_targeted_unit()
         
         if self.movement == False:
             return
@@ -1052,6 +1061,9 @@ class TankAI:
         
     def targeting(self):
         
+        if not self.targeted_unit or self.targeted_unit.team == self.tank.team or self.targeted_unit.dead:
+            return  # Don't target if invalid, same team, or dead
+        
         # Predictive targeting projectiles
         # Check for the projectiles with closest distance not radial but path intersect with tank pos
         if (self.shoot_enemy_projectiles == True and self.closest_projectile[0] != None and self.closest_projectile[1] < self.shoot_enemy_projectiles_range):
@@ -1108,20 +1120,29 @@ class TankAI:
             start, end = line_segment
             # 3. Only shot target if it's safe to shoot
             if self.can_shoot:
-                if self.is_point_within_segment_and_threshold(start, end, target_pos, self.shoot_threshold):
+                if (self.is_point_within_segment_and_threshold(start, end, target_pos, self.shoot_threshold) 
+                    and self.targeted_unit.team != self.tank.team 
+                    and not self.targeted_unit.dead):
+                    
                     self.tank.shoot(None)
                     return
     
     def update_targeted_unit(self):
-        """Determines what unit to target"""
+        print(f"POTENTIAL TARGETS: {len(self.potential_targets)}")
+        """Updates the targeted unit to the closest enemy unit, removing dead units"""
+        # First filter out any dead units from potential targets
+        self.potential_targets = [target for target in self.potential_targets if not target.dead]
+        
+        # If no valid targets left, set to None
         if not self.potential_targets:
             self.targeted_unit = None
             return
-    
+        
+        # Find the closest target that is in sight, or just the closest target if none are in sight
         self.targeted_unit = min(
             self.potential_targets,
             key=lambda unit: (
-                not self.target_in_sight,  # False < True, so in-sight units first
+                not self.target_in_sight,  # False < True, so in-sight units come first
                 helper_functions.distance(self.tank.pos, unit.pos)
             )
         )

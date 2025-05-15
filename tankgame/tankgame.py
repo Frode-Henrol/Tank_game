@@ -161,6 +161,9 @@ class TankGame:
         self.hosting_game = False
         self.joined_game = False
         self.username = f"Unknown{random.randint(0,1000)}"
+        
+        self.player_controlled_tank_num = 0
+        self.m_key_prev = False
     
     def init_playthrough(self):
         self.playthrough_started = False
@@ -1319,26 +1322,32 @@ class TankGame:
         # If the player controlled units list is empty we dont take inputs
         if self.units_player_controlled:
             if keys[pg.K_a]:
-                self.units_player_controlled[0].rotate(-1.3)
+                self.units_player_controlled[self.player_controlled_tank_num].rotate(-1.3)
             if keys[pg.K_d]:
-                self.units_player_controlled[0].rotate(1.3)
+                self.units_player_controlled[self.player_controlled_tank_num].rotate(1.3)
             if keys[pg.K_w]:
-                self.units_player_controlled[0].move("forward")
+                self.units_player_controlled[self.player_controlled_tank_num].move("forward")
             if keys[pg.K_s]:
-                self.units_player_controlled[0].move("backward")
+                self.units_player_controlled[self.player_controlled_tank_num].move("backward")
             if mouse_buttons[0]:
-                self.units_player_controlled[0].shoot(mouse_pos)
+                self.units_player_controlled[self.player_controlled_tank_num].shoot(mouse_pos)
             if keys[pg.K_SPACE]:
-                self.units_player_controlled[0].lay_mine()
-                
+                self.units_player_controlled[self.player_controlled_tank_num].lay_mine()
+            
+            m_key_current = keys[pg.K_m]
+            if m_key_current and not self.m_key_prev:
+                self.switch_tank()
+            self.m_key_prev = m_key_current
+
+            
             if keys[pg.K_p]:
                 print(f"{self.show_pathfinding_paths=}")
                 # Only start a path search/init if the grid_dict is present
                 if self.grid_dict is not None:
-                    self.units_player_controlled[0].find_waypoint(mouse_pos)
+                    self.units_player_controlled[self.player_controlled_tank_num].find_waypoint(mouse_pos)
 
             if keys[pg.K_o]:
-                self.units_player_controlled[0].abort_waypoint()
+                self.units_player_controlled[self.player_controlled_tank_num].abort_waypoint()
             
             if not self.playthrough_started:
                 if keys[pg.K_f]:
@@ -1360,6 +1369,13 @@ class TankGame:
         else:     
             self.update()
             self.draw()
+    
+    def switch_tank(self):
+        self.player_controlled_tank_num += 1
+        if self.player_controlled_tank_num >= len(self.units_player_controlled):
+            self.player_controlled_tank_num = 0
+        
+        
     
     def multiplayer_run_lobby(self):
         
@@ -1383,7 +1399,7 @@ class TankGame:
     
     def multiplayer_run_playing(self):
         
-        print(f"Host: {self.hosting_game} Client: {self.joined_game}")
+        # print(f"Host: {self.hosting_game} Client: {self.joined_game}")
         # Test that end player position
         if self.hosting_game and not self.joined_game:
             

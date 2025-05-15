@@ -214,9 +214,9 @@
         "proj_dodge_cooldown_val": 20,
         "advanced_dodge": true,
     
-        "rotation_speed": 1.2,
+        "rotation_speed": 2,
         "aiming_angle": 20,
-        "rotation_mult_max": 2.0,
+        "rotation_mult_max": 4.0,
         "rotation_mult_min": 0.75,
     
         "perfect_aim": true,

@@ -129,6 +129,7 @@ class Tank:
         
         # Multiplayer
         self.shot_fired = 0
+        self.mine_fired = 0
         self.shot_fired_counter = 0
         self.aim_pos = (0,0)
         
@@ -228,24 +229,24 @@ class Tank:
             return
             
         if direction == "forward":
-            dir = 1
+            dir_scalar = 1
         elif direction == "backward":
-            dir = -1
+            dir_scalar = -1
         
         self.is_moving_false_time = self.is_moving_false_time_start
-        self.is_moving_dir = dir
+        self.is_moving_dir = dir_scalar 
         self.is_moving = True
             
         # Move tank image
-        self.pos[0] = self.pos[0] + dir * self.direction[0] * self.speed
-        self.pos[1] = self.pos[1] + dir * self.direction[1] * self.speed
+        self.pos[0] = self.pos[0] + dir_scalar * self.direction[0] * self.speed
+        self.pos[1] = self.pos[1] + dir_scalar * self.direction[1] * self.speed
         
         # Move hit box:
         for i in range(len(self.hitbox)):
             x, y = self.hitbox[i]  # Unpack the point
             
-            moved_x = x + dir * self.direction[0] * self.speed
-            moved_y = y + dir * self.direction[1] * self.speed
+            moved_x = x + dir_scalar * self.direction[0] * self.speed
+            moved_y = y + dir_scalar * self.direction[1] * self.speed
             self.hitbox[i] = (moved_x, moved_y)
 
     def rotate(self, deg: int):
@@ -428,6 +429,15 @@ class Tank:
         
         self.shot_fired = 1
         self.shot_fired_counter = 0  # Reset counter when shooting
+        
+        
+        if aim_pos is None:
+            # Calculate aim_pos based on turret direction if not provided
+            rads = np.radians(self.turret_rotation_angle)
+            aim_pos = (
+                self.pos[0] + np.cos(rads) * 100, 
+                self.pos[1] + np.sin(rads) * 100
+                )
         self.aim_pos = aim_pos
         
         self.cannon_cooldown = self.firerate * 5
@@ -1128,7 +1138,6 @@ class TankAI:
                     return
     
     def update_targeted_unit(self):
-        print(f"POTENTIAL TARGETS: {len(self.potential_targets)}")
         """Updates the targeted unit to the closest enemy unit, removing dead units"""
         # First filter out any dead units from potential targets
         self.potential_targets = [target for target in self.potential_targets if not target.dead]
@@ -1686,14 +1695,14 @@ class TankAI:
 
         if not projectile:
             # Direction modifier: 1 = forward, -1 = reverse
-            dir = target_object.is_moving_dir
+            dir_scalar = target_object.is_moving_dir
         else:
-            dir = 1
+            dir_scalar = 1
 
         # Movement direction vector (multiplied by direction modifier)
         d = (
-            target_object.direction[0] * dir,
-            target_object.direction[1] * dir
+            target_object.direction[0] * dir_scalar,
+            target_object.direction[1] * dir_scalar
         )
 
         # Convert to NumPy array and normalize to unit vector

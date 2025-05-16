@@ -21,17 +21,5 @@ Client:
 -   Only send own tank pos, rotation, and projectile list pos, dir
 
 
-AI needs to be updated so it targerted unit is not hard coded as player_controlled[0], but instead needs to choose the closest of the x player_controlled tanks as target.
-We also need to change tankgame.py logic so it isnt hardcoded which tank is player_controlled, this need to be like:
-if multiplayer is on we choose
-    [0] if Host
-    [1] if Client
-else
-    [0]
 
-were
-[0] is blue
-[1] is red
-
-For furture we with more players without ai, we just choose a random tank img for each player 
-
+Add are way for host to detect if player has ledt

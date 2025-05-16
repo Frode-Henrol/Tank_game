@@ -35,7 +35,7 @@ class TankGame:
         # self.last_frame_time = pg.time.get_ticks() / 1000  # Convert to seconds immediately
         self.fps = 100
         
-        #self.dpi_fix()
+        self.dpi_fix()
 
         # Window setup
         self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200
@@ -78,6 +78,7 @@ class TankGame:
             
         # Game objects
         self.units: list[Tank] = []
+        self.units_dict = {}  # Maps tank IDs to unit objects
         self.units_player_controlled: list[Tank] = []
         
         self.projectiles: list[Projectile] = []
@@ -267,7 +268,7 @@ class TankGame:
         
         spacing_player = 75
         self.lobby_menu_main_buttons = [
-            Button(left, 250, 300, 60, "Start Game", States.CONTROL_SCREEN),
+            Button(left, 250, 300, 60, "Start Game", States.COUNTDOWN),
             
             Button(left, 350, 300, 60, "Players", color_disabled = "grey", disabled=True, text_color="black"),
             Button(left, 350+spacing_player, 300, 60, "Player 1 (host)", disabled=False),
@@ -535,7 +536,8 @@ class TankGame:
                 
                 # Init waypoint processing for tank
                 unit_to_add.init_waypoint(self.grid_dict, self.border_polygon[3], self.node_spacing, self.valid_nodes)
-            
+
+                self.units_dict[unit_to_add.id] = unit_to_add  # Seperate dict to store tank with its id
                 self.units.append(unit_to_add)
                     
             except Exception as e:
@@ -1376,19 +1378,22 @@ class TankGame:
             self.player_controlled_tank_num = 0
         
         
-    
+    # ========================= MULTIPLAYER =================================
     def multiplayer_run_lobby(self):
         
         if self.hosting_game:
             all_player_names = [value["username"] for _, value in self.network.clients_meta.items()]  # Get all connected client names
             all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
             broadcast_data = str(all_player_names).encode()
-            self.network.broadcast_data(b"CLNT" + broadcast_data)    # Send all names to clients
-        
+            self.network.host_to_clients_send(broadcast_data, raw=True, prefix=b'CLNT')    # Send all names to clients
+            
         if self.joined_game:
             
             all_player_names = self.network.client_list
-        
+            
+            # Set the controlled tank to client id: player 1: id: 2, player 2: id: 2 etc
+            self.player_controlled_tank_num = self.network.client_id    # Minus 1 to get correct player_controlled index
+            
         if all_player_names:
             if len(all_player_names) == 1:
                 self.player1_button.change_button_text(str(all_player_names[0]))
@@ -1396,43 +1401,169 @@ class TankGame:
                 self.player2_button.change_button_text(str(all_player_names[1]))
             if len(all_player_names) == 3:
                 self.player3_button.change_button_text(str(all_player_names[2]))
-    
+
+    def extract_unit_info(self, unit: Tank):
+        
+        # tankid, pos_x, pos_y, aim_x, aim_y, body_angle, turret_angle, shortfired, mine_layed
+        # Example: (1, 15.0, 25.0, 35.0, 45.0, 0.3, 0.4, False, True)
+        
+        return (unit.id,
+                unit.pos[0], unit.pos[1],
+                unit.aim_pos[0], unit.aim_pos[1],
+                unit.degrees, unit.turret_rotation_angle, 
+                unit.shot_fired,
+                unit.mine_fired)
+
     def multiplayer_run_playing(self):
-        
-        # print(f"Host: {self.hosting_game} Client: {self.joined_game}")
-        # Test that end player position
-        
         # IF HOSTING
         if self.hosting_game and not self.joined_game:
-            
-            # Data transfer
-            unit = self.units_player_controlled[0]
-            
-            pos = unit.pos
-            rotation_body_angle = unit.degrees
-            rotation_turret_angle = unit.turret_rotation_angle
-            shot_fired = unit.shot_fired
-            aim_pos = unit.aim_pos
-            
-            data = f"{str(pos[0])},{str(pos[1])},{str(rotation_body_angle)}, {str(rotation_turret_angle)}, {str(shot_fired)}, {str(aim_pos[0])}, {str(aim_pos[1])}"
-            print(f"Sending test data: {data}")
-            self.network.broadcast_data(b'STAT' + data.encode())
+            try:
+                # Send data to clients
+                if self.units:
+                    all_unit_data = [self.extract_unit_info(unit) for unit in self.units]
+                    if all_unit_data:  # Only send if we have data
+                        self.network.host_to_clients_send(all_unit_data)
+                
+                # Receive data from clients
+                try:
+                    for data in self.network.tank_data_from_clients.values():
+                        
+                        unit_data = data[0] # Unwrapping: data is the tankdata but wrapped in list.
+                        
+                        tank_id = unit_data[0]
+                        unit = self.units_player_controlled[tank_id]
+                        
+                        print(f"{unit_data=}")
+                        unit.pos = (float(unit_data[1]), float(unit_data[2]))
+                        unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
+                        unit.degrees = float(unit_data[5])
+                        unit.turret_rotation_angle = float(unit_data[6])
+                        
+                        if unit_data[7] == 1:
+                            unit.shoot(unit.aim_pos)
+                        if unit_data[8] == 1:
+                            unit.lay_mine()
+                except (ValueError, IndexError) as e:
+                    print(f"Error updating unit: {e}")
+                        
+                        
+            except Exception as e:
+                print(f"Host send error: {e}")
+
+        # IF JOINING (CLIENT)
+        if self.joined_game and not self.hosting_game:
+            try:
+                # Send client controlled unit data to host
+                if self.units_player_controlled and 0 <= self.player_controlled_tank_num < len(self.units_player_controlled):
+                    client_unit = self.units_player_controlled[self.player_controlled_tank_num]
+                    client_unit_data = self.extract_unit_info(client_unit)
+                    # Send as a list containing one tank
+                    self.network.client_to_host_send([client_unit_data])
+                else:
+                    print(f"Player control nr out of range: {self.player_controlled_tank_num}")
+                    print(f"- Client wont send to host")
+                
+                
+                # Get data from host
+                host_unit_data_list = self.network.tank_data_from_host
+                if host_unit_data_list is None:
+                    return
+                    
+                if not isinstance(host_unit_data_list, list):
+                    print(f"Invalid data format received: {host_unit_data_list}")
+                    return
+
+                for unit_data in host_unit_data_list:
+                    if len(unit_data) < 9:  # Verify expected number of fields
+                        print(f"Invalid unit data: {unit_data}")
+                        continue
+                        
+                    tank_id = unit_data[0]
+                    if tank_id == self.network.client_id:
+                        continue
+                        
+                    unit = self.units_dict.get(tank_id)
+                    if unit is None:
+                        continue
+                        
+                    # Update unit properties with validation
+                    print(f"====================: \n{unit_data}")
+                    try:
+                        unit.pos = (float(unit_data[1]), float(unit_data[2]))
+                        unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
+                        unit.degrees = float(unit_data[5])
+                        unit.turret_rotation_angle = float(unit_data[6])
+                        
+                        if unit_data[7] == 1:
+                            unit.shoot(unit.aim_pos)
+                        if unit_data[8] == 1:
+                            unit.lay_mine()
+                    except (ValueError, IndexError) as e:
+                        print(f"Error updating unit {tank_id}: {e}")
+                        
+            except Exception as e:
+                print(f"Client receive error: {e}")
+
+
+    def multiplayer_run_playing_old(self):
+        # IF HOSTING
+        if self.hosting_game and not self.joined_game:
+            # Only send if we have units
+            if self.units:
+                # Send all unit data to clients
+                all_unit_data = [self.extract_unit_info(unit) for unit in self.units]
+                print(f"{all_unit_data=}")
+                self.network.host_to_clients_send(all_unit_data)
+            else:
+                print(f"Unit list is empty")
         
         # IF JOINING (CLIENT)
         if self.joined_game and not self.hosting_game:
-            
-            #print(f" Data from host {self.network.client_data_test}")
-            pos, rotation_body_angle, rotation_turret_angle, shot_fired, aim_pos = self.network.client_data_test
-            self.units_player_controlled[1].pos = pos
-            self.units_player_controlled[1].degrees = rotation_body_angle
-            self.units_player_controlled[1].turret_rotation_angle = rotation_turret_angle
-            
-        
-            if int(shot_fired) == 1:
-                #print(f"Trying to shoot with aimpos: {aim_pos}")
-                self.units_player_controlled[1].shoot(aim_pos)
+            # Make sure we have player controlled tanks and a valid index
+            if self.units_player_controlled and 0 <= self.player_controlled_tank_num < len(self.units_player_controlled):
+                # Send client controlled unit data to host
+                client_unit = self.units_player_controlled[self.player_controlled_tank_num]
+                client_unit_data = self.extract_unit_info(client_unit)
+                # Send as a list containing one tank
+                self.network.client_to_host_send([client_unit_data])
+            else:
+                print(f"Player control nr out of range: {self.player_controlled_tank_num}")
+                print(f"- Client wont send to host")
 
+            # Receive unit data from host with error handling
+            host_unit_data_list = self.network.tank_data_from_host
+            if host_unit_data_list is None:  # No data received yet
+                print(f"host_unit_data_list is: {host_unit_data_list}")
+                return
+            
+                
+            for unit_data in host_unit_data_list:
+                tank_id = unit_data[0]  # First element is the tank ID
+                # Skip if this is the client's own tank
+                if tank_id == self.network.client_id:
+                    print(f"Skipping it self: {tank_id} {self.network.client_id}")
+                    continue
+                    
+                # Get the corresponding unit from the dictionary
+                unit = self.units_dict.get(tank_id)
+                if unit is None:
+                    print(f"Unit is: {unit}")
+                    continue  # Skip if unit doesn't exist
+                    
+                # Update unit properties from received data
+                unit.pos = (unit_data[1], unit_data[2])  # pos_x, pos_y
+                unit.aim_pos = (unit_data[3], unit_data[4])  # aim_x, aim_y
+                unit.degrees = unit_data[5]  # body_angle
+                unit.turret_rotation_angle = unit_data[6]  # turret_angle
+                
+                # Handle shooting if needed
+                if unit_data[7] == 1:  # Shot fired
+                    unit.shoot(unit.aim_pos)
+                    
+                if unit_data[8] == 1:  # Mine laid
+                    unit.lay_mine()
 
+    # =======================================================================
 
 
     def start_map(self):

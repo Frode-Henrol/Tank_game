@@ -431,13 +431,17 @@ class Tank:
         self.shot_fired_counter = 0  # Reset counter when shooting
         
         
+        # if aim_pos is None:
+        #     # Calculate aim_pos based on turret direction if not provided
+        #     rads = np.radians(self.turret_rotation_angle)
+        #     aim_pos = (
+        #         self.pos[0] + np.cos(rads) * 100, 
+        #         self.pos[1] + np.sin(rads) * 100
+        #         )
+        
         if aim_pos is None:
-            # Calculate aim_pos based on turret direction if not provided
-            rads = np.radians(self.turret_rotation_angle)
-            aim_pos = (
-                self.pos[0] + np.cos(rads) * 100, 
-                self.pos[1] + np.sin(rads) * 100
-                )
+            aim_pos = (0,0)
+            
         self.aim_pos = aim_pos
         
         self.cannon_cooldown = self.firerate * 5
@@ -446,20 +450,22 @@ class Tank:
         
         self.shot_slowness_cooldown = self.shot_slowness_cooldown_amount
         
-        if self.use_turret:
-            if self.ai == None:
-                # Find the unit vector between mouse and tank. This is the projectile unit direction vector
-                unit_direction = helper_functions.unit_vector(self.pos, aim_pos)
-            else:
-                # If ai controlled we use the turret angle as the projectile path
-                aim_x = np.cos(np.radians(self.turret_rotation_angle))
-                aim_y = np.sin(np.radians(self.turret_rotation_angle))
-                
-                aim_pos = aim_x + self.pos[0], aim_y + self.pos[1]
-                unit_direction = helper_functions.unit_vector(self.pos, aim_pos)
-                
-            projectile_direction = unit_direction
+        
+        if self.ai == None:
+            # Find the unit vector between mouse and tank. This is the projectile unit direction vector
+            unit_direction = helper_functions.unit_vector(self.pos, aim_pos)
+        else:
+            pass
+    
+        # If ai controlled we use the turret angle as the projectile path
+        aim_x = np.cos(np.radians(self.turret_rotation_angle))
+        aim_y = np.sin(np.radians(self.turret_rotation_angle))
+        
+        aim_pos = aim_x + self.pos[0], aim_y + self.pos[1]
+        unit_direction = helper_functions.unit_vector(self.pos, aim_pos)
             
+        projectile_direction = unit_direction
+        
         # Find position for spawn of projectile
         spawn_projectile_pos = [self.pos[0] + unit_direction[0]*spawn_distance_from_middle, self.pos[1] + unit_direction[1]*spawn_distance_from_middle]
 

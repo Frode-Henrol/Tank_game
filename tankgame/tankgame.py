@@ -1419,35 +1419,36 @@ class TankGame:
         # IF HOSTING
         if self.hosting_game and not self.joined_game:
             try:
-                # Send data to clients
-                if self.units:
-                    all_unit_data = [self.extract_unit_info(unit) for unit in self.units]
-                    if all_unit_data:  # Only send if we have data
-                        self.network.host_to_clients_send(all_unit_data)
-                
-                # Receive data from clients
+                # First receive data from clients and update their tanks
                 try:
-                    for data in self.network.tank_data_from_clients.values():
+                    for _, data in self.network.tank_data_from_clients.items():
                         
-                        unit_data = data[0] # Unwrapping: data is the tankdata but wrapped in list.
-                        
-                        tank_id = unit_data[0]
-                        unit = self.units_player_controlled[tank_id]
-                        
-                        print(f"{unit_data=}")
-                        unit.pos = [float(unit_data[1]), float(unit_data[2])]
-                        unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
-                        unit.degrees = float(unit_data[5])
-                        unit.turret_rotation_angle = float(unit_data[6])
-                        
-                        if unit_data[7] == 1:
-                            unit.shoot(unit.aim_pos)
-                        if unit_data[8] == 1:
-                            unit.lay_mine()
+                        # Loop over data for each unit this is a tuple of several tank parameters
+                        for unit_data in data:  
+                            tank_id = unit_data[0]  # Extract tank id
+                            unit = self.units_dict.get(tank_id) # Get data from specific tank
+                            if unit is None:
+                                continue
+                                
+                            # Update all properties including turret rotation
+                            unit.pos = [float(unit_data[1]), float(unit_data[2])]
+                            unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
+                            unit.degrees = float(unit_data[5])
+                            unit.turret_rotation_angle = float(unit_data[6])
+                            
+                            if unit_data[7] == 1:
+                                unit.shoot(unit.aim_pos)
+                            if unit_data[8] == 1:
+                                unit.lay_mine()
                 except (ValueError, IndexError) as e:
                     print(f"Error updating unit: {e}")
-                        
-                        
+                    
+                # Then send combined data to all clients
+                # Include both AI-controlled and player-controlled units
+                all_unit_data = [self.extract_unit_info(unit) for unit in self.units]
+                if all_unit_data:
+                    self.network.host_to_clients_send(all_unit_data)
+                    
             except Exception as e:
                 print(f"Host send error: {e}")
 
@@ -1488,7 +1489,7 @@ class TankGame:
                         continue
                         
                     # Update unit properties with validation
-                    print(f"====================: \n{unit_data}")
+                    print(f"ALL DATA: {unit_data}")
                     try:
                         unit.pos = [float(unit_data[1]), float(unit_data[2])]
                         unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))

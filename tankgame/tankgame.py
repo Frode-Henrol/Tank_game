@@ -1363,6 +1363,7 @@ class TankGame:
             
             while self.fixed_delta_time_accumulator >= self.delta_time:
                 self.fixed_delta_time_accumulator -= self.delta_time
+                
                 self.update()
                 self.multiplayer_run_playing()
                 
@@ -1434,7 +1435,7 @@ class TankGame:
                         unit = self.units_player_controlled[tank_id]
                         
                         print(f"{unit_data=}")
-                        unit.pos = (float(unit_data[1]), float(unit_data[2]))
+                        unit.pos = [float(unit_data[1]), float(unit_data[2])]
                         unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
                         unit.degrees = float(unit_data[5])
                         unit.turret_rotation_angle = float(unit_data[6])
@@ -1489,7 +1490,7 @@ class TankGame:
                     # Update unit properties with validation
                     print(f"====================: \n{unit_data}")
                     try:
-                        unit.pos = (float(unit_data[1]), float(unit_data[2]))
+                        unit.pos = [float(unit_data[1]), float(unit_data[2])]
                         unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
                         unit.degrees = float(unit_data[5])
                         unit.turret_rotation_angle = float(unit_data[6])
@@ -1504,64 +1505,6 @@ class TankGame:
             except Exception as e:
                 print(f"Client receive error: {e}")
 
-
-    def multiplayer_run_playing_old(self):
-        # IF HOSTING
-        if self.hosting_game and not self.joined_game:
-            # Only send if we have units
-            if self.units:
-                # Send all unit data to clients
-                all_unit_data = [self.extract_unit_info(unit) for unit in self.units]
-                print(f"{all_unit_data=}")
-                self.network.host_to_clients_send(all_unit_data)
-            else:
-                print(f"Unit list is empty")
-        
-        # IF JOINING (CLIENT)
-        if self.joined_game and not self.hosting_game:
-            # Make sure we have player controlled tanks and a valid index
-            if self.units_player_controlled and 0 <= self.player_controlled_tank_num < len(self.units_player_controlled):
-                # Send client controlled unit data to host
-                client_unit = self.units_player_controlled[self.player_controlled_tank_num]
-                client_unit_data = self.extract_unit_info(client_unit)
-                # Send as a list containing one tank
-                self.network.client_to_host_send([client_unit_data])
-            else:
-                print(f"Player control nr out of range: {self.player_controlled_tank_num}")
-                print(f"- Client wont send to host")
-
-            # Receive unit data from host with error handling
-            host_unit_data_list = self.network.tank_data_from_host
-            if host_unit_data_list is None:  # No data received yet
-                print(f"host_unit_data_list is: {host_unit_data_list}")
-                return
-            
-                
-            for unit_data in host_unit_data_list:
-                tank_id = unit_data[0]  # First element is the tank ID
-                # Skip if this is the client's own tank
-                if tank_id == self.network.client_id:
-                    print(f"Skipping it self: {tank_id} {self.network.client_id}")
-                    continue
-                    
-                # Get the corresponding unit from the dictionary
-                unit = self.units_dict.get(tank_id)
-                if unit is None:
-                    print(f"Unit is: {unit}")
-                    continue  # Skip if unit doesn't exist
-                    
-                # Update unit properties from received data
-                unit.pos = (unit_data[1], unit_data[2])  # pos_x, pos_y
-                unit.aim_pos = (unit_data[3], unit_data[4])  # aim_x, aim_y
-                unit.degrees = unit_data[5]  # body_angle
-                unit.turret_rotation_angle = unit_data[6]  # turret_angle
-                
-                # Handle shooting if needed
-                if unit_data[7] == 1:  # Shot fired
-                    unit.shoot(unit.aim_pos)
-                    
-                if unit_data[8] == 1:  # Mine laid
-                    unit.lay_mine()
 
     # =======================================================================
 

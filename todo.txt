@@ -14,12 +14,6 @@ Major features
 
 Multplayer:
 
-Host:
--   Send data each frame of all tank postions, rotation, projectile postions/dir + obstacles destroyed
 
-Client:
--   Only send own tank pos, rotation, and projectile list pos, dir
-
-
-
-Add are way for host to detect if player has ledt
+Shots are not sync proplery always - need custom UDP logic
+ENET can be used, but requires users downloading more cra

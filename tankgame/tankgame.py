@@ -542,6 +542,10 @@ class TankGame:
 
                 self.units_dict[unit_to_add.id] = unit_to_add  # Seperate dict to store tank with its id
                 self.units.append(unit_to_add)
+                
+                
+                self.last_shot_ids = {tank_id: -1 for tank_id in self.units_dict.keys()}
+                self.last_mine_ids = {tank_id: -1 for tank_id in self.units_dict.keys()}
                     
             except Exception as e:
                 print(f"Error: {e}")
@@ -1439,8 +1443,7 @@ class TankGame:
                             unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
                             unit.degrees = float(unit_data[5])
                             unit.turret_rotation_angle = float(unit_data[6])
-                            
-                            print(f"Fire counter: {unit_data[7]}")
+                        
                             
                             if unit_data[7] > self.last_shot_ids.get(tank_id, -1):
                                 unit.shoot(unit.aim_pos)
@@ -1506,8 +1509,6 @@ class TankGame:
                         unit.degrees = float(unit_data[5])
                         unit.turret_rotation_angle = float(unit_data[6])
                         
-                        print(f"Tank: id: {tank_id} Fire counter: {unit_data[7]}")
-                        
                         if unit_data[7] > self.last_shot_ids.get(tank_id, -1):
                             unit.shoot(unit.aim_pos)
                             self.last_shot_ids[tank_id] = unit_data[7]
@@ -1523,6 +1524,8 @@ class TankGame:
             except Exception as e:
                 print(f"Client receive error: {e}")
 
+        for unit in self.units:
+            print(f"ID: {unit.id} Fire counter: {unit.shot_fired_counter}")
 
     # =======================================================================
 

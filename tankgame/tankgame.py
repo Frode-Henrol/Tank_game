@@ -162,9 +162,12 @@ class TankGame:
         self.hosting_game = False
         self.joined_game = False
         self.username = f"Unknown{random.randint(0,1000)}"
+        self.last_shot_ids = {} # stores "id" / shot counter in dict for sync fire across clients
+        self.last_mine_ids = {} # Same principle as shot counter
         
         self.player_controlled_tank_num = 0
         self.m_key_prev = False
+        
     
     def init_playthrough(self):
         self.playthrough_started = False
@@ -1412,10 +1415,11 @@ class TankGame:
                 unit.pos[0], unit.pos[1],
                 unit.aim_pos[0], unit.aim_pos[1],
                 unit.degrees, unit.turret_rotation_angle, 
-                unit.shot_fired,
-                unit.mine_fired)
+                unit.shot_fired_counter,
+                unit.mine_layed_counter)
 
     def multiplayer_run_playing(self):
+
         # IF HOSTING
         if self.hosting_game and not self.joined_game:
             try:
@@ -1436,10 +1440,17 @@ class TankGame:
                             unit.degrees = float(unit_data[5])
                             unit.turret_rotation_angle = float(unit_data[6])
                             
-                            if unit_data[7] == 1:
+                            print(f"Fire counter: {unit_data[7]}")
+                            
+                            if unit_data[7] > self.last_shot_ids.get(tank_id, -1):
                                 unit.shoot(unit.aim_pos)
-                            if unit_data[8] == 1:
+                                self.last_shot_ids[tank_id] = unit_data[7]
+                                
+                            if unit_data[8] > self.last_mine_ids.get(tank_id, -1):
                                 unit.lay_mine()
+                                self.last_mine_ids[tank_id] = unit_data[8]
+                            
+      
                 except (ValueError, IndexError) as e:
                     print(f"Error updating unit: {e}")
                     
@@ -1495,10 +1506,17 @@ class TankGame:
                         unit.degrees = float(unit_data[5])
                         unit.turret_rotation_angle = float(unit_data[6])
                         
-                        if unit_data[7] == 1:
+                        print(f"Tank: id: {tank_id} Fire counter: {unit_data[7]}")
+                        
+                        if unit_data[7] > self.last_shot_ids.get(tank_id, -1):
                             unit.shoot(unit.aim_pos)
-                        if unit_data[8] == 1:
+                            self.last_shot_ids[tank_id] = unit_data[7]
+                            
+                        if unit_data[8] > self.last_mine_ids.get(tank_id, -1):
                             unit.lay_mine()
+                            self.last_mine_ids[tank_id] = unit_data[8]
+                            
+                                
                     except (ValueError, IndexError) as e:
                         print(f"Error updating unit {tank_id}: {e}")
                         

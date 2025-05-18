@@ -128,8 +128,7 @@ class Tank:
         self.units = []
         
         # Multiplayer
-        self.shot_fired = 0
-        self.mine_fired = 0
+        self.mine_layed_counter = 0
         self.shot_fired_counter = 0
         self.aim_pos = (0,0)
         
@@ -329,12 +328,7 @@ class Tank:
         if self.is_moving_false_time <= 0: 
             self.is_moving = False
             
-        # Update shot fired counter
-        if self.shot_fired == 1:
-            self.shot_fired_counter += 1
-            if self.shot_fired_counter >= 5:  # After 5 frames
-                self.shot_fired = 0
-                self.shot_fired_counter = 0
+
 
     def draw(self, surface):
         """Draw the tank and its components"""
@@ -427,8 +421,8 @@ class Tank:
         if self.cannon_cooldown > 0:
             return
         
-        self.shot_fired = 1
-        self.shot_fired_counter = 0  # Reset counter when shooting
+        self.shot_fired_counter +=1
+
         
         
         # if aim_pos is None:
@@ -492,6 +486,8 @@ class Tank:
         # Units can't lay mines within the first 2 seconds
         if self.time_alive < 2:
             return
+        
+        self.mine_layed_counter += 1    # id counter for multiplayer
         
         # Remove exploded mines
         self.unit_mine_list = [mine for mine in self.unit_mine_list if not mine.is_exploded]

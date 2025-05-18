@@ -1,7 +1,7 @@
 import struct
 
 HEADER_FORMAT = '<I'
-TANK_FORMAT = '<i f f f f f f ? ?'
+TANK_FORMAT = '<i f f f f f f I I'
 
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 TANK_SIZE = struct.calcsize(TANK_FORMAT)

@@ -1489,7 +1489,6 @@ class TankGame:
                         continue
                         
                     # Update unit properties with validation
-                    print(f"ALL DATA: {unit_data}")
                     try:
                         unit.pos = [float(unit_data[1]), float(unit_data[2])]
                         unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))

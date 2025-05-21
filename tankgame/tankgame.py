@@ -1524,8 +1524,8 @@ class TankGame:
             except Exception as e:
                 print(f"Client receive error: {e}")
 
-        for unit in self.units:
-            print(f"ID: {unit.id} Fire counter: {unit.shot_fired_counter}")
+        # for unit in self.units:
+        #    print(f"ID: {unit.id} Fire counter: {unit.shot_fired_counter}")
 
     # =======================================================================
 

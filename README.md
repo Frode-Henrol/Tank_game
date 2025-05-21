@@ -22,8 +22,8 @@ Follow the steps below to get **Tank Game** up and running on your machine:
 ```bash
 git clone https://github.com/Frode-Henrol/Tank_game
 cd Tank_game
-pip install -e .
-python -m main
+pip install -r requirements.txt
+python -m tankgame
 ```
 
 ## Included Scripts

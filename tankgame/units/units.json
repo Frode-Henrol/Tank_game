@@ -1,0 +1,202 @@
+{
+    "player1_tank": {
+        "tank_speed_modifier": 1.92,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 2,
+        "bounch_limit": 1,
+        "mine_limit": 4,
+        "projectile_limit": 5,
+        "ai_personality": "player",
+        "use_turret": true
+    },
+    "brown_tank": {
+        "tank_speed_modifier": 0.0,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 100,
+        "bounch_limit": 1,
+        "mine_limit": 0,
+        "projectile_limit": 1,
+        "ai_personality": "brown",
+        "use_turret": true
+    },
+    "ash_tank": {
+        "tank_speed_modifier": 1.2,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 50,
+        "bounch_limit": 1,
+        "mine_limit": 0,
+        "projectile_limit": 1,
+        "ai_personality": "ash",
+        "use_turret": true
+    },
+    "marine_tank": {
+        "tank_speed_modifier": 1.2,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 50,
+        "bounch_limit": 0,
+        "mine_limit": 0,
+        "projectile_limit": 1,
+        "ai_personality": "marine",
+        "use_turret": true
+    },
+    "yellow_tank": {
+        "tank_speed_modifier": 1.92,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 200,
+        "bounch_limit": 1,
+        "mine_limit": 4,
+        "projectile_limit": 1,
+        "ai_personality": "yellow",
+        "use_turret": true
+    },
+    "pink_tank": {
+        "tank_speed_modifier": 1.44,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 5,
+        "bounch_limit": 1,
+        "mine_limit": 0,
+        "projectile_limit": 3,
+        "ai_personality": "pink",
+        "use_turret": true
+    },
+    "green_tank": {
+        "tank_speed_modifier": 0.0,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 5,
+        "bounch_limit": 2,
+        "mine_limit": 0,
+        "projectile_limit": 2,
+        "ai_personality": "green",
+        "use_turret": true
+    },
+    "violet_tank": {
+        "tank_speed_modifier": 1.92,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 5,
+        "bounch_limit": 1,
+        "mine_limit": 2,
+        "projectile_limit": 5,
+        "ai_personality": "violet",
+        "use_turret": true
+    },
+    "white_tank": {
+        "tank_speed_modifier": 0.5,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 0.8,
+        "bounch_limit": 1,
+        "mine_limit": 0,
+        "projectile_limit": 3,
+        "ai_personality": "white",
+        "use_turret": true
+    },
+    "black_tank": {
+        "tank_speed_modifier": 2.4,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 8,
+        "bounch_limit": 0,
+        "mine_limit": 2,
+        "projectile_limit": 3,
+        "ai_personality": "black",
+        "use_turret": true
+    },
+    "zblue_tank": {
+        "tank_speed_modifier": 1.92,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 0.8,
+        "bounch_limit": 1,
+        "mine_limit": 0,
+        "projectile_limit": 5,
+        "ai_personality": "zblue",
+        "use_turret": true
+    },
+    "zbrown_tank": {
+        "tank_speed_modifier": 0.0,
+        "projectile_speed_modifier": 15,
+        "firerate": 0.8,
+        "bounch_limit": 0,
+        "mine_limit": 0,
+        "projectile_limit": 1,
+        "ai_personality": "zbrown",
+        "use_turret": true
+    },
+    "zash_tank": {
+        "tank_speed_modifier": 1.2,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 1,
+        "bounch_limit": 0,
+        "mine_limit": 0,
+        "projectile_limit": 5,
+        "ai_personality": "zash",
+        "use_turret": true
+    },
+    "zmarine_tank": {
+        "tank_speed_modifier": 1.2,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 1,
+        "bounch_limit": 0,
+        "mine_limit": 0,
+        "projectile_limit": 3,
+        "ai_personality": "zmarine",
+        "use_turret": true
+    },
+    "zyellow_tank": {
+        "tank_speed_modifier": 3,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 200,
+        "bounch_limit": 0,
+        "mine_limit": 4,
+        "projectile_limit": 0,
+        "ai_personality": "zyellow",
+        "use_turret": true
+    },
+    "zpink_tank": {
+        "tank_speed_modifier": 1.44,
+        "projectile_speed_modifier": 3.36,
+        "firerate": 1,
+        "bounch_limit": 1,
+        "mine_limit": 0,
+        "projectile_limit": 6,
+        "ai_personality": "zpink",
+        "use_turret": true
+    },
+    "zgreen_tank": {
+        "tank_speed_modifier": 0.5,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 5,
+        "bounch_limit": 2,
+        "mine_limit": 0,
+        "projectile_limit": 2,
+        "ai_personality": "zgreen",
+        "use_turret": true
+    },
+    "zviolet_tank": {
+        "tank_speed_modifier": 1.0,
+        "projectile_speed_modifier": 7,
+        "firerate": 1,
+        "bounch_limit": 0,
+        "mine_limit": 0,
+        "projectile_limit": 50,
+        "ai_personality": "zviolet",
+        "use_turret": true
+    },
+    "zwhite_tank": {
+        "tank_speed_modifier": 0,
+        "projectile_speed_modifier": 8,
+        "firerate": 5,
+        "bounch_limit": 3,
+        "mine_limit": 0,
+        "projectile_limit": 2,
+        "ai_personality": "zwhite",
+        "use_turret": true
+    },
+    "zblack_tank": {
+        "tank_speed_modifier": 2.4,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 1,
+        "bounch_limit": 0,
+        "mine_limit": 2,
+        "projectile_limit": 5,
+        "ai_personality": "zblack",
+        "use_turret": true
+    }
+}

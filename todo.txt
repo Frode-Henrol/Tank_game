@@ -9,4 +9,11 @@ Fix:
 Major features
 -   simpel multiplayer
 -   Reinforcement Learnt ai
+-   Determin to use accumalter for physics and cap at 60 fps? that mean removing accumatlor in tankAI also
 
+
+Multplayer:
+
+
+Shots are not sync proplery always - need custom UDP logic
+ENET can be used, but requires users downloading more cra

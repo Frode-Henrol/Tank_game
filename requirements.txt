@@ -1,0 +1,4 @@
+pygame==2.6.1
+numpy==1.26.4
+scipy==1.13.0
+triangle==20250106

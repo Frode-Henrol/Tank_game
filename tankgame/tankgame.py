@@ -35,7 +35,7 @@ class TankGame:
         # self.last_frame_time = pg.time.get_ticks() / 1000  # Convert to seconds immediately
         self.fps = 100
         
-        self.dpi_fix()
+        # self.dpi_fix()
 
         # Window setup
         self.WINDOW_DIM = self.WINDOW_W, self.WINDOW_H = 1980, 1200

@@ -93,6 +93,9 @@ class TankGame:
         
         # Projectile collision distance
         self.projectile_collision_dist = 10
+                
+        # Loadout
+        self.selected_loadout = "player_classic"  # Default
         
         # Game states:
         self.state = States.MENU
@@ -102,7 +105,7 @@ class TankGame:
         self.load_sound_effects()     
           
         self.dead_enemies_before_death = set()
-        self.load_map()                 
+        self.load_map()    # A bit dumb but needed for test map feature in settings              
         self.load_map_textures()
         
         # Settings menu:
@@ -157,7 +160,7 @@ class TankGame:
         scale = 0.75
         self.control_img = self.load_image(control_img_path, (self.WINDOW_DIM[0]//(2*scale),self.WINDOW_DIM[1]//(2*scale)))
         
-        # Multiplayer
+        # Multiplayer (currently not implemented)
         self.network = networking.Multiplayer()
         self.hosting_game = False
         self.joined_game = False
@@ -189,7 +192,9 @@ class TankGame:
             print(f"Toggled godemode for all player tanks")
             unit.toggle_godmode()
 
-    
+    def set_loadout(self, loadout_name: str):
+        self.selected_loadout = loadout_name
+
     
     # ===============================================================================================================
     # ============================================ Load helper functions ============================================
@@ -205,9 +210,9 @@ class TankGame:
         left = x_mid - button_width // 2    # The x value were button starts
         
         self.menu_buttons = [
-            Button(left, 250, 300, 60, "Start game", States.CONTROL_SCREEN),
+            Button(left, 250, 300, 60, "Start game", States.LOADOUT_SELECT),
             Button(left, 350, 300, 60, "Level Select", States.LEVEL_SELECT),
-            Button(left, 450, 300, 60, "Multiplayer BROKEN", States.LOBBY_MENU),
+            Button(left, 450, 300, 60, "Multiplayer (broken)", States.LOBBY_MENU),
             Button(left, 550, 300, 60, "Settings", States.SETTINGS_MAIN),
             Button(left, 650, 300, 60, "Quit game", States.EXIT)
         ]
@@ -232,6 +237,14 @@ class TankGame:
             Button(left, 350, 300, 60, "Run mp method for test", action=lambda: self.multiplayer_run()),
             Button(left, 450, 300, 60, "Back", States.SETTINGS_MAIN)
         ]
+    
+        self.loadout_select_buttons = [
+            Button(left, 175, 300, 60, "Select Loadout", color_disabled = "grey", disabled=True, text_color="black"),
+            Button(left, 250, 300, 60, "Classic", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_classic")),
+            Button(left, 350, 300, 60, "Sniper", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_sniper")),
+            Button(left, 450, 300, 60, "Autocannon", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_autocannon")),
+            Button(left, 600, 300, 60, "Main menu", States.MENU)
+        ]
         
         left_offset = 175
         right_offset = 175
@@ -252,7 +265,7 @@ class TankGame:
         
         self.level_selection_buttons = [
             Textfield(left, 250, 300, 60, "Level num"),
-            Button(left, 350, 300, 60, "Play", States.CONTROL_SCREEN, action=self.lvl_select),
+            Button(left, 350, 300, 60, "Play", States.LOADOUT_SELECT, action=self.lvl_select),
             Button(left, 450, 300, 60, "Back", States.MENU)  
         ]  
         
@@ -456,6 +469,9 @@ class TankGame:
         self.prev_obstacles_des = self.obstacles_des.copy()
         
         # Tank mappings dict (maps a number to the json name, since map_files use number to store tank type, Could be done with list also, since tank numbering is 0-index)
+        # Used for the textures and json. For players the "playerx_tank is for textures"
+        # The json name for player loadouts are changed based on selected loadout
+        # - this a bit of a lackluster solutions since i dont want to refactor the code
         tank_mappings = {0 : "player1_tank", 
                          1 : "brown_tank", 
                          2 : "ash_tank", 
@@ -494,15 +510,14 @@ class TankGame:
         # Unpack each unit map data
         for i, unit in enumerate(unit_list):
             
-            
             unit_pos, unit_angle, unit_type, unit_team = unit
             
             # Get unit type in json format
             unit_type_json_format = tank_mappings[unit_type]
             
             # Fetch specific unit data
-            if unit_type_json_format == "player2_tank" or unit_type_json_format == "player3_tank":  # This if is just a way to make player 2 and 3 share same json info as player 1
-                specific_unit_data = all_units_data_json["player1_tank"]
+            if unit_type_json_format.startswith("player"):  # If a tank is a player used the selected loadout
+                specific_unit_data = all_units_data_json[self.selected_loadout]
             else:
                 specific_unit_data = all_units_data_json[unit_type_json_format]
             
@@ -534,7 +549,10 @@ class TankGame:
                                     use_turret         = True,
                                     team               = unit_team,
                                     order_id           = i,    
-                                    ai_type            = ai_type
+                                    ai_type            = ai_type,
+                                    use_mag_reload_logic = specific_unit_data.get("use_mag_reload_logic", False),
+                                    mag_size = specific_unit_data.get("mag_size", 5),
+                                    reload_time = specific_unit_data.get("reload_time", 90)
                                     )
                 
                 # Init waypoint processing for tank
@@ -870,6 +888,8 @@ class TankGame:
                 self.end_screen(event_list)
             elif self.state == States.CONTROL_SCREEN:
                 self.control_screen(event_list)
+            elif self.state == States.LOADOUT_SELECT:
+                self.loadout_select(event_list)
             elif self.state == States.EXIT:
                 self.exit()
             
@@ -936,6 +956,11 @@ class TankGame:
     def lobby_menu_main(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.lobby_menu_main_buttons, event_list, self.screen)
+        pg.display.update()
+    
+    def loadout_select(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.loadout_select_buttons, event_list, self.screen)
         pg.display.update()
     
     def playthrough(self, event_list):
@@ -2046,4 +2071,5 @@ class States:
     INFO_SCREEN = "infoscreen"
     END_SCREEN = "endscreen"
     CONTROL_SCREEN = "controlscreen"
+    LOADOUT_SELECT = "loadout_select"
     EXIT = "exit"

@@ -33,7 +33,11 @@ class Tank:
                  order_id,
                  ai_type = None,
                  godmode = False,
-                 draw_hitbox = True):
+                 draw_hitbox = True,
+                 use_mag_reload_logic = False,
+                 mag_size = 5,
+                 reload_time = 90
+                 ):
         
         self.pos = list(startpos)
         self.degrees = spawn_degress % 360
@@ -127,9 +131,13 @@ class Tank:
         self.pos_dir = (0,0)
         self.units = []
         
-        # Magasin size with reload 
-        self.mag_reload = True
-        self.current_mag_cap = self.projectile_limit
+        # Magasin size with reload (optional - only used for some loadouts)
+        self.use_magazine = use_mag_reload_logic           # Toggle for using magazine logic
+        self.mag_size = mag_size                  # Max shots per magazine
+        self.mag_ammo = mag_size       # Current ammo in magazine
+        self.reload_time = reload_time      # Frames to reload (1.5s at 60fps)
+        self.reload_timer = 0               # Countdown for reload
+        
         
         # Multiplayer
         self.mine_layed_counter = 0
@@ -279,7 +287,13 @@ class Tank:
         self.update_hitbox_position()
         self.time_alive += self.delta_time
         self.delta_time = delta_time
-    
+
+        # Updates to mag logic
+        if self.use_magazine and self.mag_ammo == 0:
+            if self.reload_timer > 0:
+                self.reload_timer -= self.delta_time * 60
+            elif self.reload_timer <= 0:
+                self.mag_ammo = self.mag_size
         
         # Stop units moving for 0.5 a second of spawn
         if self.time_alive < 0.5:
@@ -416,7 +430,7 @@ class Tank:
             
                
     def shoot(self, aim_pos: tuple | None):
-
+        
         # Dont shoot if dead, reach projectile limit or cooldown hasnt been reached
         if self.dead and not self.godmode:
             return
@@ -425,10 +439,17 @@ class Tank:
         if self.cannon_cooldown > 0:
             return
         
+        
+        # Logic for mags
+        if self.use_magazine:
+            if self.mag_ammo <= 0 or self.reload_timer > 0:
+                return
+            self.mag_ammo -= 1
+            if self.mag_ammo == 0:
+                self.reload_timer = self.reload_time
+        
         self.shot_fired_counter +=1
 
-        
-        
         # if aim_pos is None:
         #     # Calculate aim_pos based on turret direction if not provided
         #     rads = np.radians(self.turret_rotation_angle)
@@ -882,7 +903,11 @@ class TankAI:
             update_freq = self.dist_to_target_direct // 6
             
             if self.frame_counter % update_freq == 0:
-                self.tank.find_waypoint(self.targeted_unit.pos)
+                
+                try:
+                    self.tank.find_waypoint(self.targeted_unit.pos)
+                except:
+                    pass
             return
         
         

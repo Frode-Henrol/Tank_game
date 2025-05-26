@@ -1,13 +1,36 @@
 {
-    "player1_tank": {
+    "player_classic": {
         "tank_speed_modifier": 1.92,
         "projectile_speed_modifier": 3.36,
         "firerate": 2,
         "bounch_limit": 1,
         "mine_limit": 4,
-        "projectile_limit": 5,
+        "projectile_limit": 15,
         "ai_personality": "player",
         "use_turret": true
+    },
+    "player_sniper": {
+        "tank_speed_modifier": 1.4,
+        "projectile_speed_modifier": 15.0,
+        "firerate": 25,
+        "bounch_limit": 0,
+        "mine_limit": 0,
+        "projectile_limit": 1,
+        "ai_personality": "player",
+        "use_turret": true
+    },
+    "player_autocannon": {
+        "tank_speed_modifier": 1.2,
+        "projectile_speed_modifier": 6.72,
+        "firerate": 2,
+        "bounch_limit": 0,
+        "mine_limit": 4,
+        "projectile_limit": 5,
+        "ai_personality": "player",
+        "use_turret": true,
+        "use_mag_reload_logic": true,
+        "mag_size": 5,
+        "reload_time": 90
     },
     "brown_tank": {
         "tank_speed_modifier": 0.0,

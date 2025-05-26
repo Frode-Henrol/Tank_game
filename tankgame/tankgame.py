@@ -1329,7 +1329,7 @@ class TankGame:
             return
         
         # If the player controlled units list is empty we dont take inputs
-        if self.units_player_controlled:
+        if self.units_player_controlled and self.units_player_controlled[0].dead != True:
             if keys[pg.K_a]:
                 self.units_player_controlled[self.player_controlled_tank_num].rotate(-1.3)
             if keys[pg.K_d]:
@@ -1544,6 +1544,7 @@ class TankGame:
         self.obstacles_pit.clear()
         self.mines.clear()
         self.tracks.clear()
+        self.projectiles.clear()
 
 
     # ============================================ Handle methods ============================================
@@ -1610,6 +1611,10 @@ class TankGame:
             # If player dead:
             if self.units_player_controlled[0].dead:
                 self.wait_time += self.delta_time
+                
+                # Set all enemy units to godmod to prevent killing after player death
+                for unit in self.units:
+                    unit.godmode = True
             
             if self.wait_time >= self.wait_time_original:
                 
@@ -1626,8 +1631,8 @@ class TankGame:
                 self.fps_list.pop(0)
                 self.delta_time_list.pop(0)
 
-            mov_avg_fps = sum(self.fps_list) / len(self.fps_list)
-            mov_delta_fps = sum(self.delta_time_list) / len(self.delta_time_list)
+            # mov_avg_fps = sum(self.fps_list) / len(self.fps_list)
+            # mov_delta_fps = sum(self.delta_time_list) / len(self.delta_time_list)
         
             # print(f"DELTA TIME: {self.delta_time:.6f}  Moving average FPS: {mov_avg_fps:.1f} SPEED PLAYER: {self.units_player_controlled[0].speed:.5f} SPEED per sec {self.units_player_controlled[0].speed/self.delta_time:.1f} SPEED ORIGINAL {self.units_player_controlled[0].speed_original}")
            

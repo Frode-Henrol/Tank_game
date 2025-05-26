@@ -206,8 +206,8 @@ class TankGame:
         
         self.menu_buttons = [
             Button(left, 250, 300, 60, "Start game", States.CONTROL_SCREEN),
-            Button(left, 350, 300, 60, "Multiplayer BROKEN", States.LOBBY_MENU),
-            Button(left, 450, 300, 60, "Level Select", States.LEVEL_SELECT),
+            Button(left, 350, 300, 60, "Level Select", States.LEVEL_SELECT),
+            Button(left, 450, 300, 60, "Multiplayer BROKEN", States.LOBBY_MENU),
             Button(left, 550, 300, 60, "Settings", States.SETTINGS_MAIN),
             Button(left, 650, 300, 60, "Quit game", States.EXIT)
         ]

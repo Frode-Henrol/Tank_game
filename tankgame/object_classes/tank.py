@@ -127,6 +127,10 @@ class Tank:
         self.pos_dir = (0,0)
         self.units = []
         
+        # Magasin size with reload 
+        self.mag_reload = True
+        self.current_mag_cap = self.projectile_limit
+        
         # Multiplayer
         self.mine_layed_counter = 0
         self.shot_fired_counter = 0

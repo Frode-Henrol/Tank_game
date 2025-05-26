@@ -137,7 +137,7 @@ class Tank:
         self.mag_ammo = mag_size       # Current ammo in magazine
         self.reload_time = reload_time      # Frames to reload (1.5s at 60fps)
         self.reload_timer = 0               # Countdown for reload
-        
+        self.reloading = False
         
         # Multiplayer
         self.mine_layed_counter = 0
@@ -161,7 +161,11 @@ class Tank:
     
     def send_delta(self, delta_time):
         self.delta_time = delta_time
-        
+       
+    @property
+    def shots_fired_in_mag(self):
+        return self.mag_size - self.mag_ammo
+     
     def init_hitbox(self):
         size_factor = 20
         # Create base hitbox relative to origin (0,0)
@@ -291,10 +295,15 @@ class Tank:
         # Updates to mag logic
         if self.use_magazine and self.mag_ammo == 0:
             if self.reload_timer > 0:
+                self.reloading = True
                 self.reload_timer -= self.delta_time * 60
             elif self.reload_timer <= 0:
+                self.reloading = False
                 self.mag_ammo = self.mag_size
-        
+
+
+            
+            
         # Stop units moving for 0.5 a second of spawn
         if self.time_alive < 0.5:
             self.speed = 0

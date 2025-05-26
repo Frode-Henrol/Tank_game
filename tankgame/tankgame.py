@@ -243,7 +243,9 @@ class TankGame:
             Button(left, 250, 300, 60, "Classic", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_classic")),
             Button(left, 350, 300, 60, "Sniper", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_sniper")),
             Button(left, 450, 300, 60, "Autocannon", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_autocannon")),
-            Button(left, 600, 300, 60, "Main menu", States.MENU)
+            Button(left, 550, 300, 60, "Bouncer", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_bouncer")),
+            Button(left, 650, 300, 60, "Burst", States.CONTROL_SCREEN, action=lambda: self.set_loadout("player_burst")),
+            Button(left, 800, 300, 60, "Main menu", States.MENU)
         ]
         
         left_offset = 175
@@ -1953,6 +1955,7 @@ class TankGame:
                         
                     pg.draw.circle(self.screen, "red", unit.ai.debug_target_pos, 5)
 
+        self.draw_ammo_ui()
             
         if self.show_debug_info:
             self.render_debug_info()
@@ -1965,6 +1968,43 @@ class TankGame:
         else:
             self.clock.tick()   # Uncapped Controls FPS
     
+    def draw_ammo_ui(self):
+        """Draw ammo ui over tank if reload logic is turned on"""
+        if not self.units_player_controlled:
+            return
+        
+        player = self.units_player_controlled[self.player_controlled_tank_num]
+        if not player.use_magazine or player.dead:
+            return
+        
+        mag_size = player.mag_size
+        shots_left = mag_size - player.shots_fired_in_mag
+        reloading = player.reloading if hasattr(player, "reloading") else False  # fallback if not present
+        
+        # Position: 40px above tank
+        x, y = player.pos
+        bar_width = 60
+        bar_height = 8
+        gap = 2
+        segment_width = bar_width // mag_size
+        
+        for i in range(mag_size):
+            rect = pg.Rect(x - bar_width // 2 + i * (bar_width // mag_size + gap), y - 50, bar_width // mag_size, bar_height)
+            color = (200, 0, 0) if i >= shots_left else (0, 200, 0)
+            pg.draw.rect(self.screen, color, rect)
+            pg.draw.rect(self.screen, (0, 0, 0), rect, 1)  # border
+
+        # Flashing grey if reloading
+        flash_on = (pg.time.get_ticks() // 250) % 2 == 0
+        flash_color = (180, 180, 180) if flash_on else (60, 60, 60)
+
+        for i in range(mag_size):
+            color = flash_color if reloading else (0, 200, 0) if i < shots_left else (200, 0, 0)
+            rect = pg.Rect(x - bar_width // 2 + i * (segment_width + gap), y - 50, segment_width, bar_height)
+            pg.draw.rect(self.screen, color, rect)
+            pg.draw.rect(self.screen, (0, 0, 0), rect, 1)
+
+
     def handle_projectile_explosion(self, proj: Projectile) -> None:
         proj.play_explosion()   # Play sound
         
@@ -2056,6 +2096,7 @@ class TankGame:
 
 
 class States:
+    
     MENU = "menu"
     SETTINGS_MAIN = "settings_main"
     SETTINGS_DEBUG = "settings_debug"

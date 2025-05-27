@@ -269,11 +269,12 @@
         "rotation_mult_max": 1.0,
         "rotation_mult_min": 0.75,
         
-        "perfect_aim": true,
+        "perfect_aim": false,
         "advanced_targeting": true,
         "predictive_targeting": false,
         "predictive_targeting_chance": 50,
-        "salvo_cooldown_amount": 220,
+        "salvo_cooldown_amount": 0,
+        "aiming_angle": 5,
     
         "shoot_threshold": 15,
         "safe_threshold": 60,

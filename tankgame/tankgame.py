@@ -1790,7 +1790,9 @@ class TankGame:
                     self.update_des_flag = True
                 mine.get_unit_list(self.units)
                 mine.get_obstacles_des(self.obstacles_des)
-                mine.check_for_tank(unit)
+                
+                if unit.dead == False:
+                    mine.check_for_tank(unit)
 
 
         self.projectiles = temp_projectiles

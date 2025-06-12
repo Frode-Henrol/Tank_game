@@ -28,8 +28,8 @@ python -m tankgame
 
 ## Included Scripts
 
-- `main.py` – Runs the main game.
-- `map_maker.py` – Tool for creating custom maps.
+- `python -m tankgame` – Runs the main game.
+- `python tankgame/map_maker.py` – Tool for creating custom maps.
 
 ---
 
@@ -39,13 +39,12 @@ python -m tankgame
 
 - Draw **polygons clockwise** to ensure proper collision detection.
 - Avoid polygons with **fewer than 3 points** — this will crash the game.
-- **Place the player tank first**, before placing any enemies.
 
 ### Quick Map Testing
 
 To quickly test a map:
 1. Save the map without a name or name it `map_test1`.
-2. Run `main.py`.
+2. Run `python -m tankgame`.
 3. Navigate to **Settings** → **Quick Play**.
 
 ---

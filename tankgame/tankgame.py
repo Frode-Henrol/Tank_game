@@ -852,6 +852,11 @@ class TankGame:
         
         while True:
             
+            if self.state == States.PLAYING:
+                pg.mouse.set_cursor(*pg.cursors.broken_x)
+            else:
+                pg.mouse.set_cursor(pg.SYSTEM_CURSOR_ARROW)
+            
             self.update_delta_time()
             
             # Update lobby menu if host or client

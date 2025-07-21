@@ -853,7 +853,7 @@ class TankGame:
         while True:
             
             if self.state == States.PLAYING:
-                pg.mouse.set_cursor(*pg.cursors.broken_x)
+                pg.mouse.set_cursor(pg.SYSTEM_CURSOR_CROSSHAIR)
             else:
                 pg.mouse.set_cursor(pg.SYSTEM_CURSOR_ARROW)
             

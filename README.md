@@ -9,14 +9,26 @@
 - 💥 **Ricochet Mechanics**  
 - 🧠 **Smart AI Behavior**
 
-### Tanks scan for targets
+### Tanks scanning for targets
 ![predict](docs/gifs/gif_predict.gif)
 
-### Dogding, prediction of shot and shooting incoming projectiles
+### Dodging, predicting shots, and intercepting incoming projectiles
 ![adv_ai](docs/gifs/gif_adv_ai.gif)
 
-The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 brand-new enemy units**.
+The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 new enemy units**.
 
+## 5 loadouts to choose from:
+
+### Classic (no ammo count - max active projectiles)
+![loadout](docs/gifs/classic.gif)
+### Sniper
+![loadout](docs/gifs/sniper.gif)
+### Autocannon
+![loadout](docs/gifs/autocannon.gif)
+### Bouncer
+![loadout](docs/gifs/bouncer.gif)
+### Burst
+![loadout](docs/gifs/burst.gif)
 ---
 
 ## Installation
@@ -45,6 +57,9 @@ python -m tankgame
 
 - Draw **polygons clockwise** to ensure proper collision detection.
 - Avoid polygons with **fewer than 3 points** — this will crash the game.
+
+### Example usage of map maker
+![map_maker](docs/gifs/gif_mapmaker.gif)
 
 ### Quick Map Testing
 

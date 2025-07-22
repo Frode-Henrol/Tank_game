@@ -65,6 +65,9 @@ python -m tankgame
 ### Example usage of map maker
 ![map_maker](docs/gifs/gif_mapmaker.gif)
 
+### The final map
+![map_maker](docs/gifs/gif_mapmaker_done.gif)
+
 ### Quick Map Testing
 
 To quickly test a map:

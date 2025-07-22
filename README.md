@@ -12,6 +12,7 @@
 The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 brand-new enemy units**.
 
 ---
+![Demo](docs/gifs/sniper.gif)
 
 ## Installation
 

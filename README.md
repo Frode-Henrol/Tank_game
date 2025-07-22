@@ -7,12 +7,17 @@
 - 🎯 **50 Levels**  
 - 🤖 **19 Enemy Types**  
 - 💥 **Ricochet Mechanics**  
-- 🧠 **Smart AI Behavior**  
+- 🧠 **Smart AI Behavior**
+
+### Tanks scan for targets
+![Demo](docs/gifs/gif_predict)
+
+### Dogding, prediction of shot and shooting incoming projectiles
+![Demo](docs/gifs/gif_adv_ai.gif)
 
 The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 brand-new enemy units**.
 
 ---
-![Demo](docs/gifs/sniper.gif)
 
 ## Installation
 

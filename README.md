@@ -10,10 +10,10 @@
 - 🧠 **Smart AI Behavior**
 
 ### Tanks scan for targets
-![Demo](docs/gifs/gif_predict)
+![predict](docs/gifs/gif_predict.gif)
 
 ### Dogding, prediction of shot and shooting incoming projectiles
-![Demo](docs/gifs/gif_adv_ai.gif)
+![adv_ai](docs/gifs/gif_adv_ai.gif)
 
 The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 brand-new enemy units**.
 

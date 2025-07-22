@@ -17,6 +17,9 @@ The first 20 levels closely replicate the original Wii Tanks gameplay. The final
 ### Dodging, predicting shots, and intercepting incoming projectiles
 ![adv_ai](docs/gifs/gif_adv_ai.gif)
 
+### Tanks use A* pathfinding based on nodes
+![pathfinding](docs/gifs/gif_pathfinding.gif)
+
 ## 5 loadouts to choose from:
 
 ### Classic (no ammo count - max active projectiles)
@@ -66,7 +69,7 @@ python -m tankgame
 To quickly test a map:
 1. Save the map without a name or name it `map_test1`.
 2. Run `python -m tankgame`.
-3. Navigate to **Settings** → **Quick Play**.
+3. Navigate to **Settings** → **Debug** → **Test map**
 
 ---
 

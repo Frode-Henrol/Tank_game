@@ -8,14 +8,14 @@
 - 🤖 **19 Enemy Types**  
 - 💥 **Ricochet Mechanics**  
 - 🧠 **Smart AI Behavior**
+  
+The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 new enemy units**.
 
 ### Tanks scanning for targets
 ![predict](docs/gifs/gif_predict.gif)
 
 ### Dodging, predicting shots, and intercepting incoming projectiles
 ![adv_ai](docs/gifs/gif_adv_ai.gif)
-
-The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 new enemy units**.
 
 ## 5 loadouts to choose from:
 

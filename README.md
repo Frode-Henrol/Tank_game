@@ -56,7 +56,7 @@ python -m tankgame
 
 ## Map Maker Guidelines
 
-> ⚠️ The map maker is a basic tool and not foolproof. Please follow these guidelines to avoid issues:
+> ⚠️ The map maker is a basic tool and not foolproof. Please follow these guidelines to avoid issues: (not fixed yet)
 
 - Draw **polygons clockwise** to ensure proper collision detection.
 - Avoid polygons with **fewer than 3 points** — this will crash the game.

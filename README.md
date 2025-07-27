@@ -62,7 +62,7 @@ python -m tankgame
 - Draw **polygons clockwise** to ensure proper collision detection.
 - Avoid polygons with **fewer than 3 points** — this will crash the game.
 
-### Example usage of map maker
+### Example usage of map maker (use R to revert a placed object)
 ![map_maker](docs/gifs/gif_mapmaker.gif)
 
 ### The final map

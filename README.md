@@ -58,6 +58,7 @@ python -m tankgame
 ## Map Maker Guidelines
 
 > ⚠️ The map maker is a basic tool and not foolproof. Please follow these guidelines to avoid issues: (not fixed yet)
+> Was only made to streamline the creation of the 50 ingame levels and not to be user friendly.
 
 - Draw **polygons clockwise** to ensure proper collision detection.
 - Avoid polygons with **fewer than 3 points** — this will crash the game.

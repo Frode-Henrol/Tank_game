@@ -13,5 +13,5 @@ setup(
         "triangle==20250106"
     ],
     license="GPL-3.0",
-    python_requires='>=3.8',
+    python_requires='==3.12.*',
 )

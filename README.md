@@ -12,13 +12,13 @@
   
 The first 20 levels closely replicate the original Wii Tanks gameplay. The final 30 levels feature unique challenges and introduce **10 new enemy units**.
 
-### Tank scanning for targets
+### AI scanning for targets
 ![predict](docs/gifs/gif_predict.gif)
 
-### Dodging, predicting shots, and intercepting incoming projectiles
+### AI Dodging, predicting shots, and intercepting incoming projectiles
 ![adv_ai](docs/gifs/gif_adv_ai.gif)
 
-### Tanks use A* pathfinding based on nodes
+### AI uses A* pathfinding based on nodes
 ![pathfinding](docs/gifs/gif_pathfinding.gif)
 
 ## 5 loadouts to choose from:

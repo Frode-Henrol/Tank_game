@@ -15,7 +15,8 @@ import math
 from utils import line_intersection
 
 class Tank:
-    _id_counter = 0 
+    _id_counter = 0
+    DIRECTIONAL_TURN_RATE = 3  # Max degrees per frame rotate_towards() may turn the hull (scaled by self.speed)
     
     def __init__(self, 
                  startpos: tuple,
@@ -267,17 +268,31 @@ class Tank:
     def rotate(self, deg: int):
         if self.dead and not self.godmode:
             return
-        
+
         # Scale rotation to match speed
-        deg *= self.speed
-        
+        self._apply_rotation(deg * self.speed)
+
+    def rotate_towards(self, target_degrees: float):
+        """Gradually rotates the hull toward target_degrees, at most DIRECTIONAL_TURN_RATE (scaled by speed) per call."""
+        if self.dead and not self.godmode:
+            return
+
+        # Shortest signed angle from current heading to target heading
+        diff = (target_degrees - self.degrees + 180) % 360 - 180
+
+        max_turn = self.DIRECTIONAL_TURN_RATE * self.speed
+        turn_amount = max(-max_turn, min(max_turn, diff))
+
+        self._apply_rotation(turn_amount)
+
+    def _apply_rotation(self, delta_deg: float):
         # Rotate tank image
-        self.degrees = (self.degrees + deg) % 360
+        self.degrees = (self.degrees + delta_deg) % 360
         rads = np.radians(self.degrees)
-        
+
         # Update direction vector
         self.direction = np.cos(rads), np.sin(rads)
-        
+
         # When rotating we also rate the tank hitbox
         # Find the nearest precomputed hitbox
         self.closest_angle = int(self.degrees / self.step) * self.step  # Round to nearest 5-degree step

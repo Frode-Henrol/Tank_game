@@ -118,6 +118,7 @@ class TankGame:
         self.show_debug_info = False
         self.show_ai_dodge = False
         self.cap_fps = True
+        self.directional_controls = False  # False = classic A/D rotate + W/S drive, True = WASD absolute-direction auto-rotate
 
         # Pathfinding
         self.all_unit_waypoint_queues = []
@@ -227,7 +228,8 @@ class TankGame:
         self.settings_buttons_main = [
             Button(left, 250, 300, 60, "Debug", States.SETTINGS_DEBUG),
             Button(left, 350, 300, 60, "Multiplayer", States.SETTINGS_MULTIPLAYER),
-            Button(left, 450, 300, 60, "Back", action=self.settings_back_button)
+            Button(left, 450, 300, 60, "Controls", States.SETTINGS_CONTROLS),
+            Button(left, 550, 300, 60, "Back", action=self.settings_back_button)
         ]
         
         self.settings_buttons_multiplayer = [
@@ -261,6 +263,11 @@ class TankGame:
             Button(left+right_offset, 450, 300, 60, "Uncap fps", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda:helper_functions.toggle_bool(self, "cap_fps")),
             Button(left+right_offset, 550, 300, 60, "Test map", States.COUNTDOWN),
             Button(left, 750, 300, 60, "Back", States.SETTINGS_MAIN)
+        ]
+
+        self.settings_buttons_controls = [
+            Button(left, 250, 300, 60, "Directional auto-rotate controls", hover_enabled=False, color_normal=(0,100,0), is_toggle_on=True, action=lambda: helper_functions.toggle_bool(self, "directional_controls")),
+            Button(left, 450, 300, 60, "Back", States.SETTINGS_MAIN)
         ]
         # Custom fps choice field removed for now:
         # Textfield(left+350, 850, 300, 60, "100", on_mouse_leave_action=self.fps_button),
@@ -873,6 +880,8 @@ class TankGame:
                 self.settings_debug(event_list)
             elif self.state == States.SETTINGS_MULTIPLAYER:
                 self.settings_multiplayer(event_list)
+            elif self.state == States.SETTINGS_CONTROLS:
+                self.settings_controls(event_list)
             elif self.state == States.PAUSE_MENU:
                 self.pause_menu(event_list)
             elif self.state == States.PLAYTHROUGH:
@@ -949,7 +958,12 @@ class TankGame:
         self.screen.fill("gray")
         self.handle_buttons(self.settings_buttons_debug, event_list, self.screen)
         pg.display.update()
-        
+
+    def settings_controls(self, event_list):
+        self.screen.fill("gray")
+        self.handle_buttons(self.settings_buttons_controls, event_list, self.screen)
+        pg.display.update()
+
     def settings_multiplayer(self, event_list):
         self.screen.fill("gray")
         self.handle_buttons(self.settings_buttons_multiplayer, event_list, self.screen)
@@ -1362,14 +1376,23 @@ class TankGame:
         
         # If the player controlled units list is empty we dont take inputs
         if self.units_player_controlled and self.units_player_controlled[0].dead != True:
-            if keys[pg.K_a]:
-                self.units_player_controlled[self.player_controlled_tank_num].rotate(-1.3)
-            if keys[pg.K_d]:
-                self.units_player_controlled[self.player_controlled_tank_num].rotate(1.3)
-            if keys[pg.K_w]:
-                self.units_player_controlled[self.player_controlled_tank_num].move("forward")
-            if keys[pg.K_s]:
-                self.units_player_controlled[self.player_controlled_tank_num].move("backward")
+            if self.directional_controls:
+                tank = self.units_player_controlled[self.player_controlled_tank_num]
+                dx = (1 if keys[pg.K_d] else 0) - (1 if keys[pg.K_a] else 0)
+                dy = (1 if keys[pg.K_s] else 0) - (1 if keys[pg.K_w] else 0)
+                if dx != 0 or dy != 0:
+                    target_angle = helper_functions.find_angle(0, 0, dx, dy)
+                    tank.rotate_towards(target_angle)
+                    tank.move("forward")
+            else:
+                if keys[pg.K_a]:
+                    self.units_player_controlled[self.player_controlled_tank_num].rotate(-1.3)
+                if keys[pg.K_d]:
+                    self.units_player_controlled[self.player_controlled_tank_num].rotate(1.3)
+                if keys[pg.K_w]:
+                    self.units_player_controlled[self.player_controlled_tank_num].move("forward")
+                if keys[pg.K_s]:
+                    self.units_player_controlled[self.player_controlled_tank_num].move("backward")
             if mouse_buttons[0]:
                 self.units_player_controlled[self.player_controlled_tank_num].shoot(mouse_pos)
             if keys[pg.K_SPACE]:
@@ -2108,6 +2131,7 @@ class States:
     SETTINGS_MAIN = "settings_main"
     SETTINGS_DEBUG = "settings_debug"
     SETTINGS_MULTIPLAYER = "settings_multiplayer"
+    SETTINGS_CONTROLS = "settings_controls"
     PAUSE_MENU = "pause_menu"
     PLAYTHROUGH = "playthrough"
     LEVEL_SELECT = "level_select"

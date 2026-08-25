@@ -16,7 +16,7 @@ from utils import line_intersection
 
 class Tank:
     _id_counter = 0
-    DIRECTIONAL_TURN_RATE = 3  # Max degrees per frame rotate_towards() may turn the hull (scaled by self.speed)
+    DIRECTIONAL_TURN_RATE = 6  # Max degrees per frame rotate_towards() may turn the hull (scaled by self.speed)
     
     def __init__(self, 
                  startpos: tuple,

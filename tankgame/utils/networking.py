@@ -10,6 +10,8 @@ BUFFER_SIZE = 65535  # Max UDP payload; generous enough that a full world snapsh
 CONNECT_RETRY_INTERVAL = 1.0  # seconds between resent JOIN requests while connecting
 CONNECT_TIMEOUT = 8.0         # give up and report failure after this long with no response
 
+DISCONNECT_TIMEOUT = 5.0  # a peer that's sent nothing in this long is considered disconnected
+
 class NetRole:
     """Enum for network roles."""
     NONE = 0
@@ -31,6 +33,7 @@ class Multiplayer:
 
         self.snapshot_from_host = None    # Client: latest world-state dict received from host
         self.input_from_clients = {}      # Host: addr -> latest input dict received from that client
+        self.level_result = None          # Client: one-shot campaign-transition message from host, consumed by caller
 
         self.client_id_counter = 1
         self.client_id = 0
@@ -40,6 +43,10 @@ class Multiplayer:
         self._join_username = None
         self._connect_started_at = None
         self._last_join_sent_at = None
+
+        # Disconnect detection (mid-game, after the join handshake is done)
+        self._last_seen = {}         # Host: addr -> time.time() of the last packet received from that client
+        self._last_host_packet_at = None  # Client: time.time() of the last packet received from the host
 
 
     def start_host(self, username, port=DEFAULT_PORT):
@@ -89,6 +96,7 @@ class Multiplayer:
         if self.socket:
             self.input_from_clients.clear()
             self.clients_meta.clear()
+            self._last_seen.clear()
             self.socket.close()
             print("Stopping socket")
 
@@ -144,8 +152,27 @@ class Multiplayer:
             except Exception:
                 traceback.print_exc()
 
+    def stale_client_ids(self):
+        """Client ids (not addrs) whose most recent packet is older than DISCONNECT_TIMEOUT."""
+        now = time.time()
+        stale = set()
+        for addr, meta in self.clients_meta.items():
+            last = self._last_seen.get(addr, meta["joined_at"])
+            if now - last > DISCONNECT_TIMEOUT:
+                stale.add(meta["id"])
+        return stale
+
+    def host_connection_lost(self):
+        """Client-only: true once connected if nothing has arrived from the host in DISCONNECT_TIMEOUT."""
+        if self.role != NetRole.CLIENT or self.client_id == 0 or self._last_host_packet_at is None:
+            return False
+        return time.time() - self._last_host_packet_at > DISCONNECT_TIMEOUT
+
     def _handle_host_packet(self, data, addr):
         """Process packets received by the host."""
+        if addr in self.clients_meta:
+            self._last_seen[addr] = time.time()
+
         if data.startswith(b'JOIN'):
             username = data.decode()[4:]
 
@@ -187,14 +214,19 @@ class Multiplayer:
                 print("Corrupted packet received")
                 return
 
+            self._last_host_packet_at = time.time()
+
             if payload.get("type") == "snapshot":
                 self.snapshot_from_host = payload
             elif payload.get("type") == "clients":
                 self.client_list = payload.get("names", [])
+            elif payload.get("type") == "level_result":
+                self.level_result = payload
 
         # Checks if hosts sends a client id
         elif data.startswith(b'ID__'):
             self.client_id = int(data[4:].decode())
+            self._last_host_packet_at = time.time()
 
 
 

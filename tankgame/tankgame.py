@@ -73,7 +73,7 @@ class TankGame:
         # Multiplayer snapshot broadcast is throttled well below the 100Hz sim rate - physics/AI
         # still run every tick, only how often the host tells clients about it is reduced (matters
         # for upload bandwidth over a real internet connection; loopback/LAN can trivially handle 100Hz).
-        self.snapshot_broadcast_interval = 1/30
+        self.snapshot_broadcast_interval = 1/60
         self.snapshot_broadcast_accumulator = 0
 
         # Debug fps counter
@@ -106,7 +106,20 @@ class TankGame:
         # Game states:
         self.state = States.MENU
 
-        self.load_gui()                   
+        # Multiplayer - initialized before the first load_map() below, which checks
+        # hosting_game/joined_game to decide whether to inject a second player spawn.
+        self.network = networking.Multiplayer()
+        self.hosting_game = False
+        self.joined_game = False
+        self.username = f"Unknown{random.randint(0,1000)}"
+
+        # Client-side render-only mirrors of the host's projectiles/mines, keyed by network id.
+        # Never simulated locally (no .update()/.collision() calls) - purely driven by snapshots from the host.
+        self._client_projectiles = {}
+        self._client_mines = {}
+        self._client_last_shot_counter = {}  # tank id -> last-seen shot_fired_counter, to edge-trigger cannon sound/muzzle flash
+
+        self.load_gui()
         self.load_animations_and_misc()   
         self.load_sound_effects()     
           
@@ -166,24 +179,12 @@ class TankGame:
         control_img_path = os.path.join(MODULE_DIR,"misc_images","control_page.png")
         scale = 0.75
         self.control_img = self.load_image(control_img_path, (self.WINDOW_DIM[0]//(2*scale),self.WINDOW_DIM[1]//(2*scale)))
-        
-        # Multiplayer
-        self.network = networking.Multiplayer()
-        self.hosting_game = False
-        self.joined_game = False
-        self.username = f"Unknown{random.randint(0,1000)}"
-
-        # Client-side render-only mirrors of the host's projectiles/mines, keyed by network id.
-        # Never simulated locally (no .update()/.collision() calls) - purely driven by snapshots from the host.
-        self._client_projectiles = {}
-        self._client_mines = {}
-        self._client_last_shot_counter = {}  # tank id -> last-seen shot_fired_counter, to edge-trigger cannon sound/muzzle flash
 
         self.player_controlled_tank_num = 0
         self.m_key_prev = False
         self.r_key_prev = False
-        
-    
+
+
     def init_playthrough(self):
         self.playthrough_started = False
         self.current_level_number_original = 1
@@ -304,7 +305,7 @@ class TankGame:
         
         spacing_player = 75
         self.lobby_menu_main_buttons = [
-            Button(left, 250, 300, 60, "Start Game", States.COUNTDOWN),
+            Button(left, 250, 300, 60, "Start Game", action=self.start_multiplayer_campaign),
             
             Button(left, 350, 300, 60, "Players", color_disabled = "grey", disabled=True, text_color="black"),
             Button(left, 350+spacing_player, 300, 60, "Player 1 (host)", disabled=False),
@@ -341,9 +342,6 @@ class TankGame:
             
     def host_game_button(self):
         self.hosting_game = True
-        self.clear_all_map_data()
-        self.load_map(os.path.join(MAP_DIR, "multiplayer_test.txt"))
-        self.load_map_textures()
         self.player_controlled_tank_num = 0  # Host always controls the first player slot on the multiplayer map
 
         port_field = self.lobby_menu_buttons[1]
@@ -355,9 +353,6 @@ class TankGame:
 
     def join_game_button(self):
         self.joined_game = True
-        self.clear_all_map_data()
-        self.load_map(os.path.join(MAP_DIR, "multiplayer_test.txt"))
-        self.load_map_textures()
 
         host_ip_field = self.lobby_menu_buttons[4]
         port_field = self.lobby_menu_buttons[5]
@@ -366,6 +361,16 @@ class TankGame:
         port = int(port_str) if port_str.isdigit() else networking.DEFAULT_PORT
 
         self.network.start_client(username=self.username, host_ip=host_ip, port=port)
+
+    def start_multiplayer_campaign(self):
+        """Action for the lobby's "Start Game" button. Host-only - a client click is a no-op, since
+        the client never decides this locally; it follows the host's level_result broadcast instead
+        (see _broadcast_level_result/client_handle_level_result)."""
+        if not self.hosting_game:
+            return
+        self.init_playthrough()
+        self.playthrough_lives_original = self.playthrough_lives = 1  # one life per level, no retries
+        self.state = States.PLAYTHROUGH
 
     def shut_down_socket(self):
         self.hosting_game = False
@@ -480,12 +485,32 @@ class TankGame:
         sound.set_volume(0.2)
         self.sound_effects["lostgame"].append(sound)
                   
+    def inject_second_player_spawn(self, unit_list: list) -> list:
+        """Multiplayer only: campaign maps only ever author one player spawn. If the map doesn't
+        already have a second one (e.g. a map authored for multiplayer directly), duplicate the
+        first player spawn as a second player-controlled unit at the same position - existing
+        tank-vs-tank repulsion physics separates them within the first couple of frames, and "same
+        spot" is the only placement that's guaranteed not to land inside a wall on every level
+        without hand-checking each map's local geometry."""
+        PLAYER_TYPE_CODES = {0, 20, 21}  # tank_mappings: player1_tank, player2_tank, player3_tank
+
+        player_units = [u for u in unit_list if u[2] in PLAYER_TYPE_CODES]
+        if len(player_units) != 1:
+            return unit_list  # already multiplayer-ready, or no player spawn to duplicate at all
+
+        pos, angle, _unit_type, team = player_units[0]
+        second_player = (pos, angle, 20, team)
+        return unit_list + [second_player]
+
     def load_map(self, map_path: str =  os.path.join(MAP_DIR, r"map_test1.txt")) -> None:
         """Loads data from a map file"""
         
         # ==================== Load map  ====================
         # Map data i a tuple, where 1 entre is the polygon defining the map border the second is a list of all polygon cornerlists
         self.polygon_list, self.polygons_with_type, unit_list, self.node_spacing = helper_functions.load_map_data(map_path)
+
+        if self.hosting_game or self.joined_game:
+            unit_list = self.inject_second_player_spawn(unit_list)
 
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
         self.polygon_list_no_border = self.polygon_list.copy()
@@ -1019,25 +1044,27 @@ class TankGame:
         pg.display.update()
     
     def playthrough(self, event_list):
-        
+
         if self.playthrough_started == True:
-            
+
+            player_team = self.units_player_controlled[0].team
+
             # If gaining life
-            if (self.current_level_number % self.new_life_interval == 0 and 
+            if (self.current_level_number % self.new_life_interval == 0 and
                 self.current_level_number not in self.levels_that_gave_life):
                 self.added_life = True  # Bool for infoscreen
                 self.playthrough_lives += 1
                 self.levels_that_gave_life.add(self.current_level_number)  # Mark this level as having given a life
                 print(f"ADDED life: {self.playthrough_lives - 1} -> {self.playthrough_lives}")
- 
-            # If dead
-            if self.units_player_controlled[0].dead:
+
+            # If everyone is dead (single-player: the one tank; multiplayer: every player tank)
+            if all(p.dead for p in self.units_player_controlled):
                 print("Reseting")
-                
+
                 # Store orderIDs of dead enemies before clearing
                 current_dead_enemies = {
-                unit.order_id for unit in self.units 
-                if unit.team != self.units_player_controlled[0].team and unit.dead
+                unit.order_id for unit in self.units
+                if unit.team != player_team and unit.dead
                 }
                 self.dead_enemies_before_death.update(current_dead_enemies)
 
@@ -1048,30 +1075,50 @@ class TankGame:
                 self.state = States.INFO_SCREEN
                 self.just_died = True
                 print(f"Tank died life: {self.playthrough_lives} -> {self.playthrough_lives - 1}")
+                self._broadcast_level_result("died")
                 return
 
             # If level clear
-            if all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
+            if all(unit.dead for unit in self.units if unit.team != player_team):
                 self.dead_enemies_before_death = set()
                 self.wait_time = 0
                 self.current_level_number += 1
                 self.clear_all_map_data()
                 if self.current_level_number > self.last_level:
                     self.state = States.END_SCREEN
+                    self._broadcast_level_result("victory")
                     return
-                
+
                 self.start_map()
                 self.state = States.INFO_SCREEN
                 print(f"Next level: {self.current_level_number-1} -> {self.current_level_number}")
+                self._broadcast_level_result("level_complete")
                 return
-                    
+
         # When playthrough done
         if self.playthrough_started == False:
             self.playthrough_started = True
             self.clear_all_map_data()
             self.start_map()
             self.state = States.INFO_SCREEN
+            self._broadcast_level_result("start")
             return
+
+    def _broadcast_level_result(self, outcome):
+        """Host-only: tells clients a level/campaign transition just happened, since they never run
+        this method themselves (host-authoritative win/lose decision) and would otherwise have no way
+        to know to follow along into the same info/countdown/end screens with the same numbers."""
+        if not self.hosting_game:
+            return
+        self.network.host_to_clients_send({
+            "type": "level_result",
+            "outcome": outcome,  # "start" | "died" | "level_complete" | "victory"
+            "current_level_number": self.current_level_number,
+            "playthrough_lives": self.playthrough_lives,
+            "just_died": self.just_died,
+            "added_life": self.added_life,
+            "dead_enemies_before_death": list(self.dead_enemies_before_death),
+        })
     
     def level_selection(self, event_list):
         self.screen.fill("gray")
@@ -1264,7 +1311,10 @@ class TankGame:
 
         if self.playthrough_lives == 0:
             self.state = States.MENU
-            self.clear_all_map_data()
+            if self.hosting_game or self.joined_game:
+                self.shut_down_socket()  # also clears/reloads the default map and tears down networking
+            else:
+                self.clear_all_map_data()
             self.init_playthrough()
         else:
             self.state = States.COUNTDOWN
@@ -1303,8 +1353,10 @@ class TankGame:
             pg.display.update()
             pg.time.delay(30)
 
+        if self.hosting_game or self.joined_game:
+            self.shut_down_socket()  # also clears/reloads the default map and tears down networking
         self.state = States.MENU
-        
+
     def count_down(self, event_list):
         # Set countdown starting number (for example, 3 seconds)
         countdown_number = 3
@@ -1472,6 +1524,7 @@ class TankGame:
             if is_networked_client:
                 self.client_send_input(keys, mouse_buttons, mouse_pos)
                 self.client_apply_snapshot()
+                self.client_handle_level_result()
             else:
                 if self.hosting_game:
                     self.host_apply_client_inputs()
@@ -1491,6 +1544,11 @@ class TankGame:
             while self.fixed_delta_time_accumulator >= self.delta_time:
                 self.fixed_delta_time_accumulator -= self.delta_time
                 advance_one_tick()
+                if self.state != States.PLAYING:
+                    # A level/campaign transition happened mid-loop (host's update()/playthrough(),
+                    # or the client's client_handle_level_result()) - the map may have just been torn
+                    # down and rebuilt, so stop feeding it more ticks from this call.
+                    break
 
             self.draw()
         else:
@@ -1571,6 +1629,18 @@ class TankGame:
 
     # ---- Host: broadcasts the authoritative world state to all clients, after self.update() ----
     def host_broadcast_snapshot(self):
+        # Map stale (mid-game disconnected) client ids to the tank id they control, per the
+        # established client_id -> units_player_controlled[client_id] convention.
+        disconnected_tank_ids = set()
+        for cid in self.network.stale_client_ids():
+            if 0 <= cid < len(self.units_player_controlled):
+                disconnected_tank_ids.add(self.units_player_controlled[cid].id)
+
+        # Also set directly on the host's own live Tank objects, so the host's own screen shows the
+        # same indicator (draw() reads this uniformly; the host never goes through client_apply_snapshot()).
+        for unit in self.units:
+            unit.net_disconnected = unit.id in disconnected_tank_ids
+
         tanks = [
             {
                 "id": unit.id,
@@ -1579,6 +1649,7 @@ class TankGame:
                 "turret": unit.turret_rotation_angle,
                 "dead": unit.dead,
                 "shot_counter": unit.shot_fired_counter,
+                "disconnected": unit.id in disconnected_tank_ids,
             }
             for unit in self.units
         ]
@@ -1651,6 +1722,7 @@ class TankGame:
             unit.pos = [tank_data["x"], tank_data["y"]]
             unit.degrees = tank_data["degrees"]
             unit.turret_rotation_angle = tank_data["turret"]
+            unit.net_disconnected = tank_data.get("disconnected", False)
 
             dead = tank_data["dead"]
             if dead != unit.dead:
@@ -1729,6 +1801,30 @@ class TankGame:
             self.obstacles_des = [o for o in self.obstacles_des if o.id in alive_ids]
             self.des_texture_surface = self.wrap_texture_on_polygon_type(self.obstacles_des, self.images_des)
 
+    # ---- Client: mirrors a host campaign transition (level clear / full wipe / victory / initial
+    # start) locally - reloads the same map the host just loaded, copies over the level/lives
+    # bookkeeping, then transitions into the same info/countdown/end screens single-player already
+    # uses, unmodified. The client never decides any of this itself - see _broadcast_level_result. ----
+    def client_handle_level_result(self):
+        result = self.network.level_result
+        if result is None:
+            return
+        self.network.level_result = None  # one-shot event, not a continuously-latest field - consume it
+
+        self.current_level_number = result["current_level_number"]
+        self.playthrough_lives = result["playthrough_lives"]
+        self.just_died = result["just_died"]
+        self.added_life = result["added_life"]
+        self.dead_enemies_before_death = set(result["dead_enemies_before_death"])
+
+        if result["outcome"] == "victory":
+            self.state = States.END_SCREEN
+            return
+
+        self.clear_all_map_data()
+        self.start_map()
+        self.state = States.INFO_SCREEN
+
     # =======================================================================
 
 
@@ -1805,24 +1901,27 @@ class TankGame:
         
         # If playthrough has started
         if self.playthrough_started:
-            
-            # If all enemies die set player to godmode
-            if all(unit.dead for unit in self.units if unit.team != self.units_player_controlled[0].team):
-                self.units_player_controlled[0].godmode = True
+
+            player_team = self.units_player_controlled[0].team
+
+            # If all enemies die set every player tank to godmode
+            if all(unit.dead for unit in self.units if unit.team != player_team):
+                for p in self.units_player_controlled:
+                    p.godmode = True
                 self.wait_time += self.delta_time
-                
-            # If player dead:
-            if self.units_player_controlled[0].dead:
+
+            # If every player tank is dead (single-player: the one tank; multiplayer: all of them):
+            if all(p.dead for p in self.units_player_controlled):
                 self.wait_time += self.delta_time
-                
-                # Set all enemy units to godmod to prevent killing after player death
+
+                # Set all enemy units to godmod to prevent killing after the last player dies
                 for unit in self.units:
                     unit.godmode = True
-            
+
             if self.wait_time >= self.wait_time_original:
-                
+
                 self.state = States.PLAYTHROUGH
-                return 
+                return
         
         if self.time - self.last_print_time >= 0.5:
            
@@ -2133,8 +2232,23 @@ class TankGame:
                         
                     pg.draw.circle(self.screen, "red", unit.ai.debug_target_pos, 5)
 
+        # Multiplayer: disconnect indicators
+        if self.hosting_game or self.joined_game:
+            for unit in self.units:
+                if getattr(unit, "net_disconnected", False) and not unit.dead:
+                    label_font = pg.font.Font(None, 24)
+                    label = label_font.render("DISCONNECTED", True, (255, 60, 60))
+                    label_rect = label.get_rect(center=(unit.pos[0], unit.pos[1] - 40))
+                    self.screen.blit(label, label_rect)
+
+            if self.joined_game and self.network.host_connection_lost():
+                banner_font = pg.font.Font(None, 64)
+                banner = banner_font.render("Lost connection to host", True, (255, 60, 60))
+                banner_rect = banner.get_rect(center=(self.WINDOW_W // 2, 80))
+                self.screen.blit(banner, banner_rect)
+
         self.draw_ammo_ui()
-            
+
         if self.show_debug_info:
             self.render_debug_info()
             

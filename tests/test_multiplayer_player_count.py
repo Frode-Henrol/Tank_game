@@ -28,6 +28,19 @@ from tankgame.object_classes.obstacle import Obstacle  # noqa: E402
 PORT = 7795
 
 
+def apply_level_result_until(client, condition, timeout=5.0, interval=0.005):
+    """Repeatedly calls multiplayer_run_lobby() (NOT client_handle_level_result() directly - that's
+    what let the real "client stuck in lobby forever" bug slip through every test) and checks
+    condition(), like the real main loop does every tick."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        client.multiplayer_run_lobby()
+        if condition():
+            return True
+        time.sleep(interval)
+    return False
+
+
 def wait_until(predicate, timeout=2.0, interval=0.002):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -86,10 +99,6 @@ def test_real_three_player_handshake():
 
     assert wait_until(lambda: len(host.network.clients_meta) == 2), "host never registered both clients"
 
-    # Capture "previous" state before triggering the broadcast, so the freshness check below can't
-    # race against a client's background recv thread already having stored the new result.
-    prev_results = {i: c.network.level_result for i, c in enumerate(clients)}
-
     host.start_multiplayer_campaign()
     assert host.multiplayer_player_count == 3, f"expected 3 players (host + 2 clients), got {host.multiplayer_player_count}"
     host.playthrough([])  # bootstrap: loads level 1 with 3 injected player spawns, broadcasts outcome="start"
@@ -98,12 +107,10 @@ def test_real_three_player_handshake():
     print(f"OK: host + 2 clients -> {len(host.units_player_controlled)} tanks spawned "
           f"(loading their textures without error confirms all three player1/2/3_tank assets are present)")
 
-    for i, c in enumerate(clients):
-        prev = prev_results[i]
-        assert wait_until(lambda c=c, prev=prev: c.network.level_result is not prev), "a client never received the start level_result"
-        c.client_handle_level_result()
-        assert c.multiplayer_player_count == 3
-        assert len(c.units_player_controlled) == 3
+    for c in clients:
+        host.multiplayer_run_lobby()
+        assert apply_level_result_until(c, lambda c=c: c.multiplayer_player_count == 3 and len(c.units_player_controlled) == 3), \
+            "a client never caught up to the start level_result"
         assert sorted(u.id for u in c.units) == sorted(u.id for u in host.units)
     print("OK: both clients mirror the 3-player spawn set with matching tank ids")
 

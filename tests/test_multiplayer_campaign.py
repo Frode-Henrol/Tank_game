@@ -43,14 +43,16 @@ def wait_until(predicate, timeout=5.0, interval=0.002):
 
 
 def apply_level_result_until(client, condition, timeout=5.0, interval=0.005):
-    """Repeatedly calls client_handle_level_result() and checks condition(), like the real client
-    loop does every tick. Needed because the host now periodically re-sends its latest level_result
-    (so a client that missed the original one-shot send still catches up) - a stray, already-stale
-    resend can arrive and get correctly ignored by the idempotency guard, so simply waiting for "the
-    level_result object changed" no longer guarantees the *expected* transition was the one applied."""
+    """Repeatedly calls multiplayer_run_lobby() (NOT client_handle_level_result() directly - that's
+    exactly what let the real "client stuck in lobby forever" bug slip through every test) and checks
+    condition(), like the real main loop does every tick. Also needed because the host periodically
+    re-sends its latest level_result (so a client that missed the original one-shot send still
+    catches up) - a stray, already-stale resend can arrive and get correctly ignored by the
+    idempotency guard, so simply waiting for "the level_result object changed" no longer guarantees
+    the *expected* transition was the one applied."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        client.client_handle_level_result()
+        client.multiplayer_run_lobby()
         if condition():
             return True
         time.sleep(interval)

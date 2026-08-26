@@ -1578,7 +1578,12 @@ class TankGame:
             if is_networked_client:
                 self.client_send_input(keys, mouse_buttons, mouse_pos)
                 self.client_apply_snapshot()
-                self.client_handle_level_result()
+                # client_handle_level_result() is NOT called here - see multiplayer_run_lobby(),
+                # which calls it unconditionally every frame regardless of self.state. It has to be:
+                # this method (playing()) only ever runs once self.state == States.PLAYING, but
+                # client_handle_level_result() is what's supposed to *get* the client into that
+                # state in the first place - calling it only from here is a circular dependency
+                # that can never resolve (the client would sit in the lobby forever).
             else:
                 if self.hosting_game:
                     self.host_apply_client_inputs()
@@ -1664,6 +1669,12 @@ class TankGame:
         if self.joined_game:
             self.network.retry_join_if_needed()
             self.network.send_lobby_heartbeat()
+
+            # Called here (not from playing()) specifically because multiplayer_run_lobby() runs
+            # every frame regardless of self.state - including while still in the lobby, which is
+            # exactly when this needs to run to ever get the client OUT of the lobby. It's a no-op
+            # whenever there's nothing pending (self.network.level_result is None).
+            self.client_handle_level_result()
 
             if self.network.client_id == 0:
                 # Still handshaking (or it failed) - show that instead of a blank/stale player list.

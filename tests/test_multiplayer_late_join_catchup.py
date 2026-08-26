@@ -70,14 +70,17 @@ def main():
     client.player_controlled_tank_num = client.network.client_id
     print("OK: client connected after the host had already started")
 
-    # Simulate the real main loop calling multiplayer_run_lobby() every tick on both sides, which is
-    # what drives both the periodic resend (host) and the retry/heartbeat (client).
+    # Simulate the real main loop calling ONLY multiplayer_run_lobby() every tick on both sides -
+    # deliberately not calling client_handle_level_result() directly, since that's exactly what let
+    # the real bug slip through every other test: client_handle_level_result() actually getting the
+    # client out of the lobby depends entirely on multiplayer_run_lobby() calling it internally
+    # (it must - playing()'s tick loop, where it used to live, only runs once state is already
+    # PLAYING, which is circular). This must exercise the real wiring, not the function in isolation.
     deadline = time.time() + 5.0
     caught_up = False
     while time.time() < deadline:
         host.multiplayer_run_lobby()
         client.multiplayer_run_lobby()
-        client.client_handle_level_result()
         if client.current_level_number == 1 and client.state == States.INFO_SCREEN:
             caught_up = True
             break

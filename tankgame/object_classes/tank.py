@@ -864,9 +864,10 @@ class TankAI:
         self.predictive_targeting = config.get("predictive_targeting", True) # Try to lead the shots for units
         self.predictive_targeting_chance = config.get("predictive_targeting_chance", 50) # 0 - 100%    
         
-        self.shoot_threshold = config.get("shoot_threshold", 10)   # Smaller value means more precise shots are taken.  
-        self.safe_threshold = config.get("safe_threshold", 50)     # Increase value to prevent hitting itself.  
-        
+        self.shoot_threshold = config.get("shoot_threshold", 10)   # Smaller value means more precise shots are taken.
+        self.safe_threshold = config.get("safe_threshold", 50)     # Increase value to prevent hitting itself.
+        self.corner_margin = config.get("corner_margin", 20)       # px: predicted-ray bounce this close to a wall vertex is unreliable; truncate prediction and treat point as unsafe within safe_threshold.
+
         self.shoot_enemy_projectiles = config.get("shoot_enemy_projectiles", True)
         self.shoot_enemy_projectiles_range = config.get("shoot_enemy_projectiles_range", 100)   # The perpendicular distance to project path
         
@@ -898,7 +899,8 @@ class TankAI:
         self.update_rate = 1
         self.max_bounces = self.tank.bounch_limit - 1 # Temp remove one since 1 is added for projectile logic to work properly
         self.ray_path = [((0,0),(0,0)),((0,0),(0,0))]
-        
+        self.ray_path_corner = None  # ambiguous corner point when deflect_ray truncates early, else None
+
         # Dodge ray
         self.dodge_ray_path = []
         self.advanced_dodge = config.get("advanced_dodge", False)
@@ -1161,33 +1163,52 @@ class TankAI:
             return
         
         if self.frame_counter % self.update_rate == 0:
-            self.ray_path = self.deflect_ray(self.max_bounces)
-                
+            self.ray_path, self.ray_path_corner = self.deflect_ray(self.max_bounces)
+
         self.can_shoot = True
-        
+
         # First pass check for friendly fire and self harm
         for line_segment in self.ray_path:
             start, end = line_segment
-            
+
             # 1. Dont shoot mines that are close enough to kill the unit
             for mine in self.mines:
                 if (helper_functions.distance(mine.pos, self.tank.pos) < mine.explode_radius * 1.3
                     and self.is_point_within_segment_and_threshold(start, end, mine.pos, self.safe_threshold)):
                     self.can_shoot = False
                     return
-            
-            # 2. Check self-collision first 
+
+            # 2. Check self-collision first
             if self.can_shoot and self.is_point_within_segment_and_threshold(start, end, self.tank.pos, self.safe_threshold):
                 self.can_shoot = False
                 return
-                
+
             # 3. Check for ally collisions (all units except target)
             for unit in self.units:
                 if unit != self.targeted_unit and not unit.dead:
                     if self.is_point_within_segment_and_threshold(start, end, unit.pos, self.safe_threshold):
                         self.can_shoot = False
                         return
-            
+
+        # 4. Widened check around an ambiguous corner bounce: the real (discretized) bullet
+        # can behave unpredictably right at a wall vertex, so treat anything within
+        # safe_threshold of that point as unsafe regardless of the (untrusted) predicted direction.
+        if self.ray_path_corner is not None:
+            for mine in self.mines:
+                if helper_functions.distance(self.ray_path_corner, mine.pos) < self.safe_threshold:
+                    self.can_shoot = False
+                    return
+
+            if helper_functions.distance(self.ray_path_corner, self.tank.pos) < self.safe_threshold:
+                self.can_shoot = False
+                return
+
+            for unit in self.units:
+                if unit != self.targeted_unit and not unit.dead:
+                    if helper_functions.distance(self.ray_path_corner, unit.pos) < self.safe_threshold:
+                        self.can_shoot = False
+                        return
+
         # Second pass check if valid target is in range
         for line_segment in self.ray_path:
             start, end = line_segment
@@ -1633,35 +1654,45 @@ class TankAI:
             closest_intersection = None
             closest_distance = float('inf')
             closest_normal = None
-            
+            closest_corner_pair = None
+
             # Find closest intersection with any obstacle
             for obstacle in self.obstacles:
                 for corner_pair in obstacle.get_corner_pairs():
                     intersect = line_intersection.line_intersection(corner_pair[0][0], corner_pair[0][1],
-                                                     corner_pair[1][0], corner_pair[1][1], 
-                                                     current_point[0], current_point[1], 
+                                                     corner_pair[1][0], corner_pair[1][1],
+                                                     current_point[0], current_point[1],
                                                      end_point[0], end_point[1])
-                    
+
                     if intersect != (-1.0, -1.0):
                         # Calculate distance and ensure we don't pick the same point
                         dist = helper_functions.distance(current_point, intersect)
                         if dist < closest_distance and dist > 1:  # Small threshold to avoid self-intersection
                             closest_distance = dist
                             closest_intersection = intersect
+                            closest_corner_pair = corner_pair
                             # Get both possible normals using your function
                             normal1, normal2 = df.find_normal_vectors(corner_pair[0], corner_pair[1])
                             # Choose the normal facing the incoming ray using dot product
                             dot1 = normal1[0]*direction[0] + normal1[1]*direction[1]
                             closest_normal = normal1 if dot1 < 0 else normal2
-            
+
             # If no intersection found, draw the remaining ray and exit
             if not closest_intersection:
                 lines.append((tuple(current_point), tuple(end_point)))
                 break
-                
+
             # Add this segment to the path (ensure tuples for consistency)
             lines.append((tuple(current_point), tuple(closest_intersection)))
-            
+
+            # If the bounce lands near a wall vertex (where two edges meet), the single-edge
+            # reflection model here is unreliable vs. the real per-frame projectile collision
+            # (which can hit the corner differently) - stop predicting further and flag it.
+            v1, v2 = closest_corner_pair
+            if (helper_functions.distance(closest_intersection, v1) < self.corner_margin or
+                    helper_functions.distance(closest_intersection, v2) < self.corner_margin):
+                return lines, tuple(closest_intersection)
+
             # Calculate new direction using your deflection function
             if closest_normal:
                 direction = df.find_deflect_vector(closest_normal, direction)
@@ -1674,9 +1705,9 @@ class TankAI:
                 current_point = closest_intersection
                 
             bounce_count += 1
-        
-        return lines
-            
+
+        return lines, None
+
     def deflect_ray_generel(self, start_point, direction, bounces, max_distance=2000):
         lines = []
         

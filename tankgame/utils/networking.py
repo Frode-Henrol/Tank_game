@@ -60,6 +60,13 @@ class Multiplayer:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(('', port))
         self.running = True
+        # Reset per-session client bookkeeping. client_id_counter in particular must start fresh -
+        # it's used as the direct index into units_player_controlled (client_id 1 -> slot 1, etc, a
+        # fixed-size list sized to the match's player count). Without this reset, a client rejoining
+        # after a previous match ended gets an ever-higher id from a stale counter that no longer
+        # fits the new match's (smaller) player list - an IndexError in draw_ammo_ui().
+        self.client_id_counter = 1
+        self.clients_meta.clear()
         self._thread = threading.Thread(target=self._host_loop, daemon=True)
         self._thread.start()
         print("Hosting started")

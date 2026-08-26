@@ -39,7 +39,7 @@ The first 20 levels closely replicate the original Wii Tanks gameplay. The final
 
 Follow the steps below to get **Tank Game** up and running on your machine:
 
-### 1. Install (Only works with python 3.12)
+### 1. Install (Only works with python 3.12) Only tested on Windows!
 
 ```bash
 git clone https://github.com/Frode-Henrol/Tank_game
@@ -75,6 +75,32 @@ To quickly test a map:
 1. Save the map without a name or name it `map_test1`.
 2. Run `python -m tankgame`.
 3. Navigate to **Settings** → **Debug** → **Test map**
+
+---
+
+## Building a Standalone .exe (Windows)
+
+The repo includes `tankgame.spec`, a PyInstaller recipe that bundles the game, its compiled `line_intersection` extension, and all asset folders (`map_files`, `misc_images`, `sound_effects`, `units`) into one `.exe`.
+
+### One-time setup
+
+Build from an isolated virtual environment, not your regular Python install — a global environment with unrelated packages (e.g. data-science/GUI libraries) can make PyInstaller pull in conflicting dependencies and fail.
+
+```bash
+python -m venv .venv_build
+.venv_build\Scripts\activate
+pip install -r requirements.txt
+pip install pyinstaller
+```
+
+### Build
+
+```bash
+.venv_build\Scripts\activate
+pyinstaller tankgame.spec --noconfirm
+```
+
+The finished executable is written to `dist/TankGame.exe`. `build/`, `dist/`, and `.venv_build/` are git-ignored, so nothing from the build ends up committed.
 
 ---
 

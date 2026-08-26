@@ -33,6 +33,7 @@ exe = EXE(
     a.datas,
     [],
     name='TankGame',
+    icon='icon.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

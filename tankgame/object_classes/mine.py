@@ -26,7 +26,12 @@ class Mine:
 
         self.color_timer = 0
         self.min_flash_speed = 4
-    
+
+        # Explosion lifecycle (see ready_for_cleanup()'s docstring for why the mine lingers after
+        # exploding instead of being removed the instant is_exploded flips True).
+        self.explosion_animation_started = False
+        self.explosion_cleanup_delay = 30  # ~0.5s of 60fps-normalized ticks
+
     def get_unit_list(self, unit_list: list):
         self.unit_list = unit_list
         
@@ -61,6 +66,18 @@ class Mine:
 
             if self.countdown_timer <= 0:
                 self.explode()
+
+        if self.is_exploded:
+            self.explosion_cleanup_delay -= 60 * self.delta_time
+
+    def ready_for_cleanup(self):
+        """True once an exploded mine has stuck around long enough that multiplayer clients have had
+        a real chance to receive it as exploded=True in an outgoing snapshot and play their own
+        explosion animation - it used to be removed from tankgame.py's self.mines in the very same
+        update() call it exploded in, which is always strictly before that tick's (possibly
+        throttled) snapshot broadcast, so a client could never actually observe the transition; the
+        mine just silently vanished from its mine list with no explosion ever shown on their screen."""
+        return self.is_exploded and self.explosion_cleanup_delay <= 0
 
     def check_for_tank(self, unit, check_for_owner=True):
         if check_for_owner and unit.team == self.team or unit.dead:

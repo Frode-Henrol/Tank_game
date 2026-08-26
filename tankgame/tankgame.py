@@ -2133,7 +2133,29 @@ class TankGame:
 
         for mine in self.mines:
             mine.update(self.delta_time)
-        
+
+        # Mine explosion handling + cleanup - a single pass over all mines (previously nested inside
+        # the per-unit loop below, which meant it iterated once per alive unit for no reason, and
+        # mutated self.mines with .remove() while iterating it - the classic list-mutation-during-
+        # iteration bug already fixed elsewhere for Mine.explode()'s own obstacle loop). Triggers the
+        # explosion animation/sound exactly once per mine, then leaves the mine in self.mines (so
+        # it's still included in the next few outgoing snapshots) for a short delay after exploding -
+        # giving multiplayer clients at least one broadcast where they see exploded=True and can play
+        # their own explosion animation, instead of the mine vanishing the same tick it explodes
+        # (which is what host_broadcast_snapshot() always saw before: explode() and removal happened
+        # in the same update() call, strictly before any broadcast for that tick could go out - the
+        # client's exploded=True edge-trigger check could never actually fire).
+        for mine in self.mines:
+            if mine.is_exploded and not mine.explosion_animation_started:
+                mine.explosion_animation_started = True
+                self.handle_mine_explosion(mine)
+                self.handle_destruction()
+                self.update_des_flag = True
+            mine.get_unit_list(self.units)
+            mine.get_obstacles_des(self.obstacles_des)
+
+        self.mines = [mine for mine in self.mines if not mine.ready_for_cleanup()]
+
         # Update projectiles and handle collisions
         for unit in self.units:
             for i, proj in enumerate(unit.projectiles):
@@ -2217,17 +2239,10 @@ class TankGame:
                 other_unit.apply_repulsion(unit, push_strength=0.5)  # Ensure symmetry
             
 
-            # Mine logic
-            for mine in self.mines:
-                if mine.is_exploded:
-                    self.handle_mine_explosion(mine)
-                    self.handle_destruction()
-                    self.mines.remove(mine)
-                    self.update_des_flag = True
-                mine.get_unit_list(self.units)
-                mine.get_obstacles_des(self.obstacles_des)
-                
-                if unit.dead == False:
+            # Mine trigger check - genuinely per-unit (does this specific tank's proximity arm/trigger
+            # a mine). Explosion handling/cleanup itself now happens once per tick, above.
+            if unit.dead == False:
+                for mine in self.mines:
                     mine.check_for_tank(unit)
 
 

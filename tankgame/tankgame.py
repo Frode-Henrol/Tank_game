@@ -116,6 +116,15 @@ class TankGame:
         self.lobby_list_broadcast_interval = 1.0  # throttle for the host's "clients" name-list broadcast below
         self._last_lobby_list_broadcast_at = 0
 
+        # Host: the latest level_result, periodically re-sent (see multiplayer_run_lobby()) so a
+        # client that missed the original one-shot send (e.g. hadn't finished joining yet) still
+        # catches up within about a second instead of waiting forever.
+        self._level_result_seq = 0
+        self._last_level_result_payload = None
+        # Client: highest level_result seq already applied, so a repeat resend of one we've already
+        # acted on is safely ignored instead of re-triggering a level reload mid-match.
+        self._client_applied_level_result_seq = -1
+
         # Client-side render-only mirrors of the host's projectiles/mines, keyed by network id.
         # Never simulated locally (no .update()/.collision() calls) - purely driven by snapshots from the host.
         self._client_projectiles = {}
@@ -385,6 +394,13 @@ class TankGame:
         self._client_projectiles.clear()
         self._client_mines.clear()
         self._client_last_shot_counter.clear()
+
+        # Reset level_result session state so a stale cached payload from this session can't leak
+        # into a fresh one (host side), and a fresh session's first "start" broadcast isn't wrongly
+        # ignored as "already applied" due to a seq number left over from a previous session (client side).
+        self._level_result_seq = 0
+        self._last_level_result_payload = None
+        self._client_applied_level_result_seq = -1
 
         # Return to the normal single-player default map
         self.clear_all_map_data()
@@ -1133,11 +1149,20 @@ class TankGame:
     def _broadcast_level_result(self, outcome):
         """Host-only: tells clients a level/campaign transition just happened, since they never run
         this method themselves (host-authoritative win/lose decision) and would otherwise have no way
-        to know to follow along into the same info/countdown/end screens with the same numbers."""
+        to know to follow along into the same info/countdown/end screens with the same numbers.
+
+        This is sent once here, but also cached and periodically re-sent from multiplayer_run_lobby()
+        - a client that hasn't finished joining yet at this exact instant (a real, easy-to-hit race:
+        nothing needs to be lost, "host clicks Start Game" just needs to land before "client finishes
+        its JOIN handshake") would otherwise wait forever, since nothing else ever prompts it to leave
+        the lobby. The seq number is what makes the resend safe - a client that already applied this
+        result ignores repeats instead of being yanked back into INFO_SCREEN every second."""
         if not self.hosting_game:
             return
-        self.network.host_to_clients_send({
+        self._level_result_seq += 1
+        payload = {
             "type": "level_result",
+            "seq": self._level_result_seq,
             "outcome": outcome,  # "start" | "died" | "level_complete" | "victory"
             "current_level_number": self.current_level_number,
             "playthrough_lives": self.playthrough_lives,
@@ -1145,7 +1170,9 @@ class TankGame:
             "added_life": self.added_life,
             "dead_enemies_before_death": list(self.dead_enemies_before_death),
             "player_count": self.multiplayer_player_count,
-        })
+        }
+        self._last_level_result_payload = payload
+        self.network.host_to_clients_send(payload)
     
     def level_selection(self, event_list):
         self.screen.fill("gray")
@@ -1626,6 +1653,14 @@ class TankGame:
                 self._last_lobby_list_broadcast_at = now
                 self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
 
+                # Re-send the latest campaign-state message on the same cadence. The one-shot send
+                # in _broadcast_level_result() can be missed by a client that hasn't finished
+                # joining yet at that exact instant; this guarantees it (or a late joiner) catches
+                # up within about a second instead of waiting forever. Safe to repeat indefinitely -
+                # client_handle_level_result() ignores anything it's already applied via the seq number.
+                if self._last_level_result_payload is not None:
+                    self.network.host_to_clients_send(self._last_level_result_payload)
+
         if self.joined_game:
             self.network.retry_join_if_needed()
             self.network.send_lobby_heartbeat()
@@ -1870,6 +1905,13 @@ class TankGame:
         if result is None:
             return
         self.network.level_result = None  # one-shot event, not a continuously-latest field - consume it
+
+        if result["seq"] <= self._client_applied_level_result_seq:
+            # Already applied this one - just the host's periodic resend catching up to us (it
+            # can't tell whether we got the original send, so it keeps re-sending regardless).
+            # Ignore it rather than re-reloading the level / re-entering INFO_SCREEN mid-match.
+            return
+        self._client_applied_level_result_seq = result["seq"]
 
         self.current_level_number = result["current_level_number"]
         self.playthrough_lives = result["playthrough_lives"]

@@ -42,6 +42,21 @@ def wait_until(predicate, timeout=5.0, interval=0.002):
     return False
 
 
+def apply_level_result_until(client, condition, timeout=5.0, interval=0.005):
+    """Repeatedly calls client_handle_level_result() and checks condition(), like the real client
+    loop does every tick. Needed because the host now periodically re-sends its latest level_result
+    (so a client that missed the original one-shot send still catches up) - a stray, already-stale
+    resend can arrive and get correctly ignored by the idempotency guard, so simply waiting for "the
+    level_result object changed" no longer guarantees the *expected* transition was the one applied."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        client.client_handle_level_result()
+        if condition():
+            return True
+        time.sleep(interval)
+    return False
+
+
 def fresh_game(hosting=False, joined=False):
     Tank._id_counter = 0
     Obstacle._id_counter = 0
@@ -71,11 +86,8 @@ def main():
     assert len(host.units_player_controlled) == 2, "level 1 should have a spawned/injected second player"
     host_ids = sorted(u.id for u in host.units)
 
-    prev_result = client.network.level_result
-    assert wait_until(lambda: client.network.level_result is not prev_result), "client never received the start level_result"
-    client.client_handle_level_result()
-
-    assert client.state == States.INFO_SCREEN
+    assert apply_level_result_until(client, lambda: client.current_level_number == 1 and client.state == States.INFO_SCREEN), \
+        "client never caught up to the start level_result"
     assert client.current_level_number == host.current_level_number == 1
     assert sorted(u.id for u in client.units) == host_ids, "client's tank ids must match the host's after the campaign start"
     print("OK: campaign start synced - both sides on level 1 with matching tank ids")
@@ -98,11 +110,8 @@ def main():
     assert host.current_level_number == 2
     host_ids_lvl2 = sorted(u.id for u in host.units)
 
-    prev_result = client.network.level_result
-    assert wait_until(lambda: client.network.level_result is not prev_result), "client never received the level_complete result"
-    client.client_handle_level_result()
-
-    assert client.current_level_number == 2
+    assert apply_level_result_until(client, lambda: client.current_level_number == 2), \
+        "client never caught up to the level_complete result"
     assert sorted(u.id for u in client.units) == host_ids_lvl2
     assert len(client.units_player_controlled) == 2, "both players must be revived (present, non-dead) on the next level"
     assert not any(p.dead for p in client.units_player_controlled)
@@ -121,11 +130,8 @@ def main():
     assert host.playthrough_lives == 0, "one full wipe must exhaust the single life immediately"
     assert host.state == States.INFO_SCREEN
 
-    prev_result = client.network.level_result
-    assert wait_until(lambda: client.network.level_result is not prev_result), "client never received the died result"
-    client.client_handle_level_result()
-
-    assert client.playthrough_lives == 0
+    assert apply_level_result_until(client, lambda: client.playthrough_lives == 0), \
+        "client never caught up to the died result"
     print("OK: full wipe synced - playthrough_lives hit 0 on both sides (would trigger game-over in info_screen)")
 
     host.network.stop()

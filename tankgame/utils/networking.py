@@ -65,6 +65,13 @@ class Multiplayer:
         """Join a hosted game at host_ip:port."""
         self.role = NetRole.CLIENT
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Explicitly bind before the recv thread starts below. On Windows, an unbound UDP socket's
+        # first recvfrom() can raise WSAEINVAL ("An invalid argument was supplied") if it runs before
+        # anything has been sent yet (sendto() is what implicitly binds an unbound socket) - a real
+        # race between this thread and the recv thread, since send_join_request() below is what would
+        # otherwise do that implicit bind. Binding to an OS-assigned ephemeral port up front removes
+        # the race entirely regardless of thread scheduling order.
+        self.socket.bind(('', 0))
         self.server_address = (host_ip, port)
         self.running = True
         self.client_id = 0

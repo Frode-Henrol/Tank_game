@@ -107,11 +107,12 @@ class TankGame:
         self.state = States.MENU
 
         # Multiplayer - initialized before the first load_map() below, which checks
-        # hosting_game/joined_game to decide whether to inject a second player spawn.
+        # hosting_game/joined_game to decide whether to inject extra player spawns.
         self.network = networking.Multiplayer()
         self.hosting_game = False
         self.joined_game = False
         self.username = f"Unknown{random.randint(0,1000)}"
+        self.multiplayer_player_count = 1  # set for real in start_multiplayer_campaign() / from the host's level_result
 
         # Client-side render-only mirrors of the host's projectiles/mines, keyed by network id.
         # Never simulated locally (no .update()/.collision() calls) - purely driven by snapshots from the host.
@@ -233,10 +234,10 @@ class TankGame:
         self.pause_menu_buttons = [
             Button(left, 250, 300, 60, "Resume", States.DELAY),
             Button(left, 350, 300, 60, "Settings", States.SETTINGS_MAIN),
-            Button(left, 450, 300, 60, "Main menu", States.MENU)
+            Button(left, 450, 300, 60, "Main menu", States.MENU, action=self.exit_to_main_menu)
         ]
-        
-        
+
+
         self.settings_buttons_main = [
             Button(left, 250, 300, 60, "Debug", States.SETTINGS_DEBUG),
             Button(left, 350, 300, 60, "Multiplayer", States.SETTINGS_MULTIPLAYER),
@@ -370,6 +371,9 @@ class TankGame:
             return
         self.init_playthrough()
         self.playthrough_lives_original = self.playthrough_lives = 1  # one life per level, no retries
+        # Host + everyone who's joined the lobby so far - fixed for the whole campaign (capped at 3,
+        # matching the player1/2/3_tank blue/red/green assets).
+        self.multiplayer_player_count = min(1 + len(self.network.clients_meta), 3)
         self.state = States.PLAYTHROUGH
 
     def shut_down_socket(self):
@@ -384,7 +388,17 @@ class TankGame:
         self.clear_all_map_data()
         self.load_map()
         self.load_map_textures()
-    
+
+    def exit_to_main_menu(self):
+        """Action for the pause menu's "Main menu" button. Tears down any active multiplayer session
+        (socket, hosting_game/joined_game) before returning - otherwise the socket is left open and
+        background threads keep running, and a later host attempt fails trying to rebind the same
+        port (or a later join attempt talks over a stale, never-closed client socket)."""
+        if self.hosting_game or self.joined_game:
+            self.shut_down_socket()
+            self.playthrough_started = False
+            self.init_playthrough()
+
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
         try:
@@ -485,22 +499,32 @@ class TankGame:
         sound.set_volume(0.2)
         self.sound_effects["lostgame"].append(sound)
                   
-    def inject_second_player_spawn(self, unit_list: list) -> list:
-        """Multiplayer only: campaign maps only ever author one player spawn. If the map doesn't
-        already have a second one (e.g. a map authored for multiplayer directly), duplicate the
-        first player spawn as a second player-controlled unit at the same position - existing
-        tank-vs-tank repulsion physics separates them within the first couple of frames, and "same
-        spot" is the only placement that's guaranteed not to land inside a wall on every level
-        without hand-checking each map's local geometry."""
-        PLAYER_TYPE_CODES = {0, 20, 21}  # tank_mappings: player1_tank, player2_tank, player3_tank
+    def inject_multiplayer_player_spawns(self, unit_list: list) -> list:
+        """Multiplayer only: campaign maps only ever author one player spawn. Duplicate it up to
+        self.multiplayer_player_count total player-controlled units (blue/red/green -
+        player1_tank/player2_tank/player3_tank), all at the same position - existing tank-vs-tank
+        repulsion physics separates them within the first couple of frames, and "same spot" is the
+        only placement that's guaranteed not to land inside a wall on every level without
+        hand-checking each map's local geometry. A solo host (player_count == 1) gets a no-op, so
+        exactly one tank spawns, same as single-player."""
+        PLAYER_TYPE_CODES = [0, 20, 21]  # tank_mappings: player1_tank (blue), player2_tank (red), player3_tank (green)
+        player_count = min(self.multiplayer_player_count, len(PLAYER_TYPE_CODES))
 
         player_units = [u for u in unit_list if u[2] in PLAYER_TYPE_CODES]
-        if len(player_units) != 1:
-            return unit_list  # already multiplayer-ready, or no player spawn to duplicate at all
+        if not player_units or len(player_units) >= player_count:
+            return unit_list  # nothing to duplicate from, or already enough spawns
 
         pos, angle, _unit_type, team = player_units[0]
-        second_player = (pos, angle, 20, team)
-        return unit_list + [second_player]
+        existing_codes = {u[2] for u in player_units}
+
+        extra = []
+        for code in PLAYER_TYPE_CODES:
+            if len(player_units) + len(extra) >= player_count:
+                break
+            if code not in existing_codes:
+                extra.append((pos, angle, code, team))
+
+        return unit_list + extra
 
     def load_map(self, map_path: str =  os.path.join(MAP_DIR, r"map_test1.txt")) -> None:
         """Loads data from a map file"""
@@ -510,7 +534,7 @@ class TankGame:
         self.polygon_list, self.polygons_with_type, unit_list, self.node_spacing = helper_functions.load_map_data(map_path)
 
         if self.hosting_game or self.joined_game:
-            unit_list = self.inject_second_player_spawn(unit_list)
+            unit_list = self.inject_multiplayer_player_spawns(unit_list)
 
         # Skal RETTES: Store polygon corners for detection (this is currently not used, just a test) ctrl-f (Test MED DETECT)
         self.polygon_list_no_border = self.polygon_list.copy()
@@ -1118,6 +1142,7 @@ class TankGame:
             "just_died": self.just_died,
             "added_life": self.added_life,
             "dead_enemies_before_death": list(self.dead_enemies_before_death),
+            "player_count": self.multiplayer_player_count,
         })
     
     def level_selection(self, event_list):
@@ -1816,6 +1841,7 @@ class TankGame:
         self.just_died = result["just_died"]
         self.added_life = result["added_life"]
         self.dead_enemies_before_death = set(result["dead_enemies_before_death"])
+        self.multiplayer_player_count = result["player_count"]
 
         if result["outcome"] == "victory":
             self.state = States.END_SCREEN

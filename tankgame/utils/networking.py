@@ -1,13 +1,11 @@
 import socket
 import threading
 import time
-import struct
+import json
 import traceback
 
-from tankgame.utils.struct_packing import pack_all_tanks, unpack_all_tanks
-
 DEFAULT_PORT = 7777
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 65535  # Max UDP payload; generous enough that a full world snapshot never gets silently truncated
 
 class NetRole:
     """Enum for network roles."""
@@ -16,7 +14,7 @@ class NetRole:
     CLIENT = 2
 
 class Multiplayer:
-    """Handles UDP-based multiplayer networking."""
+    """Handles UDP-based multiplayer networking. Transport only - payloads are plain JSON-serializable dicts."""
 
     def __init__(self):
         """Initialize socket and role tracking."""
@@ -24,13 +22,14 @@ class Multiplayer:
         self.running = False
         self.role = NetRole.NONE
         self.clients_meta = {}    # Meta data for clients
-        self.client_list = []     # For client to store the list of connected clients
+        self.client_list = []     # For client to store the list of connected clients' names
+
         self.server_address = None  # Client only
-        
-        self.tank_data_from_host = None # Store data if client
-        self.tank_data_from_clients = {}  # For host. Store client dict with addr -> tank data 
-        
-        self.client_id_counter = 1  
+
+        self.snapshot_from_host = None    # Client: latest world-state dict received from host
+        self.input_from_clients = {}      # Host: addr -> latest input dict received from that client
+
+        self.client_id_counter = 1
         self.client_id = 0
 
 
@@ -57,7 +56,7 @@ class Multiplayer:
         """Stop the socket and networking threads."""
         self.running = False
         if self.socket:
-            self.tank_data_from_clients.clear()
+            self.input_from_clients.clear()
             self.clients_meta.clear()
             self.socket.close()
             print("Stopping socket")
@@ -68,20 +67,18 @@ class Multiplayer:
             payload = username.encode()
             self.socket.sendto(b'JOIN' + payload, self.server_address)
 
-    def client_to_host_send(self, data, raw=False, prefix = b'DATA'):
-        """Send client data to the host, optionally unstructured."""
+    def client_to_host_send(self, payload: dict):
+        """Send a JSON-serializable payload dict from client to host."""
         if self.role == NetRole.CLIENT:
-            payload = data if raw else pack_all_tanks(data)
-            prefix = "" if raw else prefix
-            self.socket.sendto(prefix + payload, self.server_address)
+            body = json.dumps(payload).encode()
+            self.socket.sendto(b'DATA' + body, self.server_address)
 
-    def host_to_clients_send(self, data, raw=False, prefix = b'DATA'):
-        """Broadcast to all clients, optionally unstructured."""
+    def host_to_clients_send(self, payload: dict):
+        """Broadcast a JSON-serializable payload dict from host to all clients."""
         if self.role == NetRole.HOST:
-            payload = data if raw else pack_all_tanks(data)
-            prefix = prefix if raw else prefix
+            body = json.dumps(payload).encode()
             for client_addr in list(self.clients_meta.keys()):
-                self.socket.sendto(prefix + payload, client_addr)
+                self.socket.sendto(b'DATA' + body, client_addr)
 
     def _handle_client_disconnect(self, addr):
         if addr in self.clients_meta:
@@ -95,7 +92,7 @@ class Multiplayer:
                 data, addr = self.socket.recvfrom(BUFFER_SIZE)
                 if not data:
                     continue  # Empty data, keep listening
-            
+
                 self._handle_host_packet(data, addr)
             except ConnectionResetError:
                 print(f"Client {addr} forcibly closed the connection")
@@ -104,8 +101,8 @@ class Multiplayer:
             except Exception as e:
                 print(f"Host error: {e}")
                 continue
-            
-    
+
+
 
     def _client_loop(self):
         """Receive and handle packets as client."""
@@ -120,9 +117,9 @@ class Multiplayer:
         """Process packets received by the host."""
         if data.startswith(b'JOIN'):
             print(f"Player joined:")
-            
+
             username = data.decode()[4:]
-            
+
             if addr not in self.clients_meta and data.startswith(b'JOIN'):
                 client_id = self.client_id_counter
                 self.client_id_counter += 1
@@ -135,47 +132,38 @@ class Multiplayer:
 
                 # Client of its ID
                 self.socket.sendto(b'ID__' + str(client_id).encode(), addr)
-            
+
         elif data.startswith(b'DATA'):
-            client_data = data[4:]
             try:
-                unpacked = unpack_all_tanks(client_data)
-                self.tank_data_from_clients[addr] = unpacked
-            except struct.error:
+                payload = json.loads(data[4:].decode())
+            except ValueError:
                 print("Corrupted packet received")
-        
-        # elif data.startswith(b'LIST'):
-        #     """Send back the list of clients to the requesting client."""
-        #     client_list = [f"{addr}: {meta['username']}" for addr, meta in self.clients_meta.items()]
-        #     response = "\n".join(client_list).encode()
-        #     self.socket.sendto(b'CLNT' + response, addr)
-            
+                return
+
+            if payload.get("type") == "input":
+                self.input_from_clients[addr] = payload
 
     def _handle_client_packet(self, data, addr):
         """Process packets received by the client."""
-        # Check for unit data from host
-        #print(f"data: {data[4:]}")
         if data.startswith(b'DATA'):
-            #print("Client: Received data")
-            host_data = data[4:]
-        
-            # Unpack data from the host.
-            self.tank_data_from_host = unpack_all_tanks(host_data)
-        
-        # Check for list of clients received from the host
-        elif data.startswith(b'CLNT'):
-            client_list_str = data[4:].decode()
-            client_lobby_info = eval(client_list_str)
-            self.client_list = client_lobby_info
-        
+            try:
+                payload = json.loads(data[4:].decode())
+            except ValueError:
+                print("Corrupted packet received")
+                return
+
+            if payload.get("type") == "snapshot":
+                self.snapshot_from_host = payload
+            elif payload.get("type") == "clients":
+                self.client_list = payload.get("names", [])
+
         # Checks if hosts sends a client id
         elif data.startswith(b'ID__'):
             self.client_id = int(data[4:].decode())
 
-            
-        
+
+
     def request_client_list(self):
         """Request the list of connected clients from the host."""
         if self.role == NetRole.CLIENT:
             self.socket.sendto(b'LIST', self.server_address)
-            

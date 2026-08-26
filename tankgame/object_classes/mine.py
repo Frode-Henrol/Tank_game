@@ -4,7 +4,12 @@ import random
 from object_classes.animation import Animation
 
 class Mine:
+    _id_counter = 0
+
     def __init__(self, image, spawn_point: tuple, explode_radius: int, owner_id: int, team: int):
+        self.id = Mine._id_counter  # Unique instance id (network sync)
+        Mine._id_counter += 1
+
         self.pos = tuple(spawn_point)
         self.explode_radius = explode_radius
         self.owner_id = owner_id

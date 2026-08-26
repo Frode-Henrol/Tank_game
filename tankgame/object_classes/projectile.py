@@ -6,8 +6,12 @@ import random
 from utils import line_intersection
 
 class Projectile:
-    
+    _uid_counter = 0
+
     def __init__(self, unit_pos: list, startpos: list, direction: tuple, speed: list[float], bounce_limit: int, id: int):   # Add color and more later!!!!
+        self.uid = Projectile._uid_counter  # Unique instance id (network sync). Not to be confused with self.id (owner tank id) below.
+        Projectile._uid_counter += 1
+
         self.spawn_coord = list(tuple(unit_pos))
         self.startpos = list(tuple(startpos))
         self.startpos_original = list(tuple(startpos))  # quick fix to fix dodge problem with ai

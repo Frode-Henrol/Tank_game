@@ -161,14 +161,18 @@ class TankGame:
         scale = 0.75
         self.control_img = self.load_image(control_img_path, (self.WINDOW_DIM[0]//(2*scale),self.WINDOW_DIM[1]//(2*scale)))
         
-        # Multiplayer (currently not implemented)
+        # Multiplayer
         self.network = networking.Multiplayer()
         self.hosting_game = False
         self.joined_game = False
         self.username = f"Unknown{random.randint(0,1000)}"
-        self.last_shot_ids = {} # stores "id" / shot counter in dict for sync fire across clients
-        self.last_mine_ids = {} # Same principle as shot counter
-        
+
+        # Client-side render-only mirrors of the host's projectiles/mines, keyed by network id.
+        # Never simulated locally (no .update()/.collision() calls) - purely driven by snapshots from the host.
+        self._client_projectiles = {}
+        self._client_mines = {}
+        self._client_last_shot_counter = {}  # tank id -> last-seen shot_fired_counter, to edge-trigger cannon sound/muzzle flash
+
         self.player_controlled_tank_num = 0
         self.m_key_prev = False
         self.r_key_prev = False
@@ -331,17 +335,44 @@ class TankGame:
             
     def host_game_button(self):
         self.hosting_game = True
-        self.network.start_host(username=self.username)
-        
-    
+        self.clear_all_map_data()
+        self.load_map(os.path.join(MAP_DIR, "multiplayer_test.txt"))
+        self.load_map_textures()
+        self.player_controlled_tank_num = 0  # Host always controls the first player slot on the multiplayer map
+
+        port_field = self.lobby_menu_buttons[1]
+        port_str = port_field.get_string()
+        port = int(port_str) if port_str.isdigit() else networking.DEFAULT_PORT
+
+        self.network.start_host(username=self.username, port=port)
+
+
     def join_game_button(self):
         self.joined_game = True
-        self.network.start_client(username=self.username, host_ip="127.0.0.1")
-    
+        self.clear_all_map_data()
+        self.load_map(os.path.join(MAP_DIR, "multiplayer_test.txt"))
+        self.load_map_textures()
+
+        host_ip_field = self.lobby_menu_buttons[4]
+        port_field = self.lobby_menu_buttons[5]
+        host_ip = "127.0.0.1" if host_ip_field.is_field_empty() else host_ip_field.get_string()
+        port_str = port_field.get_string()
+        port = int(port_str) if port_str.isdigit() else networking.DEFAULT_PORT
+
+        self.network.start_client(username=self.username, host_ip=host_ip, port=port)
+
     def shut_down_socket(self):
         self.hosting_game = False
         self.joined_game = False
         self.network.stop()
+        self._client_projectiles.clear()
+        self._client_mines.clear()
+        self._client_last_shot_counter.clear()
+
+        # Return to the normal single-player default map
+        self.clear_all_map_data()
+        self.load_map()
+        self.load_map_textures()
     
     def load_animations_and_misc(self) -> None:
         """Loads animations and shared textures images"""
@@ -570,11 +601,7 @@ class TankGame:
 
                 self.units_dict[unit_to_add.id] = unit_to_add  # Seperate dict to store tank with its id
                 self.units.append(unit_to_add)
-                
-                
-                self.last_shot_ids = {tank_id: -1 for tank_id in self.units_dict.keys()}
-                self.last_mine_ids = {tank_id: -1 for tank_id in self.units_dict.keys()}
-                    
+
             except Exception as e:
                 print(f"Error: {e}")
         
@@ -1360,12 +1387,12 @@ class TankGame:
         self.state = States.PLAYING
 
     def playing(self, event_list):
-        
+
         # Controls in game:
         keys = pg.key.get_pressed()
         mouse_buttons = pg.mouse.get_pressed()
         mouse_pos = pg.mouse.get_pos()  # Mouse position
-        
+
         # q for quit disabled
         # if keys[pg.K_q]:
         #     pg.quit()
@@ -1374,71 +1401,89 @@ class TankGame:
             print("ESCAPE PRESSED")
             self.state = States.PAUSE_MENU
             return
-        
+
+        # As a networked client we never simulate locally - input is only ever sent to the host,
+        # never applied to our own tank objects (see client_send_input/client_apply_snapshot below).
+        is_networked_client = self.joined_game and not self.hosting_game
+        is_networked = self.hosting_game or self.joined_game
+
         # If the player controlled units list is empty we dont take inputs
-        if self.units_player_controlled and self.units_player_controlled[0].dead != True:
+        if not is_networked_client and self.units_player_controlled and self.units_player_controlled[0].dead != True:
+            active_tank = self.units_player_controlled[self.player_controlled_tank_num]
+
             if self.directional_controls:
-                tank = self.units_player_controlled[self.player_controlled_tank_num]
                 dx = (1 if keys[pg.K_d] else 0) - (1 if keys[pg.K_a] else 0)
                 dy = (1 if keys[pg.K_s] else 0) - (1 if keys[pg.K_w] else 0)
                 if dx != 0 or dy != 0:
                     target_angle = helper_functions.find_angle(0, 0, dx, dy)
-                    tank.rotate_towards(target_angle)
-                    tank.move("forward")
+                    active_tank.rotate_towards(target_angle)
+                    active_tank.move("forward")
             else:
                 if keys[pg.K_a]:
-                    self.units_player_controlled[self.player_controlled_tank_num].rotate(-1.3)
+                    active_tank.rotate(-1.3)
                 if keys[pg.K_d]:
-                    self.units_player_controlled[self.player_controlled_tank_num].rotate(1.3)
+                    active_tank.rotate(1.3)
                 if keys[pg.K_w]:
-                    self.units_player_controlled[self.player_controlled_tank_num].move("forward")
+                    active_tank.move("forward")
                 if keys[pg.K_s]:
-                    self.units_player_controlled[self.player_controlled_tank_num].move("backward")
+                    active_tank.move("backward")
+
+            active_tank.set_aim_target(mouse_pos)
+
             if mouse_buttons[0]:
-                self.units_player_controlled[self.player_controlled_tank_num].shoot(mouse_pos)
+                active_tank.shoot(mouse_pos)
             if keys[pg.K_SPACE]:
-                self.units_player_controlled[self.player_controlled_tank_num].lay_mine()
-            
-            m_key_current = keys[pg.K_m]
-            if m_key_current and not self.m_key_prev:
-                self.switch_tank()
-            self.m_key_prev = m_key_current
+                active_tank.lay_mine()
+
+            if not is_networked:
+                m_key_current = keys[pg.K_m]
+                if m_key_current and not self.m_key_prev:
+                    self.switch_tank()
+                self.m_key_prev = m_key_current
 
             r_key_current = keys[pg.K_r]
             if r_key_current and not self.r_key_prev:
-                self.units_player_controlled[self.player_controlled_tank_num].reload()
+                active_tank.reload()
             self.r_key_prev = r_key_current
 
-            
-            if keys[pg.K_p]:
-                print(f"{self.show_pathfinding_paths=}")
-                # Only start a path search/init if the grid_dict is present
-                if self.grid_dict is not None:
-                    self.units_player_controlled[self.player_controlled_tank_num].find_waypoint(mouse_pos)
+            if not is_networked:
+                if keys[pg.K_p]:
+                    print(f"{self.show_pathfinding_paths=}")
+                    # Only start a path search/init if the grid_dict is present
+                    if self.grid_dict is not None:
+                        active_tank.find_waypoint(mouse_pos)
 
-            if keys[pg.K_o]:
-                self.units_player_controlled[self.player_controlled_tank_num].abort_waypoint()
-            
-            if not self.playthrough_started:
-                if keys[pg.K_f]:
-                    self.clear_all_map_data()
-                    self.load_map()
-                    self.load_map_textures()
+                if keys[pg.K_o]:
+                    active_tank.abort_waypoint()
+
+                if not self.playthrough_started:
+                    if keys[pg.K_f]:
+                        self.clear_all_map_data()
+                        self.load_map()
+                        self.load_map_textures()
+
+        def advance_one_tick():
+            if is_networked_client:
+                self.client_send_input(keys, mouse_buttons, mouse_pos)
+                self.client_apply_snapshot()
+            else:
+                if self.hosting_game:
+                    self.host_apply_client_inputs()
+                self.update()
+                if self.hosting_game:
+                    self.host_broadcast_snapshot()
 
         if self.fixed_delta_time:
             # Fixed timestep update for multiplayer
             self.fixed_delta_time_accumulator += self.delta_time
-            
+
             while self.fixed_delta_time_accumulator >= self.delta_time:
                 self.fixed_delta_time_accumulator -= self.delta_time
-                
-                self.update()
-                self.multiplayer_run_playing()
-                
-                
+                advance_one_tick()
+
             self.draw()
-        else:     
-            self.update()
+        else:
+            advance_one_tick()
             self.draw()
     
     def switch_tank(self):
@@ -1449,13 +1494,12 @@ class TankGame:
         
     # ========================= MULTIPLAYER =================================
     def multiplayer_run_lobby(self):
-        
+
         if self.hosting_game:
             all_player_names = [value["username"] for _, value in self.network.clients_meta.items()]  # Get all connected client names
             all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
-            broadcast_data = str(all_player_names).encode()
-            self.network.host_to_clients_send(broadcast_data, raw=True, prefix=b'CLNT')    # Send all names to clients
-            
+            self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
+
         if self.joined_game:
             
             all_player_names = self.network.client_list
@@ -1471,122 +1515,199 @@ class TankGame:
             if len(all_player_names) == 3:
                 self.player3_button.change_button_text(str(all_player_names[2]))
 
-    def extract_unit_info(self, unit: Tank):
-        
-        # tankid, pos_x, pos_y, aim_x, aim_y, body_angle, turret_angle, shortfired, mine_layed
-        # Example: (1, 15.0, 25.0, 35.0, 45.0, 0.3, 0.4, False, True)
-        
-        return (unit.id,
-                unit.pos[0], unit.pos[1],
-                unit.aim_pos[0], unit.aim_pos[1],
-                unit.degrees, unit.turret_rotation_angle, 
-                unit.shot_fired_counter,
-                unit.mine_layed_counter)
+    # ---- Host: applies each connected client's latest input to their proxy tank, before self.update() ----
+    def host_apply_client_inputs(self):
+        for addr, inp in list(self.network.input_from_clients.items()):
+            tank = self.units_dict.get(inp.get("tank_id"))
+            if tank is None:
+                continue
 
-    def multiplayer_run_playing(self):
+            if inp.get("directional"):
+                dx = (1 if inp.get("rotate_right") else 0) - (1 if inp.get("rotate_left") else 0)
+                dy = (1 if inp.get("move_back") else 0) - (1 if inp.get("move_fwd") else 0)
+                if dx != 0 or dy != 0:
+                    target_angle = helper_functions.find_angle(0, 0, dx, dy)
+                    tank.rotate_towards(target_angle)
+                    tank.move("forward")
+            else:
+                if inp.get("rotate_left"):
+                    tank.rotate(-1.3)
+                if inp.get("rotate_right"):
+                    tank.rotate(1.3)
+                if inp.get("move_fwd"):
+                    tank.move("forward")
+                if inp.get("move_back"):
+                    tank.move("backward")
 
-        # IF HOSTING
-        if self.hosting_game and not self.joined_game:
-            try:
-                # First receive data from clients and update their tanks
-                try:
-                    for _, data in self.network.tank_data_from_clients.items():
-                        
-                        # Loop over data for each unit this is a tuple of several tank parameters
-                        for unit_data in data:  
-                            tank_id = unit_data[0]  # Extract tank id
-                            unit = self.units_dict.get(tank_id) # Get data from specific tank
-                            if unit is None:
-                                continue
-                                
-                            # Update all properties including turret rotation
-                            unit.pos = [float(unit_data[1]), float(unit_data[2])]
-                            unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
-                            unit.degrees = float(unit_data[5])
-                            unit.turret_rotation_angle = float(unit_data[6])
-                        
-                            
-                            if unit_data[7] > self.last_shot_ids.get(tank_id, -1):
-                                unit.shoot(unit.aim_pos)
-                                self.last_shot_ids[tank_id] = unit_data[7]
-                                
-                            if unit_data[8] > self.last_mine_ids.get(tank_id, -1):
-                                unit.lay_mine()
-                                self.last_mine_ids[tank_id] = unit_data[8]
-                            
-      
-                except (ValueError, IndexError) as e:
-                    print(f"Error updating unit: {e}")
-                    
-                # Then send combined data to all clients
-                # Include both AI-controlled and player-controlled units
-                all_unit_data = [self.extract_unit_info(unit) for unit in self.units]
-                if all_unit_data:
-                    self.network.host_to_clients_send(all_unit_data)
-                    
-            except Exception as e:
-                print(f"Host send error: {e}")
+            aim = (inp.get("aim_x", 0), inp.get("aim_y", 0))
+            tank.set_aim_target(aim)
 
-        # IF JOINING (CLIENT)
-        if self.joined_game and not self.hosting_game:
-            try:
-                # Send client controlled unit data to host
-                if self.units_player_controlled and 0 <= self.player_controlled_tank_num < len(self.units_player_controlled):
-                    client_unit = self.units_player_controlled[self.player_controlled_tank_num]
-                    client_unit_data = self.extract_unit_info(client_unit)
-                    # Send as a list containing one tank
-                    self.network.client_to_host_send([client_unit_data])
-                else:
-                    print(f"Player control nr out of range: {self.player_controlled_tank_num}")
-                    print(f"- Client wont send to host")
-                
-                
-                # Get data from host
-                host_unit_data_list = self.network.tank_data_from_host
-                if host_unit_data_list is None:
-                    return
-                    
-                if not isinstance(host_unit_data_list, list):
-                    print(f"Invalid data format received: {host_unit_data_list}")
-                    return
+            if inp.get("fire"):
+                tank.shoot(aim)
+            if inp.get("mine"):
+                tank.lay_mine()
+            if inp.get("reload"):
+                tank.reload()
 
-                for unit_data in host_unit_data_list:
-                    if len(unit_data) < 9:  # Verify expected number of fields
-                        print(f"Invalid unit data: {unit_data}")
-                        continue
-                        
-                    tank_id = unit_data[0]
-                    if tank_id == self.network.client_id:
-                        continue
-                        
-                    unit = self.units_dict.get(tank_id)
-                    if unit is None:
-                        continue
-                        
-                    # Update unit properties with validation
-                    try:
-                        unit.pos = [float(unit_data[1]), float(unit_data[2])]
-                        unit.aim_pos = (float(unit_data[3]), float(unit_data[4]))
-                        unit.degrees = float(unit_data[5])
-                        unit.turret_rotation_angle = float(unit_data[6])
-                        
-                        if unit_data[7] > self.last_shot_ids.get(tank_id, -1):
-                            unit.shoot(unit.aim_pos)
-                            self.last_shot_ids[tank_id] = unit_data[7]
-                            
-                        if unit_data[8] > self.last_mine_ids.get(tank_id, -1):
-                            unit.lay_mine()
-                            self.last_mine_ids[tank_id] = unit_data[8]
-                            
-                                
-                    except (ValueError, IndexError) as e:
-                        print(f"Error updating unit {tank_id}: {e}")
-                        
-            except Exception as e:
-                print(f"Client receive error: {e}")
+    # ---- Host: broadcasts the authoritative world state to all clients, after self.update() ----
+    def host_broadcast_snapshot(self):
+        tanks = [
+            {
+                "id": unit.id,
+                "x": unit.pos[0], "y": unit.pos[1],
+                "degrees": unit.degrees,
+                "turret": unit.turret_rotation_angle,
+                "dead": unit.dead,
+                "shot_counter": unit.shot_fired_counter,
+            }
+            for unit in self.units
+        ]
 
-        # for unit in self.units:
-        #    print(f"ID: {unit.id} Fire counter: {unit.shot_fired_counter}")
+        projectiles = [
+            {
+                "uid": proj.uid,
+                "x": proj.pos[0], "y": proj.pos[1],
+                "dir_x": proj.direction[0], "dir_y": proj.direction[1],
+                "bounce_count": proj.bounce_count,
+            }
+            for proj in self.projectiles
+        ]
+
+        mines = [
+            {
+                "id": mine.id,
+                "x": mine.pos[0], "y": mine.pos[1],
+                "explode_radius": mine.explode_radius,
+                "team": mine.team,
+                "exploded": mine.is_exploded,
+            }
+            for mine in self.mines
+        ]
+
+        self.network.host_to_clients_send({
+            "type": "snapshot",
+            "tanks": tanks,
+            "projectiles": projectiles,
+            "mines": mines,
+            "obstacles_des_alive": [obstacle.id for obstacle in self.obstacles_des],
+        })
+
+    # ---- Client: sends this tick's local input to the host. The client never simulates locally - no
+    # prediction in v1, so nothing here mutates any Tank; it's a pure network send. ----
+    def client_send_input(self, keys, mouse_buttons, mouse_pos):
+        if not (self.units_player_controlled and 0 <= self.player_controlled_tank_num < len(self.units_player_controlled)):
+            return
+
+        tank = self.units_player_controlled[self.player_controlled_tank_num]
+
+        self.network.client_to_host_send({
+            "type": "input",
+            "tank_id": tank.id,
+            "directional": self.directional_controls,
+            "move_fwd": bool(keys[pg.K_w]),
+            "move_back": bool(keys[pg.K_s]),
+            "rotate_left": bool(keys[pg.K_a]),
+            "rotate_right": bool(keys[pg.K_d]),
+            "aim_x": mouse_pos[0],
+            "aim_y": mouse_pos[1],
+            "fire": bool(mouse_buttons[0]),
+            "mine": bool(keys[pg.K_SPACE]),
+            "reload": bool(keys[pg.K_r]),
+        })
+
+    # ---- Client: applies the latest snapshot from the host directly to local objects for rendering.
+    # Replaces self.update() entirely on the client - no local AI/physics/collision runs here. ----
+    def client_apply_snapshot(self):
+        snapshot = self.network.snapshot_from_host
+        if snapshot is None:
+            return
+
+        # Tanks
+        for tank_data in snapshot.get("tanks", []):
+            unit = self.units_dict.get(tank_data["id"])
+            if unit is None:
+                continue
+
+            unit.pos = [tank_data["x"], tank_data["y"]]
+            unit.degrees = tank_data["degrees"]
+            unit.turret_rotation_angle = tank_data["turret"]
+
+            dead = tank_data["dead"]
+            if dead != unit.dead:
+                unit.make_dead(dead)
+            unit.time_of_death = unit.time_of_death + 1 if unit.dead else 0
+
+            shot_counter = tank_data["shot_counter"]
+            if shot_counter > self._client_last_shot_counter.get(tank_data["id"], -1):
+                self._client_last_shot_counter[tank_data["id"]] = shot_counter
+                random.choice(unit.cannon_sounds).play()
+                unit.muzzle_flash_animation = Animation(images=unit.animations["muzzle_flash"], frame_delay=2, delta_time=self.delta_time)
+                barrel_length = 50
+                rad_angle = np.radians(unit.turret_rotation_angle)
+                barrel_end = (unit.pos[0] + barrel_length * np.cos(rad_angle), unit.pos[1] + barrel_length * np.sin(rad_angle))
+                unit.muzzle_flash_animation.start(pos=barrel_end, angle=unit.turret_rotation_angle + 90)
+
+        # Projectiles: render-only mirrors, keyed by network id, one tick of alive=False before removal
+        # (mirrors the single tick a real dead projectile spends in self.projectiles on the host,
+        # which is what makes draw()'s "if not proj.alive: handle_projectile_explosion(proj)" fire once).
+        current_ids = {p["uid"] for p in snapshot.get("projectiles", [])}
+
+        for uid in list(self._client_projectiles.keys()):
+            if not self._client_projectiles[uid].alive:
+                del self._client_projectiles[uid]
+
+        for proj_data in snapshot.get("projectiles", []):
+            uid = proj_data["uid"]
+            proj = self._client_projectiles.get(uid)
+            if proj is None:
+                proj = Projectile(unit_pos=(proj_data["x"], proj_data["y"]),
+                                   startpos=(proj_data["x"], proj_data["y"]),
+                                   direction=(proj_data["dir_x"], proj_data["dir_y"]),
+                                   speed=0, bounce_limit=999999, id=-1)
+                proj.init_sound_effects(self.sound_effects)
+                self._client_projectiles[uid] = proj
+
+            prev_bounce_count = proj.bounce_count
+            proj.pos = [proj_data["x"], proj_data["y"]]
+            proj.direction = (proj_data["dir_x"], proj_data["dir_y"])
+            proj.bounce_count = proj_data["bounce_count"]
+            if proj.bounce_count > prev_bounce_count:
+                random.choice(proj.hit_sounds).play()
+
+        for uid, proj in self._client_projectiles.items():
+            if uid not in current_ids:
+                proj.alive = False
+
+        self.projectiles = list(self._client_projectiles.values())
+
+        # Mines: render-only mirrors, keyed by network id
+        current_mine_ids = {m["id"] for m in snapshot.get("mines", [])}
+
+        for mine_data in snapshot.get("mines", []):
+            uid = mine_data["id"]
+            mine = self._client_mines.get(uid)
+            if mine is None:
+                mine = Mine(image=None, spawn_point=(mine_data["x"], mine_data["y"]),
+                            explode_radius=mine_data["explode_radius"], owner_id=-1, team=mine_data["team"])
+                self._client_mines[uid] = mine
+
+            was_exploded = mine.is_exploded
+            mine.pos = (mine_data["x"], mine_data["y"])
+            mine.is_exploded = mine_data["exploded"]
+            if mine.is_exploded and not was_exploded:
+                self.handle_mine_explosion(mine)
+
+        for uid in list(self._client_mines.keys()):
+            if uid not in current_mine_ids:
+                del self._client_mines[uid]
+
+        self.mines = list(self._client_mines.values())
+
+        # Destructible obstacles
+        alive_ids = set(snapshot.get("obstacles_des_alive", []))
+        if {o.id for o in self.obstacles_des} != alive_ids:
+            self.obstacles_des = [o for o in self.obstacles_des if o.id in alive_ids]
+            self.des_texture_surface = self.wrap_texture_on_polygon_type(self.obstacles_des, self.images_des)
 
     # =======================================================================
 
@@ -1600,12 +1721,19 @@ class TankGame:
     def clear_all_map_data(self):
         self.units_player_controlled.clear()
         self.units.clear()
+        self.units_dict.clear()
         self.obstacles_sta.clear()
         self.obstacles_des.clear()
         self.obstacles_pit.clear()
         self.mines.clear()
         self.tracks.clear()
         self.projectiles.clear()
+
+        # Reset id counters so a fresh map load always produces the same deterministic ids,
+        # regardless of how many tanks/obstacles were loaded earlier this process. Multiplayer
+        # relies on host and client assigning identical ids to identical map units.
+        Tank._id_counter = 0
+        Obstacle._id_counter = 0
 
 
     # ============================================ Handle methods ============================================

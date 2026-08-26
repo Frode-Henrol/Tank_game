@@ -108,6 +108,7 @@ class Tank:
         # Use turret?
         self.use_turret = use_turret
         self.turret_rotation_angle = self.degrees
+        self._aim_target = None  # Externally-set turret aim point for player-controlled tanks (local input or network input); see set_aim_target()
         
         # Pathfinding and waypoint logic
         self.go_to_waypoint = False     # Bool to control if tanks should follow waypoint queue
@@ -159,6 +160,10 @@ class Tank:
     
     def set_units(self, units):
         self.units = units
+
+    def set_aim_target(self, pos: tuple):
+        """Sets where a player-controlled tank's turret should aim (called externally each tick with local or networked input)."""
+        self._aim_target = pos
     
     def send_delta(self, delta_time):
         self.delta_time = delta_time
@@ -332,11 +337,11 @@ class Tank:
             return
         self.time_of_death = 0
         
-        # Turret rotation for player controlled tanks
-        if self.ai is None:
-            target_coord = pg.mouse.get_pos()
+        # Turret rotation for player controlled tanks (aim target is set externally via set_aim_target())
+        if self.ai is None and self._aim_target is not None:
+            target_coord = self._aim_target
             self.turret_rotation_angle = helper_functions.find_angle(
-                self.pos[0], self.pos[1], 
+                self.pos[0], self.pos[1],
                 target_coord[0], target_coord[1]
             )
             

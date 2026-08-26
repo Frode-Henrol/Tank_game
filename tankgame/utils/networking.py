@@ -11,6 +11,7 @@ CONNECT_RETRY_INTERVAL = 1.0  # seconds between resent JOIN requests while conne
 CONNECT_TIMEOUT = 8.0         # give up and report failure after this long with no response
 
 DISCONNECT_TIMEOUT = 5.0  # a peer that's sent nothing in this long is considered disconnected
+LOBBY_HEARTBEAT_INTERVAL = 1.0  # how often a connected client pings the host while idling in the lobby
 
 class NetRole:
     """Enum for network roles."""
@@ -43,10 +44,12 @@ class Multiplayer:
         self._join_username = None
         self._connect_started_at = None
         self._last_join_sent_at = None
+        self._join_attempts = 0
 
         # Disconnect detection (mid-game, after the join handshake is done)
         self._last_seen = {}         # Host: addr -> time.time() of the last packet received from that client
         self._last_host_packet_at = None  # Client: time.time() of the last packet received from the host
+        self._last_heartbeat_sent_at = 0  # Client: time.time() of our last lobby heartbeat send
 
 
     def start_host(self, username, port=DEFAULT_PORT):
@@ -69,6 +72,7 @@ class Multiplayer:
         self._join_username = username
         self._connect_started_at = time.time()
         self._last_join_sent_at = self._connect_started_at
+        self._join_attempts = 0
         threading.Thread(target=self._client_loop, daemon=True).start()
         self.send_join_request(username)
         print("Client started")
@@ -103,8 +107,52 @@ class Multiplayer:
     def send_join_request(self, username):
         """Send a join request to the server."""
         if self.role == NetRole.CLIENT:
+            self._join_attempts += 1
             payload = username.encode()
             self.socket.sendto(b'JOIN' + payload, self.server_address)
+
+    def connection_status_text(self):
+        """Client-only: a human-readable status for the lobby UI while the join handshake is in
+        progress or has failed - short enough to fit a lobby button, but distinguishes "the host has
+        never sent us anything" from "the host has replied, just not with an id yet" so a one-way
+        firewall block (host receives our JOIN, but its reply never arrives here) is diagnosable."""
+        if self.role != NetRole.CLIENT or self.client_id != 0:
+            return None
+
+        ip, port = self.server_address
+        if self.connection_failed:
+            heard = "no reply ever" if self._last_host_packet_at is None else "host went quiet"
+            return f"Failed: {ip}:{port} ({heard}) - check firewall on both PCs"
+
+        elapsed = time.time() - self._connect_started_at
+        heard = " - host seen!" if self._last_host_packet_at is not None else ""
+        return f"Connecting {ip}:{port} #{self._join_attempts} {elapsed:.0f}s{heard}"
+
+    def send_lobby_heartbeat(self):
+        """Client-only: called every tick while joined_game is true. Once actually connected, a
+        client sitting in the lobby has nothing else to send (client_send_input only starts once
+        gameplay begins), so without this the host's last-seen timestamp for us would never refresh
+        and prune_stale_clients() would (wrongly) drop us for being "silent" a few seconds after we
+        successfully joined."""
+        if self.role != NetRole.CLIENT or self.client_id == 0:
+            return
+        now = time.time()
+        if now - self._last_heartbeat_sent_at >= LOBBY_HEARTBEAT_INTERVAL:
+            self._last_heartbeat_sent_at = now
+            self.client_to_host_send({"type": "heartbeat"})
+
+    def prune_stale_clients(self):
+        """Host-only, lobby use: removes clients_meta entries for clients who've gone silent for
+        DISCONNECT_TIMEOUT (crashed, closed the window, lost their connection) so their name stops
+        showing in the player list. Deliberately NOT used mid-game - there, a silent client should
+        stay visually flagged (see host_broadcast_snapshot's "disconnected" tank flag) rather than
+        vanish and free up their client_id/slot out from under an in-progress match."""
+        for cid in self.stale_client_ids():
+            addr = next((a for a, meta in self.clients_meta.items() if meta["id"] == cid), None)
+            if addr is not None:
+                self._handle_client_disconnect(addr)
+                self._last_seen.pop(addr, None)
+                self.input_from_clients.pop(addr, None)
 
     def client_to_host_send(self, payload: dict):
         """Send a JSON-serializable payload dict from client to host."""

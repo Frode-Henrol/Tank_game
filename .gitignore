@@ -2,3 +2,6 @@ __pycache__/
 Tank_game.egg-info/
 *.py[cod]
 .vscode/
+build/
+dist/
+.venv_build/

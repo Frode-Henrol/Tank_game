@@ -1873,12 +1873,21 @@ class TankGame:
             if shot_counter > self._client_last_shot_counter.get(tank_data["id"], -1):
                 self._client_last_shot_counter[tank_data["id"]] = shot_counter
                 random.choice(unit.cannon_sounds).play()
-                # Don't clobber an animation that's still mid-flight: this runs once per fixed-timestep
-                # sim tick, and multiple ticks can fire within a single rendered frame (ticks can
-                # outrun draw() calls). If two shots land in consecutive snapshots inside that window,
-                # unconditionally replacing the Animation reset it to frame 0 before draw() ever
-                # rendered the first one - the first muzzle flash silently never appeared on screen.
-                if unit.muzzle_flash_animation is None or unit.muzzle_flash_animation.finished:
+                # Only refuse to replace an animation that hasn't rendered even a single frame yet -
+                # this runs once per fixed-timestep sim tick, and multiple ticks can fire within a
+                # single rendered frame (ticks can outrun draw() calls), so two shots landing in
+                # consecutive snapshots inside that window could otherwise reset the Animation to
+                # frame 0 before draw() ever rendered the first one, silently dropping it.
+                #
+                # Deliberately NOT gated on unit.muzzle_flash_animation.finished (an earlier version
+                # of this fix): that starved the flash under any sustained fire rate instead. A full
+                # animation can take the better part of a real second to finish; every shot that
+                # landed before it did got folded into _client_last_shot_counter above (so it could
+                # never trigger again later either) without ever getting its own visible flash - this
+                # is what "the client only sometimes shows a muzzle flash" actually was. Gating on
+                # "shown at least one frame" instead closes the original same-tick race (a window of
+                # about one render frame) while still letting every later shot restart the flash fresh.
+                if unit.muzzle_flash_animation is None or unit.muzzle_flash_animation.rendered_at_least_once:
                     unit.muzzle_flash_animation = Animation(images=unit.animations["muzzle_flash"], frame_delay=2, delta_time=self.delta_time)
                     barrel_length = 50
                     rad_angle = np.radians(unit.turret_rotation_angle)

@@ -9,6 +9,9 @@ class Animation:
         self.frame_counter = 0
         self.finished = False
         self.has_played = False
+        self.rendered_at_least_once = False  # True once play() has actually drawn a frame (distinct
+                                              # from has_played/start() - see client_apply_snapshot()'s
+                                              # muzzle flash trigger, which needs to know this specifically)
         self.angle = 0
         self.pos = (0, 0)
         self.delta_time = delta_time    # Used to correct animation speed to the current fps
@@ -20,6 +23,7 @@ class Animation:
         self.frame_counter = 0
         self.finished = False
         self.has_played = True
+        self.rendered_at_least_once = False
 
     def play(self, screen):
         if self.finished or self.image_index >= len(self.images):
@@ -30,6 +34,7 @@ class Animation:
         rotated = pg.transform.rotate(image, -self.angle)
         rect = rotated.get_rect(center=self.pos)
         screen.blit(rotated, rect)
+        self.rendered_at_least_once = True
 
         self.frame_counter += 60 * self.delta_time
         if self.frame_counter >= self.frame_delay:

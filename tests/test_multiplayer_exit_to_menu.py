@@ -35,7 +35,9 @@ def main():
     # Host, start a campaign, get mid-match
     game.hosting_game = True
     game.network.start_host(username="Host", port=PORT)
+    game.campaign_start_grace_period = 0  # skip the real-time grace delay - not what this test covers
     game.start_multiplayer_campaign()
+    game.multiplayer_run_lobby()  # elapses the (zeroed) grace period, actually flips state to PLAYTHROUGH
     game.playthrough([])
     assert game.state == States.INFO_SCREEN
     assert game.playthrough_started is True

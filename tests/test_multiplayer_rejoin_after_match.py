@@ -83,7 +83,9 @@ def main():
     )
     print("OK: second session's client also got id 1 (counter correctly reset, not a stale higher value)")
 
+    host.campaign_start_grace_period = 0  # skip the real-time grace delay - not what this test covers
     host.start_multiplayer_campaign()
+    host.multiplayer_run_lobby()  # elapses the (zeroed) grace period, actually flips state to PLAYTHROUGH
     host.playthrough([])  # bootstrap: loads level 1
 
     assert wait_until(lambda: len(host.units_player_controlled) == 2), "host never spawned 2 player slots"

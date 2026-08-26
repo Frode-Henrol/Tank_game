@@ -99,7 +99,9 @@ def test_real_three_player_handshake():
 
     assert wait_until(lambda: len(host.network.clients_meta) == 2), "host never registered both clients"
 
+    host.campaign_start_grace_period = 0  # skip the real-time grace delay - not what this test covers
     host.start_multiplayer_campaign()
+    host.multiplayer_run_lobby()  # elapses the (zeroed) grace period, actually flips state to PLAYTHROUGH
     assert host.multiplayer_player_count == 3, f"expected 3 players (host + 2 clients), got {host.multiplayer_player_count}"
     host.playthrough([])  # bootstrap: loads level 1 with 3 injected player spawns, broadcasts outcome="start"
 

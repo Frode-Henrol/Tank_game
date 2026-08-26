@@ -79,7 +79,9 @@ def main():
     client.player_controlled_tank_num = client.network.client_id
 
     # ---- Start the campaign (host clicks "Start Game") ----
+    host.campaign_start_grace_period = 0  # skip the real-time grace delay - not what this test covers
     host.start_multiplayer_campaign()
+    host.multiplayer_run_lobby()  # elapses the (zeroed) grace period, actually flips state to PLAYTHROUGH
     assert host.playthrough_lives == 1, "multiplayer must pin lives to 1 (one life per level, no retries)"
     assert host.state == States.PLAYTHROUGH
     host.playthrough([])  # bootstrap branch: loads level 1, broadcasts outcome="start"

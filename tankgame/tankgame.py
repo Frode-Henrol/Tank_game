@@ -116,6 +116,12 @@ class TankGame:
         self.lobby_list_broadcast_interval = 1.0  # throttle for the host's "clients" name-list broadcast below
         self._last_lobby_list_broadcast_at = 0
 
+        # Host: set the instant "Start Game" is clicked, cleared once the grace period below elapses
+        # and the campaign actually bootstraps. See start_multiplayer_campaign()'s docstring for why
+        # this delay exists.
+        self._pending_campaign_start_at = None
+        self.campaign_start_grace_period = 2.0
+
         # Host: the latest level_result, periodically re-sent (see multiplayer_run_lobby()) so a
         # client that missed the original one-shot send (e.g. hadn't finished joining yet) still
         # catches up within about a second instead of waiting forever.
@@ -328,6 +334,7 @@ class TankGame:
         ]
         
         # Buttons saved for easier access (should be dict)
+        self.start_game_button = self.lobby_menu_main_buttons[0]
         self.player1_button = self.lobby_menu_main_buttons[2]
         self.player2_button = self.lobby_menu_main_buttons[3]
         self.player3_button = self.lobby_menu_main_buttons[4]
@@ -377,15 +384,22 @@ class TankGame:
     def start_multiplayer_campaign(self):
         """Action for the lobby's "Start Game" button. Host-only - a client click is a no-op, since
         the client never decides this locally; it follows the host's level_result broadcast instead
-        (see _broadcast_level_result/client_handle_level_result)."""
-        if not self.hosting_game:
+        (see _broadcast_level_result/client_handle_level_result).
+
+        Doesn't bootstrap immediately - just arms a short grace period (see multiplayer_run_lobby(),
+        which actually flips the state once it elapses). Real bug this fixes: multiplayer_player_count
+        used to be computed as 1 + len(clients_meta) synchronously, right here, the instant this is
+        clicked. A rejoining client's JOIN handshake (freshly re-sent after navigating back through
+        the menus) can easily still be in flight at that exact moment - especially right after a
+        match just ended, when both players are quickly re-hosting/re-joining - so clients_meta reads
+        as empty (or short a client) and the wrong, too-low player count gets baked in for the entire
+        match, with no way to correct it afterward. That reads to a player as their tank having never
+        spawned - simply missing for the whole game. Waiting a couple of seconds here lets any
+        in-flight JOIN (or at least one retry, sent every 1s) land before the count is locked in."""
+        if not self.hosting_game or self._pending_campaign_start_at is not None:
             return
-        self.init_playthrough()
-        self.playthrough_lives_original = self.playthrough_lives = 1  # one life per level, no retries
-        # Host + everyone who's joined the lobby so far - fixed for the whole campaign (capped at 3,
-        # matching the player1/2/3_tank blue/red/green assets).
-        self.multiplayer_player_count = min(1 + len(self.network.clients_meta), 3)
-        self.state = States.PLAYTHROUGH
+        self._pending_campaign_start_at = time.time()
+        self.start_game_button.change_button_text("Starting...")
 
     def shut_down_socket(self):
         self.hosting_game = False
@@ -401,6 +415,13 @@ class TankGame:
         self._level_result_seq = 0
         self._last_level_result_payload = None
         self._client_applied_level_result_seq = -1
+
+        # Reset "Start Game" state so a still-pending grace period from a session that was abandoned
+        # mid-countdown (e.g. Main menu clicked right after clicking Start) doesn't fire into the next
+        # session, and player count doesn't carry over stale from the match that just ended.
+        self._pending_campaign_start_at = None
+        self.multiplayer_player_count = 1
+        self.start_game_button.change_button_text("Start Game")
 
         # Return to the normal single-player default map
         self.clear_all_map_data()
@@ -1640,6 +1661,19 @@ class TankGame:
                 # prune_stale_clients()'s docstring for why that's handled differently there.
                 self.network.prune_stale_clients()
 
+            # "Start Game" was clicked - once the grace period has elapsed, lock in the player count
+            # from clients_meta as it stands now and actually bootstrap. See start_multiplayer_campaign()
+            # for why this isn't done synchronously on click.
+            if self._pending_campaign_start_at is not None:
+                if time.time() - self._pending_campaign_start_at >= self.campaign_start_grace_period:
+                    self._pending_campaign_start_at = None
+                    self.init_playthrough()
+                    self.playthrough_lives_original = self.playthrough_lives = 1  # one life per level, no retries
+                    # Host + everyone who's joined the lobby so far - fixed for the whole campaign
+                    # (capped at 3, matching the player1/2/3_tank blue/red/green assets).
+                    self.multiplayer_player_count = min(1 + len(self.network.clients_meta), 3)
+                    self.state = States.PLAYTHROUGH
+
             # list(...) snapshots clients_meta before iterating - it's written from the network
             # thread (a new JOIN) and read here from the main thread; iterating the live dict
             # directly can raise "dictionary changed size during iteration" if a join lands mid-loop.
@@ -1839,11 +1873,17 @@ class TankGame:
             if shot_counter > self._client_last_shot_counter.get(tank_data["id"], -1):
                 self._client_last_shot_counter[tank_data["id"]] = shot_counter
                 random.choice(unit.cannon_sounds).play()
-                unit.muzzle_flash_animation = Animation(images=unit.animations["muzzle_flash"], frame_delay=2, delta_time=self.delta_time)
-                barrel_length = 50
-                rad_angle = np.radians(unit.turret_rotation_angle)
-                barrel_end = (unit.pos[0] + barrel_length * np.cos(rad_angle), unit.pos[1] + barrel_length * np.sin(rad_angle))
-                unit.muzzle_flash_animation.start(pos=barrel_end, angle=unit.turret_rotation_angle + 90)
+                # Don't clobber an animation that's still mid-flight: this runs once per fixed-timestep
+                # sim tick, and multiple ticks can fire within a single rendered frame (ticks can
+                # outrun draw() calls). If two shots land in consecutive snapshots inside that window,
+                # unconditionally replacing the Animation reset it to frame 0 before draw() ever
+                # rendered the first one - the first muzzle flash silently never appeared on screen.
+                if unit.muzzle_flash_animation is None or unit.muzzle_flash_animation.finished:
+                    unit.muzzle_flash_animation = Animation(images=unit.animations["muzzle_flash"], frame_delay=2, delta_time=self.delta_time)
+                    barrel_length = 50
+                    rad_angle = np.radians(unit.turret_rotation_angle)
+                    barrel_end = (unit.pos[0] + barrel_length * np.cos(rad_angle), unit.pos[1] + barrel_length * np.sin(rad_angle))
+                    unit.muzzle_flash_animation.start(pos=barrel_end, angle=unit.turret_rotation_angle + 90)
 
         # Projectiles: render-only mirrors, keyed by network id, one tick of alive=False before removal
         # (mirrors the single tick a real dead projectile spends in self.projectiles on the host,

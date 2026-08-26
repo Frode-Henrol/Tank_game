@@ -57,7 +57,9 @@ def main():
     host = fresh_game(hosting=True)
     host.network.start_host(username="Host", port=PORT)
 
+    host.campaign_start_grace_period = 0  # skip the real-time grace delay - not what this test covers
     host.start_multiplayer_campaign()
+    host.multiplayer_run_lobby()  # elapses the (zeroed) grace period, actually flips state to PLAYTHROUGH
     host.playthrough([])  # bootstrap: broadcasts outcome="start" to clients_meta, which is EMPTY right now
     assert host.state == States.INFO_SCREEN
     assert len(host.network.clients_meta) == 0, "sanity check: nobody has joined yet"

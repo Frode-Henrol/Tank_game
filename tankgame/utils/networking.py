@@ -51,6 +51,8 @@ class Multiplayer:
         self._last_host_packet_at = None  # Client: time.time() of the last packet received from the host
         self._last_heartbeat_sent_at = 0  # Client: time.time() of our last lobby heartbeat send
 
+        self._thread = None  # the host/client recv thread, tracked so stop() can wait for it to actually exit
+
 
     def start_host(self, username, port=DEFAULT_PORT):
         """Start hosting a game on given port."""
@@ -58,7 +60,8 @@ class Multiplayer:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(('', port))
         self.running = True
-        threading.Thread(target=self._host_loop, daemon=True).start()
+        self._thread = threading.Thread(target=self._host_loop, daemon=True)
+        self._thread.start()
         print("Hosting started")
 
     def start_client(self, host_ip, username, port=DEFAULT_PORT):
@@ -80,7 +83,8 @@ class Multiplayer:
         self._connect_started_at = time.time()
         self._last_join_sent_at = self._connect_started_at
         self._join_attempts = 0
-        threading.Thread(target=self._client_loop, daemon=True).start()
+        self._thread = threading.Thread(target=self._client_loop, daemon=True)
+        self._thread.start()
         self.send_join_request(username)
         print("Client started")
 
@@ -102,14 +106,20 @@ class Multiplayer:
             self.send_join_request(self._join_username)
 
     def stop(self):
-        """Stop the socket and networking threads."""
+        """Stop the socket and networking threads. Waits for the recv thread to actually exit before
+        returning - otherwise a quick "Back, then try again" could start a new thread while the old
+        one is still mid-shutdown, and since both read self.socket dynamically (not a captured
+        reference), they'd end up racing to read the same new socket once it's reassigned."""
         self.running = False
         if self.socket:
             self.input_from_clients.clear()
             self.clients_meta.clear()
             self._last_seen.clear()
-            self.socket.close()
+            self.socket.close()  # unblocks the thread's pending recvfrom() so it can see running=False
             print("Stopping socket")
+        if self._thread is not None:
+            self._thread.join(timeout=1.0)
+            self._thread = None
 
     def send_join_request(self, username):
         """Send a join request to the server."""
@@ -155,7 +165,10 @@ class Multiplayer:
         stay visually flagged (see host_broadcast_snapshot's "disconnected" tank flag) rather than
         vanish and free up their client_id/slot out from under an in-progress match."""
         for cid in self.stale_client_ids():
-            addr = next((a for a, meta in self.clients_meta.items() if meta["id"] == cid), None)
+            # list(...) snapshots clients_meta before iterating - it's written from the recv thread
+            # (a new JOIN) and read here from the main thread; iterating the live dict directly can
+            # raise "dictionary changed size during iteration" if a join lands mid-loop.
+            addr = next((a for a, meta in list(self.clients_meta.items()) if meta["id"] == cid), None)
             if addr is not None:
                 self._handle_client_disconnect(addr)
                 self._last_seen.pop(addr, None)
@@ -211,7 +224,8 @@ class Multiplayer:
         """Client ids (not addrs) whose most recent packet is older than DISCONNECT_TIMEOUT."""
         now = time.time()
         stale = set()
-        for addr, meta in self.clients_meta.items():
+        # list(...) snapshots clients_meta before iterating - see prune_stale_clients() for why.
+        for addr, meta in list(self.clients_meta.items()):
             last = self._last_seen.get(addr, meta["joined_at"])
             if now - last > DISCONNECT_TIMEOUT:
                 stale.add(meta["id"])

@@ -1595,7 +1595,10 @@ class TankGame:
                 # their name stops showing in the player list. Not done mid-game - see
                 # prune_stale_clients()'s docstring for why that's handled differently there.
                 self.network.prune_stale_clients()
-            all_player_names = [value["username"] for _, value in self.network.clients_meta.items()]  # Get all connected client names
+            # list(...) snapshots clients_meta before iterating - it's written from the network
+            # thread (a new JOIN) and read here from the main thread; iterating the live dict
+            # directly can raise "dictionary changed size during iteration" if a join lands mid-loop.
+            all_player_names = [value["username"] for _, value in list(self.network.clients_meta.items())]  # Get all connected client names
             all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
             self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
 
@@ -1605,7 +1608,12 @@ class TankGame:
 
             if self.network.client_id == 0:
                 # Still handshaking (or it failed) - show that instead of a blank/stale player list.
-                self.player1_button.change_button_text(self.network.connection_status_text())
+                # connection_status_text() re-checks client_id itself, and that field is updated by
+                # the background recv thread - it can flip to nonzero in the gap between our check
+                # above and the call below, making the function return None right at the exact
+                # moment we successfully connect. Button.draw() can't render None, so fall back to a
+                # plain string rather than crash the render loop on a race that only exists for one frame.
+                self.player1_button.change_button_text(self.network.connection_status_text() or "Connecting...")
                 all_player_names = []
             else:
                 all_player_names = self.network.client_list

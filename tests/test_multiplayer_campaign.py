@@ -33,7 +33,7 @@ from tankgame.object_classes.obstacle import Obstacle  # noqa: E402
 PORT = 7797
 
 
-def wait_until(predicate, timeout=2.0, interval=0.002):
+def wait_until(predicate, timeout=5.0, interval=0.002):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if predicate():

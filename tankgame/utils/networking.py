@@ -127,6 +127,7 @@ class Multiplayer:
             self._join_attempts += 1
             payload = username.encode()
             self.socket.sendto(b'JOIN' + payload, self.server_address)
+            print(f"[DIAG] sent JOIN #{self._join_attempts} to {self.server_address} at {time.time():.2f} from local port {self.socket.getsockname()}")
 
     def connection_status_text(self):
         """Client-only: a human-readable status for the lobby UI while the join handshake is in
@@ -239,6 +240,8 @@ class Multiplayer:
 
     def _handle_host_packet(self, data, addr):
         """Process packets received by the host."""
+        print(f"[DIAG] host recv {len(data)}B from {addr} at {time.time():.2f}: {data[:20]!r}")
+
         if addr in self.clients_meta:
             self._last_seen[addr] = time.time()
 
@@ -262,6 +265,7 @@ class Multiplayer:
 
             # Tell the client its id - resent on every JOIN (including retries) since we can't
             # tell whether the client is retrying because it never got this the first time.
+            print(f"[DIAG] host sending ID__{client_id} back to {addr} at {time.time():.2f}")
             self.socket.sendto(b'ID__' + str(client_id).encode(), addr)
 
         elif data.startswith(b'DATA'):
@@ -276,6 +280,8 @@ class Multiplayer:
 
     def _handle_client_packet(self, data, addr):
         """Process packets received by the client."""
+        print(f"[DIAG] client recv {len(data)}B from {addr} at {time.time():.2f}: {data[:20]!r}")
+
         if data.startswith(b'DATA'):
             try:
                 payload = json.loads(data[4:].decode())

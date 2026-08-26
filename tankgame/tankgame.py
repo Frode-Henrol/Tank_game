@@ -1591,6 +1591,16 @@ class TankGame:
     # ========================= MULTIPLAYER =================================
     def multiplayer_run_lobby(self):
 
+        # [DIAG] once/sec proof that the main loop is actually reaching this function repeatedly -
+        # if this print stops appearing (or never appears more than once), the main loop itself is
+        # stalled/blocked somewhere, independent of anything network-related.
+        now_diag = time.time()
+        if now_diag - getattr(self, "_last_diag_heartbeat_at", 0) >= 1.0:
+            self._last_diag_heartbeat_at = now_diag
+            print(f"[DIAG] multiplayer_run_lobby alive at {now_diag:.2f} "
+                  f"hosting_game={self.hosting_game} joined_game={self.joined_game} "
+                  f"client_id={self.network.client_id} state={self.state}")
+
         if self.hosting_game:
             if not self.playthrough_started:
                 # Lobby-only: drop clients who've gone silent (crashed/closed/lost connection) so

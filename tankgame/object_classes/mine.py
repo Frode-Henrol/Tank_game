@@ -75,7 +75,7 @@ class Mine:
             if self._is_in_radius(unit.pos):
                 unit.make_dead(True)
         
-        for obstacle in self.obstacles_des:
+        for obstacle in list(self.obstacles_des):
             for corner_pair in obstacle.corners:
                 if self._is_in_radius(corner_pair):
                     self.obstacles_des.remove(obstacle)

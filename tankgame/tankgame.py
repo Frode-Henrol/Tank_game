@@ -1598,19 +1598,22 @@ class TankGame:
                 # prune_stale_clients()'s docstring for why that's handled differently there.
                 self.network.prune_stale_clients()
 
+            # list(...) snapshots clients_meta before iterating - it's written from the network
+            # thread (a new JOIN) and read here from the main thread; iterating the live dict
+            # directly can raise "dictionary changed size during iteration" if a join lands mid-loop.
+            # Building this list is cheap (no network I/O) and done every frame so the host's own
+            # on-screen player list stays instantly responsive - only the actual send below is throttled.
+            all_player_names = [value["username"] for _, value in list(self.network.clients_meta.items())]  # Get all connected client names
+            all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
+
             # multiplayer_run_lobby() is called every iteration of the main loop, unthrottled (up to
-            # ~100/sec), for as long as hosting_game is true - including during actual gameplay. This
-            # broadcast doesn't need to be anywhere near that frequent; throttle it to once a second
-            # like the join retry/heartbeat cadence, rather than blasting every connected client with
-            # a packet every frame forever just to show a name list.
+            # ~100/sec), for as long as hosting_game is true - including during actual gameplay.
+            # Sending this over the network doesn't need to be anywhere near that frequent; throttle
+            # it to once a second like the join retry/heartbeat cadence, rather than blasting every
+            # connected client with a packet every frame forever just to show a name list.
             now = time.time()
             if now - self._last_lobby_list_broadcast_at >= self.lobby_list_broadcast_interval:
                 self._last_lobby_list_broadcast_at = now
-                # list(...) snapshots clients_meta before iterating - it's written from the network
-                # thread (a new JOIN) and read here from the main thread; iterating the live dict
-                # directly can raise "dictionary changed size during iteration" if a join lands mid-loop.
-                all_player_names = [value["username"] for _, value in list(self.network.clients_meta.items())]  # Get all connected client names
-                all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
                 self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
 
         if self.joined_game:

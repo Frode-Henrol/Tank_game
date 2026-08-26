@@ -113,6 +113,8 @@ class TankGame:
         self.joined_game = False
         self.username = f"Unknown{random.randint(0,1000)}"
         self.multiplayer_player_count = 1  # set for real in start_multiplayer_campaign() / from the host's level_result
+        self.lobby_list_broadcast_interval = 1.0  # throttle for the host's "clients" name-list broadcast below
+        self._last_lobby_list_broadcast_at = 0
 
         # Client-side render-only mirrors of the host's projectiles/mines, keyed by network id.
         # Never simulated locally (no .update()/.collision() calls) - purely driven by snapshots from the host.
@@ -1595,12 +1597,21 @@ class TankGame:
                 # their name stops showing in the player list. Not done mid-game - see
                 # prune_stale_clients()'s docstring for why that's handled differently there.
                 self.network.prune_stale_clients()
-            # list(...) snapshots clients_meta before iterating - it's written from the network
-            # thread (a new JOIN) and read here from the main thread; iterating the live dict
-            # directly can raise "dictionary changed size during iteration" if a join lands mid-loop.
-            all_player_names = [value["username"] for _, value in list(self.network.clients_meta.items())]  # Get all connected client names
-            all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
-            self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
+
+            # multiplayer_run_lobby() is called every iteration of the main loop, unthrottled (up to
+            # ~100/sec), for as long as hosting_game is true - including during actual gameplay. This
+            # broadcast doesn't need to be anywhere near that frequent; throttle it to once a second
+            # like the join retry/heartbeat cadence, rather than blasting every connected client with
+            # a packet every frame forever just to show a name list.
+            now = time.time()
+            if now - self._last_lobby_list_broadcast_at >= self.lobby_list_broadcast_interval:
+                self._last_lobby_list_broadcast_at = now
+                # list(...) snapshots clients_meta before iterating - it's written from the network
+                # thread (a new JOIN) and read here from the main thread; iterating the live dict
+                # directly can raise "dictionary changed size during iteration" if a join lands mid-loop.
+                all_player_names = [value["username"] for _, value in list(self.network.clients_meta.items())]  # Get all connected client names
+                all_player_names.insert(0, "HOST BRIAN")    # Insert host name at index 0
+                self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
 
         if self.joined_game:
             self.network.retry_join_if_needed()

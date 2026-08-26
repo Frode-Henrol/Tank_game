@@ -1,0 +1,40 @@
+LOADING MAP: lvl24
+Choosen ai: player
+Choosen ai: violet
+Choosen ai: violet
+Choosen ai: violet
+Choosen ai: brown
+Choosen ai: pink
+Choosen ai: ash
+Choosen ai: ash
+Units loaded: 8 where 1 are player controlled.
+Player controlled units: Pos: [400, 900] ai: player
+Tank died life: 2 -> 1
+Tank dead
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\__main__.py", line 15, in <module>
+    main()
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\__main__.py", line 12, in main
+    game.run()
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\tankgame.py", line 924, in run
+    self.playing(event_list)
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\tankgame.py", line 1482, in playing
+    advance_one_tick()
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\tankgame.py", line 1472, in advance_one_tick
+    self.update()
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\tankgame.py", line 1851, in update
+    unit.update(self.delta_time)
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\object_classes\tank.py", line 363, in update
+    self.ai.update()
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\object_classes\tank.py", line 980, in update
+    self.attack()
+  File "C:\Users\Frederik\projects\Tank_game\tankgame\object_classes\tank.py", line 1044, in attack
+    self.find_path_within_coord(self.targeted_unit.pos, 100)
+                                ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'pos'
+PS C:\Users\Frederik\projects\Tank_game> 
+
+
+also level 10 is the same as lvl 3 ? Check all older commits seems lvl 10 is gone/replaced with shifted lvl3 here?

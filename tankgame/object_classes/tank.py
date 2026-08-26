@@ -74,7 +74,7 @@ class Tank:
 
         self.current_speed = [0,0]
         self.firerate = firerate
-        self.cannon_cooldown = 0
+        self.cannon_cooldown = 0.2 * 60  # Initial cooldown so tanks can't fire immediately when the game starts
         self.projectile_limit = projectile_limit
         
         # Slowdown effect when shooting

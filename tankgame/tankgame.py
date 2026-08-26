@@ -2154,7 +2154,14 @@ class TankGame:
             mine.get_unit_list(self.units)
             mine.get_obstacles_des(self.obstacles_des)
 
-        self.mines = [mine for mine in self.mines if not mine.ready_for_cleanup()]
+        # In-place (slice assignment), NOT a rebind (self.mines = [...]) - Tank.global_mine_list
+        # (set once at map load, in load_map()) holds a reference to this exact list object so a
+        # tank's lay_mine() can append newly-laid mines to it. Rebinding self.mines to a new list
+        # object here would silently break that reference after the very first tick: TankGame.mines
+        # would point to a fresh list while Tank.global_mine_list still pointed at the old one, so
+        # every mine laid afterward would be appended to a list nothing ever reads again - mines
+        # would appear to stop being deployable entirely.
+        self.mines[:] = [mine for mine in self.mines if not mine.ready_for_cleanup()]
 
         # Update projectiles and handle collisions
         for unit in self.units:

@@ -308,11 +308,9 @@ class Tank:
         self.delta_time = delta_time
 
         # Updates to mag logic
-        if self.use_magazine and self.mag_ammo == 0:
-            if self.reload_timer > 0:
-                self.reloading = True
-                self.reload_timer -= self.delta_time * 60
-            elif self.reload_timer <= 0:
+        if self.use_magazine and self.reloading:
+            self.reload_timer -= self.delta_time * 60
+            if self.reload_timer <= 0:
                 self.reloading = False
                 self.mag_ammo = self.mag_size
 
@@ -453,6 +451,15 @@ class Tank:
             self.active_image = self.image
             
                
+    def reload(self):
+        """Manually trigger a reload (only applies to tanks using magazine logic)"""
+        if not self.use_magazine or self.dead:
+            return
+        if self.reloading or self.mag_ammo == self.mag_size:
+            return
+        self.reloading = True
+        self.reload_timer = self.reload_time
+
     def shoot(self, aim_pos: tuple | None):
         
         # Dont shoot if dead, reach projectile limit or cooldown hasnt been reached
@@ -466,10 +473,11 @@ class Tank:
         
         # Logic for mags
         if self.use_magazine:
-            if self.mag_ammo <= 0 or self.reload_timer > 0:
+            if self.mag_ammo <= 0 or self.reloading:
                 return
             self.mag_ammo -= 1
             if self.mag_ammo == 0:
+                self.reloading = True
                 self.reload_timer = self.reload_time
         
         self.shot_fired_counter +=1

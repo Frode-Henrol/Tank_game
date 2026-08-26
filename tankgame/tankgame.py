@@ -171,6 +171,7 @@ class TankGame:
         
         self.player_controlled_tank_num = 0
         self.m_key_prev = False
+        self.r_key_prev = False
         
     
     def init_playthrough(self):
@@ -1403,6 +1404,11 @@ class TankGame:
                 self.switch_tank()
             self.m_key_prev = m_key_current
 
+            r_key_current = keys[pg.K_r]
+            if r_key_current and not self.r_key_prev:
+                self.units_player_controlled[self.player_controlled_tank_num].reload()
+            self.r_key_prev = r_key_current
+
             
             if keys[pg.K_p]:
                 print(f"{self.show_pathfinding_paths=}")
@@ -1623,12 +1629,6 @@ class TankGame:
                 case pg.QUIT:
                     pg.quit()
                     sys.exit()
-                case pg.KEYDOWN:
-                    if event.key == pg.K_r:
-                        print("RESPAWN")
-                        if len(self.units_player_controlled):
-                            self.units_player_controlled[0].respawn() # The 0 indicates player tank
-            
             # ----------------------------------------- ctrl-f (Test MED DETECT)-----------------------
             # if event.type == pg.MOUSEBUTTONUP:
             #     pos = pg.mouse.get_pos()

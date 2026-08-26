@@ -1975,6 +1975,13 @@ class TankGame:
             self.state = States.END_SCREEN
             return
 
+        # Tank ids are reused starting from a low number every level (clear_all_map_data() resets
+        # Tank._id_counter), but this dict is keyed by tank id and was never cleared here - a fresh
+        # tank reusing an old id inherited the previous level's high shot_fired_counter watermark, so
+        # its first several shots this level (until its own counter caught back up) silently failed
+        # the "> last seen" edge-trigger check: no muzzle flash, no cannon sound, every single level.
+        self._client_last_shot_counter.clear()
+
         self.clear_all_map_data()
         self.start_map()
         self.state = States.INFO_SCREEN

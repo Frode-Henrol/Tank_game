@@ -89,7 +89,7 @@ Build from an isolated virtual environment, not your regular Python install — 
 ```bash
 python -m venv .venv_build
 .venv_build\Scripts\activate
-pip install -r requirements.txt
+pip install -r reqements.txt
 pip install pyinstaller
 ```
 

@@ -70,6 +70,12 @@ class TankGame:
         self.fixed_delta_time_accumulator = 0
         self.fixed_delta_time_step = 1/100
 
+        # Multiplayer snapshot broadcast is throttled well below the 100Hz sim rate - physics/AI
+        # still run every tick, only how often the host tells clients about it is reduced (matters
+        # for upload bandwidth over a real internet connection; loopback/LAN can trivially handle 100Hz).
+        self.snapshot_broadcast_interval = 1/30
+        self.snapshot_broadcast_accumulator = 0
+
         # Debug fps counter
         self.frame = 0
         self.total = 0
@@ -289,7 +295,7 @@ class TankGame:
             Button(left, 325, 300, 60, "Start Host", States.LOBBY_MENU_MAIN, action=self.host_game_button),
             
             Button(left, 475, 300, 60, "Join Game", color_disabled = "grey", disabled=True, text_color="black"),
-            Textfield(left, 550, 300, 60, "Host ip"),
+            Textfield(left, 550, 300, 60, "Host ip (LAN/public)"),
             Textfield(left, 625, 300, 60, "Port (default 7777)"),
             Button(left, 700, 300, 60, "Join Game", States.LOBBY_MENU_MAIN, action=self.join_game_button),
             
@@ -1471,7 +1477,12 @@ class TankGame:
                     self.host_apply_client_inputs()
                 self.update()
                 if self.hosting_game:
-                    self.host_broadcast_snapshot()
+                    # Sim/AI/physics still run every tick above - only how often we tell clients
+                    # about it is throttled, to keep upload bandwidth reasonable over the internet.
+                    self.snapshot_broadcast_accumulator += self.delta_time
+                    if self.snapshot_broadcast_accumulator >= self.snapshot_broadcast_interval:
+                        self.snapshot_broadcast_accumulator -= self.snapshot_broadcast_interval
+                        self.host_broadcast_snapshot()
 
         if self.fixed_delta_time:
             # Fixed timestep update for multiplayer
@@ -1501,12 +1512,21 @@ class TankGame:
             self.network.host_to_clients_send({"type": "clients", "names": all_player_names})    # Send all names to clients
 
         if self.joined_game:
-            
-            all_player_names = self.network.client_list
-            
-            # Set the controlled tank to client id: player 1: id: 2, player 2: id: 2 etc
-            self.player_controlled_tank_num = self.network.client_id    # Minus 1 to get correct player_controlled index
-            
+            self.network.retry_join_if_needed()
+
+            if self.network.client_id == 0:
+                # Still handshaking (or it failed) - show that instead of a blank/stale player list.
+                if self.network.connection_failed:
+                    self.player1_button.change_button_text("Connection failed - check IP/port")
+                else:
+                    self.player1_button.change_button_text("Connecting...")
+                all_player_names = []
+            else:
+                all_player_names = self.network.client_list
+
+                # Set the controlled tank to client id: player 1: id: 2, player 2: id: 2 etc
+                self.player_controlled_tank_num = self.network.client_id    # Minus 1 to get correct player_controlled index
+
         if all_player_names:
             if len(all_player_names) == 1:
                 self.player1_button.change_button_text(str(all_player_names[0]))

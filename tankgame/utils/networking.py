@@ -7,6 +7,9 @@ import traceback
 DEFAULT_PORT = 7777
 BUFFER_SIZE = 65535  # Max UDP payload; generous enough that a full world snapshot never gets silently truncated
 
+CONNECT_RETRY_INTERVAL = 1.0  # seconds between resent JOIN requests while connecting
+CONNECT_TIMEOUT = 8.0         # give up and report failure after this long with no response
+
 class NetRole:
     """Enum for network roles."""
     NONE = 0
@@ -32,6 +35,12 @@ class Multiplayer:
         self.client_id_counter = 1
         self.client_id = 0
 
+        # Client-side connection handshake state (retry a lost JOIN/ID__ packet instead of hanging forever)
+        self.connection_failed = False
+        self._join_username = None
+        self._connect_started_at = None
+        self._last_join_sent_at = None
+
 
     def start_host(self, username, port=DEFAULT_PORT):
         """Start hosting a game on given port."""
@@ -48,9 +57,31 @@ class Multiplayer:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_address = (host_ip, port)
         self.running = True
+        self.client_id = 0
+        self.connection_failed = False
+        self._join_username = username
+        self._connect_started_at = time.time()
+        self._last_join_sent_at = self._connect_started_at
         threading.Thread(target=self._client_loop, daemon=True).start()
         self.send_join_request(username)
         print("Client started")
+
+    def retry_join_if_needed(self):
+        """Call once per tick while joined_game is true. Resends the JOIN request until a client
+        id arrives (recovers from a lost JOIN or ID__ packet on a lossy connection), and sets
+        connection_failed after CONNECT_TIMEOUT seconds so the UI can show a clear failure instead
+        of hanging forever - relevant over the internet, essentially never triggers on LAN/loopback."""
+        if self.role != NetRole.CLIENT or self.client_id != 0 or self.connection_failed:
+            return
+
+        now = time.time()
+        if now - self._connect_started_at >= CONNECT_TIMEOUT:
+            self.connection_failed = True
+            return
+
+        if now - self._last_join_sent_at >= CONNECT_RETRY_INTERVAL:
+            self._last_join_sent_at = now
+            self.send_join_request(self._join_username)
 
     def stop(self):
         """Stop the socket and networking threads."""
@@ -116,11 +147,10 @@ class Multiplayer:
     def _handle_host_packet(self, data, addr):
         """Process packets received by the host."""
         if data.startswith(b'JOIN'):
-            print(f"Player joined:")
-
             username = data.decode()[4:]
 
-            if addr not in self.clients_meta and data.startswith(b'JOIN'):
+            if addr not in self.clients_meta:
+                print(f"Player joined:")
                 client_id = self.client_id_counter
                 self.client_id_counter += 1
 
@@ -129,9 +159,14 @@ class Multiplayer:
                     "username": username,
                     "joined_at": time.time()
                 }
+            else:
+                # Already registered - this is a retried JOIN (its earlier ID__ reply was likely
+                # lost), not a new player. Fall through and resend the id below either way.
+                client_id = self.clients_meta[addr]["id"]
 
-                # Client of its ID
-                self.socket.sendto(b'ID__' + str(client_id).encode(), addr)
+            # Tell the client its id - resent on every JOIN (including retries) since we can't
+            # tell whether the client is retrying because it never got this the first time.
+            self.socket.sendto(b'ID__' + str(client_id).encode(), addr)
 
         elif data.startswith(b'DATA'):
             try:

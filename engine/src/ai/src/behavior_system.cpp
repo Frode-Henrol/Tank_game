@@ -7,6 +7,7 @@
 #include <optional>
 #include <random>
 
+#include "tank/ai/targeting.hpp"
 #include "tank/ecs/gameplay_components.hpp"
 
 namespace tank::ai {
@@ -17,12 +18,14 @@ using tank::ecs::BehaviorState;
 using tank::ecs::Faction;
 using tank::ecs::FireIntent;
 using tank::ecs::Health;
+using tank::ecs::MineState;
 using tank::ecs::MovementIntent;
 using tank::ecs::NavAgent;
 using tank::ecs::ProjectileState;
 using tank::ecs::Transform;
 using tank::ecs::TrackedMovement;
 using tank::ecs::Vec2;
+using tank::ecs::WeaponMounts;
 
 namespace {
 
@@ -40,6 +43,25 @@ constexpr float kDistStartDodge = 60.0f;
 constexpr float kDodgeCooldownSec = 1.5f;
 constexpr float kWaypointReachedDist = 50.0f;
 constexpr float kSteerTurnThresholdDeg = 45.0f;
+
+// M2b targeting/firing tuning. Hardcoded defaults until M3 wires these up per-AIPersonality
+// (matching M2a's existing approach of hardcoding what the not-yet-built content layer will
+// eventually supply).
+constexpr bool kPredictiveTargeting = true;
+constexpr int kPredictiveTargetingChance = 50;  // percent
+constexpr float kAimingAngleDeg = 15.0f;        // inaccuracy cone half-width
+constexpr float kAimJitterReRollSec = 1.5f;
+constexpr float kSafeThresholdPx = 60.0f;   // don't shoot if the predicted ray passes this close to self/an ally/a mine
+constexpr float kShootThresholdPx = 15.0f;  // only fire if the predicted ray passes this close to the actual target
+constexpr float kDefaultProjectileSpeed = 300.0f;
+constexpr int kDefaultBounceLimit = 1;
+// Must match WeaponSystem's kSpawnOffset (weapon_system.cpp) - the shot-prediction ray needs to
+// start where the projectile will actually spawn, both for accuracy and because starting the
+// ray exactly at the tank's own center makes "am I near my own predicted ray" trivially true at
+// distance zero (the ray's first segment starts AT that point), which would make the
+// self-safety check refuse to ever fire. Offsetting the start ahead of the tank puts the tank
+// itself behind the ray's start, correctly excluding it from IsBetweenSegment.
+constexpr float kFireSpawnOffset = 30.0f;
 
 std::mt19937& Rng() {
     static std::mt19937 rng{std::random_device{}()};
@@ -218,6 +240,129 @@ void PickDodgeTarget(WorldQuery& world, const Transform& transform, const Vec2& 
     }
 }
 
+// True if `point` (a mine/self/ally) is close enough to any segment of `ray` to make firing
+// unsafe - checked both against the ray's ordinary segments and, if present, a widened check
+// around an ambiguous near-corner bounce point (see PredictedRay::ambiguous_corner).
+bool IsUnsafeNear(const PredictedRay& ray, const Vec2& point, float threshold) {
+    for (const auto& [seg_a, seg_b] : ray.segments) {
+        if (IsPointNearSegment(seg_a, seg_b, point, threshold)) {
+            return true;
+        }
+    }
+    if (ray.ambiguous_corner && (*ray.ambiguous_corner - point).Length() < threshold) {
+        return true;
+    }
+    return false;
+}
+
+// Direct-aim-with-lead targeting (M2b: intercept-lead solve when the target is moving, an
+// aiming-inaccuracy cone re-rolled on a timer) plus the shoot-safety gate (ray-bounce shot
+// prediction; refuses to fire if the predicted path passes too close to a live mine, self, or
+// any other living unit besides the current target - matching the original, which is not
+// team-based: it avoids hitting literally anyone else, not just allies).
+void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt::entity entity, AIControlled& ai,
+                               const Transform& transform, entt::entity target, AimIntent& aim_intent,
+                               FireIntent& fire_intent, float dt) {
+    if (target == entt::null) {
+        return;
+    }
+    const auto& target_transform = registry.get<Transform>(target);
+
+    // Intercept lead: chance-gated, only for a moving target (matches the original's
+    // predictive_targeting/predictive_targeting_chance/is_moving gate; the original's
+    // additional collision_timer<=0 gate has no analogue here since this port doesn't currently
+    // track "just bounced off a wall" state on units, a minor simplification).
+    Vec2 aim_point = target_transform.position;
+    const auto* target_intent = registry.try_get<MovementIntent>(target);
+    const auto* target_movement = registry.try_get<TrackedMovement>(target);
+    if (target_intent != nullptr && target_movement != nullptr && target_intent->throttle != 0.0f) {
+        const float rads = target_transform.heading_deg * kDegToRad;
+        const Vec2 target_velocity =
+            Vec2{std::cos(rads), std::sin(rads)} * (target_intent->throttle * target_movement->max_speed);
+
+        std::uniform_int_distribution<int> chance_dist(0, 99);
+        if (kPredictiveTargeting && chance_dist(Rng()) < kPredictiveTargetingChance) {
+            const auto* weapon_mounts = registry.try_get<WeaponMounts>(entity);
+            const float projectile_speed = (weapon_mounts != nullptr && !weapon_mounts->weapons.empty())
+                                                ? weapon_mounts->weapons[0].def.projectile_speed
+                                                : kDefaultProjectileSpeed;
+            aim_point = InterceptPoint(transform.position, projectile_speed, target_transform.position, target_velocity);
+        }
+    }
+
+    // Aiming-inaccuracy cone, re-rolled on a timer (not every tick - see AIControlled::aim_jitter_deg).
+    ai.aim_jitter_timer_sec -= dt;
+    if (ai.aim_jitter_timer_sec <= 0.0f) {
+        std::uniform_real_distribution<float> jitter_dist(-kAimingAngleDeg, kAimingAngleDeg);
+        ai.aim_jitter_deg = jitter_dist(Rng());
+        ai.aim_jitter_timer_sec = kAimJitterReRollSec;
+    }
+    const Vec2 to_aim = aim_point - transform.position;
+    const float aim_dist = to_aim.Length();
+    if (aim_dist > 1.0f) {
+        const float jittered_heading = std::atan2(to_aim.y, to_aim.x) * kRadToDeg + ai.aim_jitter_deg;
+        const float rad = jittered_heading * kDegToRad;
+        aim_point = transform.position + Vec2{std::cos(rad), std::sin(rad)} * aim_dist;
+    }
+    aim_intent.target = aim_point;
+
+    // Shoot-safety gate: predict the actual bounce path this shot would take, then only fire if
+    // it's both safe (doesn't pass near a mine/self/any other unit) and on target.
+    const Vec2 fire_direction = aim_point - transform.position;
+    if (fire_direction.LengthSquared() < 1.0f) {
+        return;
+    }
+    const auto* weapon_mounts = registry.try_get<WeaponMounts>(entity);
+    const int bounce_limit =
+        (weapon_mounts != nullptr && !weapon_mounts->weapons.empty()) ? weapon_mounts->weapons[0].def.bounce_limit : kDefaultBounceLimit;
+
+    const Vec2 fire_direction_unit = fire_direction.Normalized();
+    const Vec2 ray_start = transform.position + fire_direction_unit * kFireSpawnOffset;
+    const PredictedRay predicted =
+        PredictBouncePath(world.Obstacles(), ray_start, fire_direction_unit, std::max(0, bounce_limit - 1));
+
+    bool can_shoot = true;
+    for (auto mine_entity : registry.view<MineState, Transform>()) {
+        const auto& mine = registry.get<MineState>(mine_entity);
+        const auto& mine_transform = registry.get<Transform>(mine_entity);
+        if ((mine_transform.position - transform.position).Length() < mine.explode_radius * 1.3f &&
+            IsUnsafeNear(predicted, mine_transform.position, kSafeThresholdPx)) {
+            can_shoot = false;
+            break;
+        }
+    }
+    if (can_shoot && IsUnsafeNear(predicted, transform.position, kSafeThresholdPx)) {
+        can_shoot = false;  // Don't shoot ourselves via a ricochet.
+    }
+    if (can_shoot) {
+        for (auto other : registry.view<Transform, Health>()) {
+            if (other == entity || other == target) {
+                continue;
+            }
+            if (registry.get<Health>(other).current <= 0.0f) {
+                continue;
+            }
+            // Not team-based, matching the original: avoid hitting literally anyone else, not
+            // just allies - the AI won't shoot through a bystander (of any team) to reach its
+            // actual target.
+            if (IsUnsafeNear(predicted, registry.get<Transform>(other).position, kSafeThresholdPx)) {
+                can_shoot = false;
+                break;
+            }
+        }
+    }
+
+    if (can_shoot) {
+        for (const auto& [seg_a, seg_b] : predicted.segments) {
+            if (IsPointNearSegment(seg_a, seg_b, target_transform.position, kShootThresholdPx)) {
+                fire_intent.weapon_slot = 0;
+                fire_intent.want_fire = true;
+                break;
+            }
+        }
+    }
+}
+
 }  // namespace
 
 void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float dt) {
@@ -233,16 +378,11 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
         movement_intent = MovementIntent{};
         fire_intent.want_fire = false;
 
-        // --- Targeting: direct-aim at the nearest living enemy, no lead/prediction, no
-        // shoot-safety gate - that's all M2b scope. Runs unconditionally (even an immobile
-        // turret-only unit still aims and fires). ---
+        // --- Targeting: intercept-lead aim, an inaccuracy cone, and the ray-bounce shoot-safety
+        // gate (M2b). Runs unconditionally (even an immobile turret-only unit still aims/fires). ---
         const entt::entity target = FindNearestEnemy(registry, entity, faction.team, transform.position);
         ai.targeted_unit = target;
-        if (target != entt::null) {
-            aim_intent.target = registry.get<Transform>(target).position;
-            fire_intent.weapon_slot = 0;
-            fire_intent.want_fire = true;
-        }
+        UpdateTargetingAndFiring(registry, world, entity, ai, transform, target, aim_intent, fire_intent, dt);
 
         const auto* movement = registry.try_get<TrackedMovement>(entity);
         if (movement == nullptr || movement->max_speed <= 0.0f) {

@@ -9,6 +9,7 @@
 add_library(tank_ai STATIC
     src/behavior_system.cpp
     src/nav_grid.cpp
+    src/targeting.cpp
 )
 add_library(tank::ai ALIAS tank_ai)
 

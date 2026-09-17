@@ -198,6 +198,14 @@ struct AIControlled {
     float state_timer_sec = 0.0f;
     float dodge_cooldown_sec = 0.0f;
     Vec2 spawn_position{};  // captured once on the Idle->Patrolling transition; patrol anchor
+
+    // Aiming-inaccuracy cone (M2b): a persisted random angular offset from the true/lead-
+    // corrected aim direction, re-rolled on a timer rather than every tick - approximates the
+    // original's "hold the wander offset until the turret catches up to it" cadence without
+    // this port modeling an independent turret-rotation-rate/lag system (out of scope; aiming
+    // is instantaneous here, only its target direction is jittered).
+    float aim_jitter_deg = 0.0f;
+    float aim_jitter_timer_sec = 0.0f;
 };
 
 // Tag: exactly one of PlayerControlled / AIControlled is present on any unit that can act.

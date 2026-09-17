@@ -2,6 +2,7 @@ add_library(tank_render STATIC
     src/window.cpp
     src/texture_cache.cpp
     src/sprite_renderer.cpp
+    src/polygon_renderer.cpp
 )
 add_library(tank::render ALIAS tank_render)
 

@@ -5,6 +5,9 @@
 
 add_library(tank_physics STATIC
     src/geometry.cpp
+    src/oriented_box.cpp
+    src/spatial_hash_grid.cpp
+    src/obstacle_world.cpp
 )
 add_library(tank::physics ALIAS tank_physics)
 

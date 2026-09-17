@@ -111,6 +111,33 @@ struct MineDeployer {
     int active_count = 0;
 };
 
+// Per-instance projectile state. The "stats" (speed, bounce limit, damage) are copied in from
+// the firing WeaponDef at spawn time - this is just the bookkeeping that changes over the
+// projectile's lifetime.
+struct ProjectileState {
+    entt::entity owner = entt::null;
+    Vec2 direction{1.0f, 0.0f};
+    Vec2 spawn_position{};  // frozen at fire time; used by the AI's directional-cone dodge filter
+    float speed = 1.0f;
+    int bounce_count = 0;
+    int bounce_limit = 1;
+    float damage = 1.0f;
+    float lifespan_sec = 5.0f;
+    float spawn_immunity_sec = 0.0f;  // brief self-hit immunity right after firing
+};
+
+// Mine runtime state - deployed entity, not carried by the deploying unit.
+struct MineState {
+    entt::entity owner = entt::null;
+    int team = 0;
+    float explode_radius = 100.0f;
+    float life_timer_sec = 10.0f;      // auto-arms once this reaches 0, even if never triggered
+    float countdown_timer_sec = 2.0f;  // once armed, explodes when this reaches 0
+    bool countdown_started = false;
+    bool exploded = false;
+    float cleanup_delay_sec = 0.5f;  // how long an exploded mine lingers before removal
+};
+
 // Aim/fire intent for this tick - same producer/consumer split as MovementIntent above.
 struct AimIntent {
     Vec2 target{};
@@ -119,6 +146,10 @@ struct AimIntent {
 struct FireIntent {
     std::size_t weapon_slot = 0;
     bool want_fire = false;
+};
+
+struct MineIntent {
+    bool want_deploy = false;
 };
 
 // ---- Teams ----

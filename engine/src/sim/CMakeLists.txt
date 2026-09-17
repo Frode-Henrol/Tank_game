@@ -5,6 +5,10 @@
 
 add_library(tank_sim STATIC
     src/movement_system.cpp
+    src/collision_system.cpp
+    src/projectile_system.cpp
+    src/weapon_system.cpp
+    src/mine_system.cpp
 )
 add_library(tank::sim ALIAS tank_sim)
 

@@ -1,1 +1,2 @@
 add_subdirectory(headless_ai_test)
+add_subdirectory(sim_smoke_test)

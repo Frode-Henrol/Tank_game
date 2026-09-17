@@ -250,6 +250,41 @@ void TestWeaponAndProjectile() {
           "an already-dead tank takes no further damage from being hit again");
 }
 
+void TestHitRadiusCoversCorners() {
+    std::printf("-- HitRadiusCoversCorners --\n");
+    // Reported from playtesting: shots that visually clip a tank near its corner were whiffing.
+    // Constructs a shot whose closest approach to the box's center is 25px along the exact
+    // corner diagonal - inside the box's real corner-to-center reach (sqrt(20^2+20^2)=~28.3) but
+    // farther than the old, too-small max(half_width,half_height)=20 radius - and checks it now
+    // registers as a hit.
+    entt::registry registry;
+    tank::physics::ObstacleWorld world;  // empty - isolate the hit-radius math itself
+
+    const Vec2 center{150.0f, 50.0f};
+    const auto target = registry.create();
+    registry.emplace<ecs::Transform>(target, center, 0.0f);
+    registry.emplace<ecs::CollisionShape>(target, ecs::ColliderShape::Box, 20.0f, 20.0f);
+    registry.emplace<ecs::Health>(target, 1.0f, 1.0f, 1.0f);
+
+    constexpr float kInvSqrt2 = 0.70710678f;
+    const Vec2 offset_dir{kInvSqrt2, kInvSqrt2};  // center -> corner direction
+    const Vec2 line_dir{kInvSqrt2, -kInvSqrt2};   // perpendicular to offset_dir
+    const Vec2 closest_point = center + offset_dir * 25.0f;
+    const Vec2 old_pos = closest_point - line_dir * 200.0f;
+
+    const auto projectile = registry.create();
+    registry.emplace<ecs::Transform>(projectile, old_pos, 0.0f);
+    registry.emplace<ecs::ProjectileState>(
+        projectile, ecs::ProjectileState{entt::null, line_dir, old_pos, 40000.0f, 0, 1, 1.0f, 5.0f, 0.0f});
+
+    tank::sim::ProjectileSystem projectile_system;
+    projectile_system.Update(registry, world, 1.0f / 100.0f);
+
+    Check(registry.get<ecs::Health>(target).current <= 0.0f,
+          "a shot passing 25px from center along the corner diagonal - inside the box's real "
+          "~28.3px corner reach, beyond the old too-small max(hw,hh)=20 radius - now hits");
+}
+
 void TestMine() {
     std::printf("-- Mine --\n");
     entt::registry registry;
@@ -318,6 +353,7 @@ int main() {
     TestWallCollision();
     TestTunnelPrevention();
     TestWeaponAndProjectile();
+    TestHitRadiusCoversCorners();
     TestMine();
 
     if (g_failures == 0) {

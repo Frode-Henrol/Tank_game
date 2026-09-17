@@ -84,7 +84,9 @@ entt::entity SpawnTank(entt::registry& registry, const tank::content::UnitSpawn&
     registry.emplace<ecs::Transform>(entity, spawn.position, spawn.angle_deg);
     registry.emplace<ecs::PreviousPosition>(entity, spawn.position);
     registry.emplace<ecs::TrackedMovement>(entity, 115.2f, 180.0f);
-    registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 20.0f);
+    // Half-extents match the 40x48 Sprite below (20x24), not a 40x40 square - a mismatched,
+    // visually-too-small collision box was part of the "hits feel janky" playtesting feedback.
+    registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 24.0f);
     registry.emplace<ecs::Health>(entity, 1.0f, 1.0f, 1.0f);
     registry.emplace<ecs::Faction>(entity, spawn.team);
     registry.emplace<ecs::MovementIntent>(entity);

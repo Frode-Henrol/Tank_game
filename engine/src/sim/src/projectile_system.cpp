@@ -1,6 +1,7 @@
 #include "tank/sim/projectile_system.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -55,7 +56,13 @@ void ProjectileSystem::Update(entt::registry& registry, const physics::ObstacleW
             auto& tank_health = tank_view.get<Health>(tank_entity);
             const auto& tank_transform = tank_view.get<Transform>(tank_entity);
             const auto& tank_shape = tank_view.get<CollisionShape>(tank_entity);
-            const float hit_radius = std::max(tank_shape.half_width, tank_shape.half_height);
+            // The circumscribing radius (corner-to-center distance), not max(half_width,
+            // half_height) - the latter under-covers a rectangular box at its corners, which
+            // read as "that should have hit" misses at certain angles (reported from
+            // playtesting). A little generosity just outside the box's actual corners reads as
+            // forgiving, not janky; under-covering the box itself does not.
+            const float hit_radius =
+                std::sqrt(tank_shape.half_width * tank_shape.half_width + tank_shape.half_height * tank_shape.half_height);
 
             if (physics::IsBetweenSegment(old_pos, new_pos, tank_transform.position) &&
                 physics::DistanceToLine(old_pos, new_pos, tank_transform.position) < hit_radius) {

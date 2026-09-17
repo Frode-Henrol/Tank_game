@@ -22,10 +22,12 @@ void App::Run() {
             if (event.type == SDL_EVENT_QUIT) {
                 quit_requested_ = true;
             } else if (event.type == SDL_EVENT_KEY_DOWN) {
-                if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
-                    quit_requested_ = true;
-                } else if (key_down_fn_) {
+                if (key_down_fn_) {
                     key_down_fn_(static_cast<int>(event.key.scancode));
+                }
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                if (mouse_down_fn_) {
+                    mouse_down_fn_(event.button.x, event.button.y, static_cast<int>(event.button.button));
                 }
             }
         }

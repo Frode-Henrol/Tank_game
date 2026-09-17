@@ -18,21 +18,28 @@ public:
     using UpdateFn = std::function<void(State state, float fixed_dt_sec)>;
     // Called exactly once per rendered frame, after all pending fixed updates for that frame.
     using RenderFn = std::function<void(State state)>;
-    // Called once per SDL_EVENT_KEY_DOWN, for discrete (non-continuous) input.
+    // Called once per SDL_EVENT_KEY_DOWN, for discrete (non-continuous) input. Escape has no
+    // built-in meaning here (deliberately - it needs to mean "pause" during Playing and
+    // "back"/"quit" elsewhere, which only the app layer's per-state logic can decide); the app
+    // must call RequestQuit() itself when it actually wants to exit.
     using KeyDownFn = std::function<void(int scancode)>;
+    // Called once per SDL_EVENT_MOUSE_BUTTON_DOWN, for UI widget clicks (button is an
+    // SDL_BUTTON_LEFT/RIGHT/etc index).
+    using MouseDownFn = std::function<void(float x, float y, int button)>;
 
     App(tank::render::Window& window, float fixed_dt_sec);
 
     void SetUpdateCallback(UpdateFn fn) { update_fn_ = std::move(fn); }
     void SetRenderCallback(RenderFn fn) { render_fn_ = std::move(fn); }
     void SetKeyDownCallback(KeyDownFn fn) { key_down_fn_ = std::move(fn); }
+    void SetMouseDownCallback(MouseDownFn fn) { mouse_down_fn_ = std::move(fn); }
 
     void SetState(State state) { state_ = state; }
     [[nodiscard]] State CurrentState() const { return state_; }
 
     void RequestQuit() { quit_requested_ = true; }
 
-    // Runs the loop until quit is requested (window close, Escape, or RequestQuit()).
+    // Runs the loop until quit is requested (window close or RequestQuit()).
     void Run();
 
 private:
@@ -44,6 +51,7 @@ private:
     UpdateFn update_fn_;
     RenderFn render_fn_;
     KeyDownFn key_down_fn_;
+    MouseDownFn mouse_down_fn_;
 };
 
 }  // namespace tank::core

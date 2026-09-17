@@ -91,7 +91,7 @@ bool IsBetweenSegment(const Vec2& a, const Vec2& b, const Vec2& point) {
     if (dot < 0.0f) {
         return false;
     }
-    return to_point.LengthSquared() <= segment.LengthSquared();
+    return dot <= segment.LengthSquared();
 }
 
 bool PointInPolygon(const Polygon& polygon, const Vec2& point) {

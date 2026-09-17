@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include "tank/ecs/gameplay_components.hpp"
@@ -55,25 +56,54 @@ void WallCollisionSystem::Update(entt::registry& registry, const physics::Obstac
         // (the box "jumps" from fully outside to fully inside between two samples without any
         // single-frame edge overlap ever existing) - the exact tunneling bug class reported
         // against this port (and, per the original author, against early builds of the Python
-        // version too). Reverting to the last known-good position closes it regardless of
-        // approach angle or speed, without needing a smaller fixed timestep.
+        // version too).
+        //
+        // The fix is a *slide*, not a full revert to the previous position: remove only the
+        // component of this tick's movement that points into the wall (along its normal),
+        // keeping whatever component runs tangent to it. A full revert cancels tangential
+        // movement too, which reads as the tank "sticking" to any wall it approaches at an
+        // angle instead of gliding along it the way the original does (there, movement is never
+        // reverted at all - the collision response only ever adds a push along the wall's
+        // normal on top of wherever that tick's own move already put the tank, so a component of
+        // motion parallel to the wall is never touched and naturally carries the tank along it).
+        // Picks whichever corner/edge crossing is *closest to that corner's own starting point*,
+        // not just the first one the broad-phase happens to visit - a box moving fast enough to
+        // swallow a wall thinner than its own extent crosses BOTH the near and far edge of that
+        // wall in the same sweep, and taking an arbitrary one of those (rather than the nearest,
+        // i.e. the surface actually touched first) can pick the far edge's outward normal, which
+        // points the "correction" further through the wall instead of back out of it.
         bool tunneled = false;
-        world.QueryEdgesNear(swept_min, swept_max, /*include_pits=*/true,
-                              [&](std::size_t /*obstacle_index*/, const Vec2& wall_start, const Vec2& wall_end) {
-                                  if (tunneled) {
-                                      return;
-                                  }
-                                  for (std::size_t i = 0; i < old_corners.size(); ++i) {
-                                      if (physics::SegmentIntersection(old_corners[i], new_corners[i], wall_start, wall_end)) {
-                                          tunneled = true;
-                                          break;
-                                      }
-                                  }
-                              });
+        float closest_dist_sq = std::numeric_limits<float>::infinity();
+        Vec2 tunnel_normal{};
+        world.QueryEdgesNear(
+            swept_min, swept_max, /*include_pits=*/true,
+            [&](std::size_t /*obstacle_index*/, const Vec2& wall_start, const Vec2& wall_end) {
+                for (std::size_t i = 0; i < old_corners.size(); ++i) {
+                    const auto intersection = physics::SegmentIntersection(old_corners[i], new_corners[i], wall_start, wall_end);
+                    if (!intersection) {
+                        continue;
+                    }
+                    const float dist_sq = (*intersection - old_corners[i]).LengthSquared();
+                    if (dist_sq < closest_dist_sq) {
+                        closest_dist_sq = dist_sq;
+                        // Always the edge's second normal, matching the same clockwise-winding
+                        // convention as the resting-overlap push-back below.
+                        const auto [unused_normal, outward_normal] = physics::EdgeNormals(wall_start, wall_end);
+                        (void)unused_normal;
+                        tunnel_normal = outward_normal;
+                        tunneled = true;
+                    }
+                }
+            });
 
         if (tunneled) {
-            transform.position = previous_position;
-            new_corners = old_corners;
+            const Vec2 delta = transform.position - previous_position;
+            const float into_wall = delta.Dot(tunnel_normal);
+            if (into_wall < 0.0f) {
+                transform.position = previous_position + (delta - tunnel_normal * into_wall);
+                new_corners = physics::BoxCorners(*box_cache_, transform.position, shape.half_width, shape.half_height,
+                                                    transform.heading_deg);
+            }
         }
 
         // --- Direct overlap check at the (possibly-reverted) resting position: handles being

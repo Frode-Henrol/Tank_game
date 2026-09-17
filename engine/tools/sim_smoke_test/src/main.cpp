@@ -190,6 +190,48 @@ void TestTunnelPrevention() {
               std::to_string(transform.position.x) + ")");
 }
 
+void TestGlideAlongWall() {
+    std::printf("-- GlideAlongWall --\n");
+    // Reported from playtesting: tanks now "stick" to a wall instead of gliding along it like
+    // the original. A tank driving into a wall at an angle should keep making progress along
+    // the wall's surface (the original never reverts movement at all - collision response only
+    // ever adds a push along the wall's normal on top of that tick's own move, so the tangential
+    // component is never touched); only a head-on, purely-perpendicular approach should fully
+    // stop. This drives at 45 degrees into a long wall for many ticks and checks the tank keeps
+    // sliding down its length rather than freezing at first contact.
+    entt::registry registry;
+    const tank::physics::OrientedBoxCache box_cache;
+    tank::physics::ObstacleWorld world;
+
+    tank::physics::Obstacle wall{{{300.0f, 0.0f}, {310.0f, 0.0f}, {310.0f, 2000.0f}, {300.0f, 2000.0f}},
+                                  tank::physics::ObstacleType::Standard,
+                                  false};
+    world.SetObstacles({wall});
+
+    const auto entity = registry.create();
+    registry.emplace<ecs::Transform>(entity, Vec2{250.0f, 100.0f}, 45.0f);
+    registry.emplace<ecs::PreviousPosition>(entity, Vec2{250.0f, 100.0f});
+    registry.emplace<ecs::TrackedMovement>(entity, 150.0f, 0.0f);  // realistic speed, not the tunnel test's extreme one
+    registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 20.0f);
+    registry.emplace<ecs::MovementIntent>(entity, ecs::MovementIntent{1.0f, 0.0f, false, 0.0f});
+
+    tank::sim::TrackedMovementSystem movement_system;
+    tank::sim::WallCollisionSystem collision_system(box_cache);
+    constexpr float dt = 1.0f / 100.0f;
+
+    for (int i = 0; i < 200; ++i) {
+        movement_system.Update(registry, dt);
+        collision_system.Update(registry, world, dt);
+    }
+
+    const auto& transform = registry.get<ecs::Transform>(entity);
+    Check(transform.position.x < 300.0f, "tank stays outside the wall while sliding along it (x=" +
+                                              std::to_string(transform.position.x) + ")");
+    Check(transform.position.y > 100.0f + 50.0f,
+          "tank keeps making progress down the wall's length instead of freezing at first contact (y=" +
+              std::to_string(transform.position.y) + ", started at 100)");
+}
+
 void TestWeaponAndProjectile() {
     std::printf("-- WeaponAndProjectile --\n");
     entt::registry registry;
@@ -523,6 +565,7 @@ int main() {
     TestMovement();
     TestWallCollision();
     TestTunnelPrevention();
+    TestGlideAlongWall();
     TestWeaponAndProjectile();
     TestHitRadiusCoversCorners();
     TestProjectileWallBounce();

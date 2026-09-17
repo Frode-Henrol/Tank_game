@@ -7,7 +7,21 @@
 namespace tank::physics {
 
 namespace {
-constexpr float kEpsilon = 1e-9f;
+// The original (Python, double-precision) used 1e-9 here, which is meaningless at `float`
+// precision: this game's coordinates run into the thousands, where a float's representable
+// step (ULP) is already ~1e-4, and the Cramer's-rule division below routinely accumulates
+// rounding error an order of magnitude past that. At the old 1e-9f tolerance, an intersection
+// whose true point lands exactly on an axis-aligned wall edge - i.e. nearly every wall in this
+// game, since obstacles are all axis-aligned rectangles - would frequently compute a coordinate
+// a few ULPs off from the wall's exact constant axis value and get rejected as "outside" the
+// edge, even though the true intersection is squarely on it. That's the mechanism behind
+// "shots pass through blocks": not a broad-phase or logic bug, but this tolerance being too
+// tight for the precision actually being computed in. Measured rounding error against the real
+// map's coordinates (via TestNoTunnelingAcrossRealMap/DebugPrecisionAtSeveralX) ranged up to
+// ~0.007px, with at least one case exceeding a first attempt at 1e-2f - so 0.1f (a tenth of a
+// pixel - still visually and gameplay-wise meaningless at this game's scale) to leave a full
+// order of magnitude of margin instead of sitting right at the observed edge.
+constexpr float kEpsilon = 0.1f;
 }
 
 std::vector<std::pair<Vec2, Vec2>> PolygonEdges(const Polygon& polygon) {

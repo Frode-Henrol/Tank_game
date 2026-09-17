@@ -1,4 +1,5 @@
 # Tank Game
+Vibecoded C++ port (basic/broken version) also in repo. 
 
 **Tank Game** is inspired by the classic Wii Tanks game, offering enhanced mechanics and expanded content.
 ![predict](docs/gifs/battle_example.gif)

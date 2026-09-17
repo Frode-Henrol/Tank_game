@@ -1,0 +1,9 @@
+build/
+out/
+
+# vcpkg (submodule) generates these locally when installing packages; none of it is committed.
+vcpkg/buildtrees/
+vcpkg/downloads/
+vcpkg/installed/
+vcpkg/packages/
+vcpkg_installed/

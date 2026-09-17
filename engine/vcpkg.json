@@ -1,0 +1,25 @@
+{
+  "name": "tank-game-engine",
+  "version": "0.1.0",
+  "builtin-baseline": "386d7c478221b7ee0c97bfe6ea61dcf65121d564",
+  "dependencies": [
+    "sdl3",
+    {
+      "name": "sdl3-image",
+      "default-features": false,
+      "features": ["png"]
+    },
+    {
+      "name": "sdl3-mixer",
+      "default-features": false,
+      "features": ["mpg123"]
+    },
+    "sdl3-ttf",
+    "entt",
+    "nlohmann-json",
+    {
+      "name": "imgui",
+      "features": ["sdl3-binding", "sdl3-renderer-binding"]
+    }
+  ]
+}

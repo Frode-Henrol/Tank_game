@@ -127,6 +127,7 @@ void TestWallCollision() {
 
     const auto entity = registry.create();
     registry.emplace<ecs::Transform>(entity, Vec2{150.0f, 250.0f}, 270.0f);  // below the box, heading up
+    registry.emplace<ecs::PreviousPosition>(entity, Vec2{150.0f, 250.0f});
     registry.emplace<ecs::TrackedMovement>(entity, 200.0f, 0.0f);
     registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 20.0f);
     registry.emplace<ecs::MovementIntent>(entity, ecs::MovementIntent{1.0f, 0.0f, false, 0.0f});
@@ -146,10 +147,49 @@ void TestWallCollision() {
     Check(transform.position.y < 260.0f, "tank settles near the wall boundary, not stuck far away");
 }
 
+void TestTunnelPrevention() {
+    std::printf("-- TunnelPrevention --\n");
+    // Reported bug: at certain approach angles, a large-enough single-tick displacement can
+    // carry a tank clean through a wall, because neither its pre-move nor post-move position
+    // ever overlaps the wall in a same-tick snapshot test. Set up exactly that: a thin wall,
+    // and one very fast diagonal tick whose start and end boxes both sit clear of the wall on
+    // opposite sides, while the straight-line path between them passes right through it.
+    entt::registry registry;
+    const tank::physics::OrientedBoxCache box_cache;
+    tank::physics::ObstacleWorld world;
+
+    tank::physics::Obstacle wall{{{300.0f, 50.0f}, {310.0f, 50.0f}, {310.0f, 250.0f}, {300.0f, 250.0f}},
+                                  tank::physics::ObstacleType::Standard,
+                                  false};
+    world.SetObstacles({wall});
+
+    const auto entity = registry.create();
+    registry.emplace<ecs::Transform>(entity, Vec2{250.0f, 100.0f}, 45.0f);  // diagonal approach, not axis-aligned
+    registry.emplace<ecs::PreviousPosition>(entity, Vec2{250.0f, 100.0f});
+    registry.emplace<ecs::TrackedMovement>(entity, 20000.0f, 0.0f);  // deliberately huge: ~200px this one tick
+    registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 20.0f);
+    registry.emplace<ecs::MovementIntent>(entity, ecs::MovementIntent{1.0f, 0.0f, false, 0.0f});
+
+    tank::sim::TrackedMovementSystem movement_system;
+    tank::sim::WallCollisionSystem collision_system(box_cache);
+    constexpr float dt = 1.0f / 100.0f;
+
+    movement_system.Update(registry, dt);
+    const auto& after_move = registry.get<ecs::Transform>(entity);
+    Check(after_move.position.x > 310.0f,
+          "sanity check: the naive post-move position really is already past the wall (x=" +
+              std::to_string(after_move.position.x) + ")");
+
+    collision_system.Update(registry, world, dt);
+    const auto& transform = registry.get<ecs::Transform>(entity);
+    Check(transform.position.x < 300.0f,
+          "swept collision catches the tunnel and reverts to before the wall, not left past it (x=" +
+              std::to_string(transform.position.x) + ")");
+}
+
 void TestWeaponAndProjectile() {
     std::printf("-- WeaponAndProjectile --\n");
     entt::registry registry;
-    const tank::physics::OrientedBoxCache box_cache;
     tank::physics::ObstacleWorld world;  // empty - no walls, isolate projectile-vs-tank behavior
 
     const auto shooter = registry.create();
@@ -179,7 +219,7 @@ void TestWeaponAndProjectile() {
 
     bool target_died = false;
     for (int i = 0; i < 50 && !target_died; ++i) {
-        projectile_system.Update(registry, world, box_cache, dt);
+        projectile_system.Update(registry, world, dt);
         if (registry.get<ecs::Health>(target).current <= 0.0f) {
             target_died = true;
         }
@@ -200,7 +240,7 @@ void TestWeaponAndProjectile() {
     const float health_after_death = registry.get<ecs::Health>(target).current;
     bool second_shot_absorbed = false;
     for (int i = 0; i < 50 && !second_shot_absorbed; ++i) {
-        projectile_system.Update(registry, world, box_cache, dt);
+        projectile_system.Update(registry, world, dt);
         if (registry.view<ecs::ProjectileState>().size() == 0) {
             second_shot_absorbed = true;
         }
@@ -276,6 +316,7 @@ int main() {
     TestMapLoading();
     TestMovement();
     TestWallCollision();
+    TestTunnelPrevention();
     TestWeaponAndProjectile();
     TestMine();
 

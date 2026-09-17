@@ -15,8 +15,7 @@ using tank::ecs::ProjectileState;
 using tank::ecs::Transform;
 using tank::ecs::Vec2;
 
-void ProjectileSystem::Update(entt::registry& registry, const physics::ObstacleWorld& world,
-                               const physics::OrientedBoxCache& box_cache, float dt) {
+void ProjectileSystem::Update(entt::registry& registry, const physics::ObstacleWorld& world, float dt) {
     std::vector<entt::entity> to_destroy;
 
     auto view = registry.view<Transform, ProjectileState>();
@@ -41,32 +40,29 @@ void ProjectileSystem::Update(entt::registry& registry, const physics::ObstacleW
         const Vec2 old_pos = transform.position;
         const Vec2 new_pos = old_pos + projectile.direction * (projectile.speed * dt);
 
-        // --- Tank hits: tested against the actual movement segment, all 4 box edges. Checked
-        // before wall bounce so a projectile that kills a tank this tick never also bounces in
-        // the same tick. A dead tank's hitbox is deliberately NOT skipped here: its wreck still
-        // physically blocks/absorbs shots (matching the original), it just can't take further
-        // damage or die again. ---
+        // --- Tank hits: a radius check (perpendicular distance from the tank's center to this
+        // tick's movement segment, clamped to the segment) rather than a rotated-box-edge test -
+        // one distance comparison per candidate tank instead of four segment intersections,
+        // which is what actually matters at scale. Checked before wall bounce so a projectile
+        // that kills a tank this tick never also bounces in the same tick. A dead tank is
+        // deliberately NOT skipped here: its wreck still physically blocks/absorbs shots
+        // (matching the original), it just can't take further damage or die again. ---
         bool hit_tank = false;
         for (auto tank_entity : tank_view) {
             if (tank_entity == projectile.owner && projectile.spawn_immunity_sec > 0.0f) {
                 continue;  // Can't instantly kill the tank that just fired this shot.
             }
             auto& tank_health = tank_view.get<Health>(tank_entity);
-
             const auto& tank_transform = tank_view.get<Transform>(tank_entity);
             const auto& tank_shape = tank_view.get<CollisionShape>(tank_entity);
-            const auto corners = physics::BoxCorners(box_cache, tank_transform.position, tank_shape.half_width,
-                                                       tank_shape.half_height, tank_transform.heading_deg);
-            for (const auto& [a, b] : physics::BoxEdges(corners)) {
-                if (physics::SegmentIntersection(old_pos, new_pos, a, b)) {
-                    if (tank_health.current > 0.0f) {
-                        tank_health.current -= projectile.damage * tank_health.damage_multiplier;
-                    }
-                    hit_tank = true;
-                    break;
+            const float hit_radius = std::max(tank_shape.half_width, tank_shape.half_height);
+
+            if (physics::IsBetweenSegment(old_pos, new_pos, tank_transform.position) &&
+                physics::DistanceToLine(old_pos, new_pos, tank_transform.position) < hit_radius) {
+                if (tank_health.current > 0.0f) {
+                    tank_health.current -= projectile.damage * tank_health.damage_multiplier;
                 }
-            }
-            if (hit_tank) {
+                hit_tank = true;
                 break;
             }
         }

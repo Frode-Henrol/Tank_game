@@ -9,6 +9,7 @@
 namespace tank::sim {
 
 using tank::ecs::MovementIntent;
+using tank::ecs::PreviousPosition;
 using tank::ecs::Transform;
 using tank::ecs::TrackedMovement;
 using tank::ecs::Vec2;
@@ -42,6 +43,10 @@ void TrackedMovementSystem::Update(entt::registry& registry, float delta_time_se
         auto& transform = view.get<Transform>(entity);
         const auto& movement = view.get<TrackedMovement>(entity);
         const auto& intent = view.get<MovementIntent>(entity);
+
+        if (auto* previous = registry.try_get<PreviousPosition>(entity)) {
+            previous->position = transform.position;
+        }
 
         if (intent.has_turn_target) {
             const float delta = ShortestAngleDelta(transform.heading_deg, intent.turn_towards_deg);

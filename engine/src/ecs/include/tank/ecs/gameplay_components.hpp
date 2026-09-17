@@ -27,6 +27,15 @@ struct Transform {
     float heading_deg = 0.0f;  // hull heading; 0 = +x axis, matches atan2(dy, dx) convention
 };
 
+// Position at the start of the current tick, before movement is applied. Written by the
+// movement system for any entity that has it; consumed by WallCollisionSystem to do a *swept*
+// test (old position -> new position) rather than only checking the box's final resting spot -
+// a discrete "check only where I ended up" test can let a fast-enough or steep-enough approach
+// slip through a wall between two samples without any single-frame overlap ever being detected.
+struct PreviousPosition {
+    Vec2 position{};
+};
+
 // ---- Movement ----
 // One component type per locomotion "kind" so MovementSystem stays a `view<Transform, Kind,
 // MovementIntent>` per kind rather than a branch in one god-system. A future infantry archetype

@@ -1,6 +1,7 @@
 #include "tank/sim/collision_system.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -11,9 +12,23 @@ namespace tank::sim {
 
 using tank::ecs::CollisionShape;
 using tank::ecs::Health;
+using tank::ecs::PreviousPosition;
 using tank::ecs::Transform;
 using tank::ecs::TrackedMovement;
 using tank::ecs::Vec2;
+
+namespace {
+
+void ExpandBounds(Vec2& min, Vec2& max, const std::array<Vec2, 4>& corners) {
+    for (const auto& corner : corners) {
+        min.x = std::min(min.x, corner.x);
+        min.y = std::min(min.y, corner.y);
+        max.x = std::max(max.x, corner.x);
+        max.y = std::max(max.y, corner.y);
+    }
+}
+
+}  // namespace
 
 void WallCollisionSystem::Update(entt::registry& registry, const physics::ObstacleWorld& world, float dt) {
     auto view = registry.view<Transform, CollisionShape, TrackedMovement>();
@@ -22,21 +37,56 @@ void WallCollisionSystem::Update(entt::registry& registry, const physics::Obstac
         const auto& shape = view.get<CollisionShape>(entity);
         const auto& movement = view.get<TrackedMovement>(entity);
 
-        const auto corners =
-            physics::BoxCorners(*box_cache_, transform.position, shape.half_width, shape.half_height, transform.heading_deg);
-        const auto edges = physics::BoxEdges(corners);
+        const auto* previous = registry.try_get<PreviousPosition>(entity);
+        const Vec2 previous_position = previous != nullptr ? previous->position : transform.position;
 
-        Vec2 aabb_min = corners[0];
-        Vec2 aabb_max = corners[0];
-        for (const auto& corner : corners) {
-            aabb_min.x = std::min(aabb_min.x, corner.x);
-            aabb_min.y = std::min(aabb_min.y, corner.y);
-            aabb_max.x = std::max(aabb_max.x, corner.x);
-            aabb_max.y = std::max(aabb_max.y, corner.y);
+        const auto old_corners =
+            physics::BoxCorners(*box_cache_, previous_position, shape.half_width, shape.half_height, transform.heading_deg);
+        auto new_corners =
+            physics::BoxCorners(*box_cache_, transform.position, shape.half_width, shape.half_height, transform.heading_deg);
+
+        Vec2 swept_min = old_corners[0];
+        Vec2 swept_max = old_corners[0];
+        ExpandBounds(swept_min, swept_max, old_corners);
+        ExpandBounds(swept_min, swept_max, new_corners);
+
+        // --- Swept check: did any corner's path this tick cross a wall edge? A test that only
+        // looks at where the box ended up can miss a wall entirely at certain approach angles
+        // (the box "jumps" from fully outside to fully inside between two samples without any
+        // single-frame edge overlap ever existing) - the exact tunneling bug class reported
+        // against this port (and, per the original author, against early builds of the Python
+        // version too). Reverting to the last known-good position closes it regardless of
+        // approach angle or speed, without needing a smaller fixed timestep.
+        bool tunneled = false;
+        world.QueryEdgesNear(swept_min, swept_max, /*include_pits=*/true,
+                              [&](std::size_t /*obstacle_index*/, const Vec2& wall_start, const Vec2& wall_end) {
+                                  if (tunneled) {
+                                      return;
+                                  }
+                                  for (std::size_t i = 0; i < old_corners.size(); ++i) {
+                                      if (physics::SegmentIntersection(old_corners[i], new_corners[i], wall_start, wall_end)) {
+                                          tunneled = true;
+                                          break;
+                                      }
+                                  }
+                              });
+
+        if (tunneled) {
+            transform.position = previous_position;
+            new_corners = old_corners;
         }
 
+        // --- Direct overlap check at the (possibly-reverted) resting position: handles being
+        // pressed flush against a wall by something other than this tick's own movement (e.g.
+        // tank-tank repulsion), which the sweep above can't see (old == new position; a
+        // zero-length "sweep" never intersects anything). ---
+        const auto edges = physics::BoxEdges(new_corners);
+        Vec2 rest_min = new_corners[0];
+        Vec2 rest_max = new_corners[0];
+        ExpandBounds(rest_min, rest_max, new_corners);
+
         bool resolved = false;
-        world.QueryEdgesNear(aabb_min, aabb_max, /*include_pits=*/true,
+        world.QueryEdgesNear(rest_min, rest_max, /*include_pits=*/true,
                               [&](std::size_t /*obstacle_index*/, const Vec2& wall_start, const Vec2& wall_end) {
                                   if (resolved) {
                                       return;

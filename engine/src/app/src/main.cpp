@@ -68,6 +68,7 @@ entt::entity SpawnTank(entt::registry& registry, const tank::content::UnitSpawn&
     const auto entity = registry.create();
 
     registry.emplace<ecs::Transform>(entity, spawn.position, spawn.angle_deg);
+    registry.emplace<ecs::PreviousPosition>(entity, spawn.position);
     registry.emplace<ecs::TrackedMovement>(entity, 115.2f, 180.0f);
     registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 20.0f);
     registry.emplace<ecs::Health>(entity, 1.0f, 1.0f, 1.0f);
@@ -232,7 +233,7 @@ int main(int /*argc*/, char** /*argv*/) {
         wall_collision_system.Update(registry, obstacle_world, dt);
         repulsion_system.Update(registry, dt);
         weapon_system.Update(registry, dt);
-        projectile_system.Update(registry, obstacle_world, box_cache, dt);
+        projectile_system.Update(registry, obstacle_world, dt);
         mine_system.Update(registry, obstacle_world, dt);
 
         const auto tick_end = SDL_GetPerformanceCounter();

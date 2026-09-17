@@ -197,6 +197,7 @@ struct AIControlled {
     entt::entity targeted_unit = entt::null;
     float state_timer_sec = 0.0f;
     float dodge_cooldown_sec = 0.0f;
+    Vec2 spawn_position{};  // captured once on the Idle->Patrolling transition; patrol anchor
 };
 
 // Tag: exactly one of PlayerControlled / AIControlled is present on any unit that can act.

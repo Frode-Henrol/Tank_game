@@ -1,8 +1,8 @@
-// M1 smoke test: loads a real map (tankgame/map_files/map_test1.txt, parsed by the original's
-// unmodified text format), builds the physics::ObstacleWorld from it, spawns every unit the map
-// defines as an ECS entity (team 1 = the player, driven by WASD/mouse/E; everything else sits
-// idle, since AI is still a stub until M2), and runs the full M1 system pipeline every fixed
-// tick: movement, wall collision + push-back, tank-tank repulsion, weapon firing, projectile
+// Loads a real map (tankgame/map_files/map_test1.txt, parsed by the original's unmodified text
+// format), builds the physics::ObstacleWorld and ai::NavGrid from it, spawns every unit the map
+// defines as an ECS entity (team 1 = the player, driven by WASD/mouse/E; everything else is
+// AI-controlled, per M2a's behavior FSM), and runs the full system pipeline every fixed tick:
+// AI, movement, wall collision + push-back, tank-tank repulsion, weapon firing, projectile
 // movement/bounce/damage, and mine deploy/arm/explode. 'N' spawns a wave of synthetic stress
 // entities to sanity-check scaling; the printed average tick time is the scalability signal.
 //
@@ -22,6 +22,7 @@
 #include <entt/entt.hpp>
 
 #include "tank/ai/behavior_system.hpp"
+#include "tank/ai/nav_grid.hpp"
 #include "tank/ai/world_query.hpp"
 #include "tank/content/map_loader.hpp"
 #include "tank/core/app.hpp"
@@ -59,8 +60,21 @@ void ClearForState(tank::render::Window& window, tank::core::State state) {
     window.Clear(0.1f + 0.3f * hue, 0.12f, 0.2f - 0.1f * hue);
 }
 
-// ai::WorldQuery is deliberately minimal until M2's behavior FSM needs concrete queries.
-struct NullWorldQuery : tank::ai::WorldQuery {};
+// Ties the AI module's read-only view of the level to this app's actual obstacle world / nav
+// grid, which the ai module itself never constructs (it only ever sees them through this
+// interface - see tank/ai/world_query.hpp).
+class GameWorldQuery : public tank::ai::WorldQuery {
+public:
+    GameWorldQuery(const tank::physics::ObstacleWorld& obstacles, const tank::ai::NavGrid& nav_grid)
+        : obstacles_(obstacles), nav_grid_(nav_grid) {}
+
+    [[nodiscard]] const tank::physics::ObstacleWorld& Obstacles() const override { return obstacles_; }
+    [[nodiscard]] const tank::ai::NavGrid& Navigation() const override { return nav_grid_; }
+
+private:
+    const tank::physics::ObstacleWorld& obstacles_;
+    const tank::ai::NavGrid& nav_grid_;
+};
 
 entt::entity SpawnTank(entt::registry& registry, const tank::content::UnitSpawn& spawn,
                        tank::render::TextureCache& textures, const std::string& asset_root) {
@@ -95,6 +109,7 @@ entt::entity SpawnTank(entt::registry& registry, const tank::content::UnitSpawn&
         registry.emplace<ecs::PlayerControlled>(entity, 0);
     } else {
         registry.emplace<ecs::AIControlled>(entity);
+        registry.emplace<ecs::NavAgent>(entity);
     }
     return entity;
 }
@@ -137,12 +152,16 @@ int main(int /*argc*/, char** /*argv*/) {
         return 1;
     }
 
-    tank::render::Window window("Tank Game (engine skeleton - M1)", 1400, 950);
+    tank::render::Window window("Tank Game (engine skeleton - M2)", 1400, 950);
     tank::render::TextureCache textures(window.Renderer());
 
     tank::physics::ObstacleWorld obstacle_world;
     obstacle_world.SetObstacles(map->obstacles);
     const tank::physics::OrientedBoxCache box_cache;
+
+    // border is [bottom-left, bottom-right, top-right, top-left] per the original map format.
+    const tank::ai::NavGrid nav_grid(map->border[3], map->border[1], static_cast<float>(map->node_spacing),
+                                      obstacle_world.Obstacles());
 
     entt::registry registry;
     entt::entity player_entity = entt::null;
@@ -160,7 +179,7 @@ int main(int /*argc*/, char** /*argv*/) {
     tank::sim::ProjectileSystem projectile_system;
     tank::sim::MineSystem mine_system;
     tank::ai::BehaviorSystem behavior_system;
-    NullWorldQuery world_query;
+    GameWorldQuery world_query(obstacle_world, nav_grid);
 
     tank::core::App app(window, 1.0f / 100.0f);
 
@@ -177,7 +196,7 @@ int main(int /*argc*/, char** /*argv*/) {
         } else if (scancode == SDL_SCANCODE_N) {
             SpawnStressEntities(registry, *map, 200);
             std::printf("Spawned 200 stress entities (total entities: %zu)\n",
-                        static_cast<std::size_t>(registry.storage<entt::entity>().size()));
+                        static_cast<std::size_t>(registry.storage<entt::entity>().free_list()));
         } else if (scancode == SDL_SCANCODE_P) {
             std::printf("--- entity dump ---\n");
             for (auto entity : registry.view<ecs::Transform, ecs::Faction, ecs::Health>()) {
@@ -244,7 +263,7 @@ int main(int /*argc*/, char** /*argv*/) {
         if (tick_count >= 200) {
             std::printf("Avg tick time over last %d ticks: %.3f ms (entities: %zu, projectiles: %zu, mines: %zu)\n",
                         tick_count, tick_time_accum_ms / tick_count,
-                        static_cast<std::size_t>(registry.storage<entt::entity>().size()),
+                        static_cast<std::size_t>(registry.storage<entt::entity>().free_list()),
                         static_cast<std::size_t>(registry.view<ecs::ProjectileState>().size()),
                         static_cast<std::size_t>(registry.view<ecs::MineState>().size()));
             if (registry.valid(player_entity)) {

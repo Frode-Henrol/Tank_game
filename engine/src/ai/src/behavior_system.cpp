@@ -14,10 +14,13 @@ namespace tank::ai {
 
 using tank::ecs::AimIntent;
 using tank::ecs::AIControlled;
+using tank::ecs::AIPersonalityTuning;
 using tank::ecs::BehaviorState;
 using tank::ecs::Faction;
 using tank::ecs::FireIntent;
 using tank::ecs::Health;
+using tank::ecs::MineDeployer;
+using tank::ecs::MineIntent;
 using tank::ecs::MineState;
 using tank::ecs::MovementIntent;
 using tank::ecs::NavAgent;
@@ -44,9 +47,10 @@ constexpr float kDodgeCooldownSec = 1.5f;
 constexpr float kWaypointReachedDist = 50.0f;
 constexpr float kSteerTurnThresholdDeg = 45.0f;
 
-// M2b targeting/firing tuning. Hardcoded defaults until M3 wires these up per-AIPersonality
-// (matching M2a's existing approach of hardcoding what the not-yet-built content layer will
-// eventually supply).
+// M2b targeting/firing tuning. Fallback defaults for an entity with no AIPersonalityTuning
+// component (M2's own test fixtures predate M3's data-driven personalities and still spawn
+// units without one) - a real spawn always carries per-unit values from ai.json instead; see
+// ResolveTuning() below.
 constexpr bool kPredictiveTargeting = true;
 constexpr int kPredictiveTargetingChance = 50;  // percent
 constexpr float kAimingAngleDeg = 15.0f;        // inaccuracy cone half-width
@@ -62,6 +66,55 @@ constexpr int kDefaultBounceLimit = 1;
 // self-safety check refuse to ever fire. Offsetting the start ahead of the tank puts the tank
 // itself behind the ray's start, correctly excluding it from IsBetweenSegment.
 constexpr float kFireSpawnOffset = 30.0f;
+
+// Per-entity tuning actually used by this file each tick, resolved once from an
+// AIPersonalityTuning component if present, else the fallback constants above (which also
+// cover PickDefendRingTarget's ring distances and PickDodgeTarget's escape-point search radius:
+// the original hardcodes those directly in code rather than reading them from ai.json too, so
+// there's nothing to resolve for them here).
+struct ResolvedTuning {
+    float patrol_radius = kPatrolRadius;
+    float dist_leave_patrol = kDistLeavePatrol;
+    float dist_leave_defend = kDistLeaveDefend;
+    float dist_leave_attack = kDistLeaveAttack;
+    float defend_time_sec = kDefendTimeSec;
+    bool can_dodge_proj = true;
+    float dist_start_dodge = kDistStartDodge;
+    float dodge_cooldown_sec = kDodgeCooldownSec;
+    bool predictive_targeting = kPredictiveTargeting;
+    int predictive_targeting_chance = kPredictiveTargetingChance;
+    float aiming_angle_deg = kAimingAngleDeg;
+    bool perfect_aim = false;
+    float safe_threshold = kSafeThresholdPx;
+    float shoot_threshold = kShootThresholdPx;
+    float mine_chance_per_sec = 0.0f;
+    float mine_min_distance = 250.0f;
+    bool random_mines = false;
+};
+
+ResolvedTuning ResolveTuning(const AIPersonalityTuning* tuning) {
+    ResolvedTuning resolved;
+    if (tuning != nullptr) {
+        resolved.patrol_radius = tuning->patrol_radius;
+        resolved.dist_leave_patrol = tuning->dist_leave_patrol;
+        resolved.dist_leave_defend = tuning->dist_leave_defend;
+        resolved.dist_leave_attack = tuning->dist_leave_attack;
+        resolved.defend_time_sec = tuning->defend_time_sec;
+        resolved.can_dodge_proj = tuning->can_dodge_proj;
+        resolved.dist_start_dodge = tuning->dist_start_dodge;
+        resolved.dodge_cooldown_sec = tuning->dodge_cooldown_sec;
+        resolved.predictive_targeting = tuning->predictive_targeting;
+        resolved.predictive_targeting_chance = tuning->predictive_targeting_chance;
+        resolved.aiming_angle_deg = tuning->aiming_angle_deg;
+        resolved.perfect_aim = tuning->perfect_aim;
+        resolved.safe_threshold = tuning->safe_threshold;
+        resolved.shoot_threshold = tuning->shoot_threshold;
+        resolved.mine_chance_per_sec = tuning->mine_chance_per_sec;
+        resolved.mine_min_distance = tuning->mine_min_distance;
+        resolved.random_mines = tuning->random_mines;
+    }
+    return resolved;
+}
 
 std::mt19937& Rng() {
     static std::mt19937 rng{std::random_device{}()};
@@ -185,8 +238,9 @@ std::optional<Vec2> FindNearestProjectileThreat(entt::registry& registry, const 
     return best;
 }
 
-void PickPatrolTarget(WorldQuery& world, const Transform& transform, const AIControlled& ai, NavAgent& nav_agent) {
-    const auto candidates = world.Navigation().FindValidNodesNear(ai.spawn_position, kPatrolRadius);
+void PickPatrolTarget(WorldQuery& world, const Transform& transform, const AIControlled& ai, NavAgent& nav_agent,
+                       float patrol_radius) {
+    const auto candidates = world.Navigation().FindValidNodesNear(ai.spawn_position, patrol_radius);
     if (candidates.empty()) {
         return;
     }
@@ -261,8 +315,8 @@ bool IsUnsafeNear(const PredictedRay& ray, const Vec2& point, float threshold) {
 // any other living unit besides the current target - matching the original, which is not
 // team-based: it avoids hitting literally anyone else, not just allies).
 void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt::entity entity, AIControlled& ai,
-                               const Transform& transform, entt::entity target, AimIntent& aim_intent,
-                               FireIntent& fire_intent, float dt) {
+                               const ResolvedTuning& tuning, const Transform& transform, entt::entity target,
+                               AimIntent& aim_intent, FireIntent& fire_intent, float dt) {
     if (target == entt::null) {
         return;
     }
@@ -281,7 +335,7 @@ void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt:
             Vec2{std::cos(rads), std::sin(rads)} * (target_intent->throttle * target_movement->max_speed);
 
         std::uniform_int_distribution<int> chance_dist(0, 99);
-        if (kPredictiveTargeting && chance_dist(Rng()) < kPredictiveTargetingChance) {
+        if (tuning.predictive_targeting && chance_dist(Rng()) < tuning.predictive_targeting_chance) {
             const auto* weapon_mounts = registry.try_get<WeaponMounts>(entity);
             const float projectile_speed = (weapon_mounts != nullptr && !weapon_mounts->weapons.empty())
                                                 ? weapon_mounts->weapons[0].def.projectile_speed
@@ -291,18 +345,21 @@ void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt:
     }
 
     // Aiming-inaccuracy cone, re-rolled on a timer (not every tick - see AIControlled::aim_jitter_deg).
-    ai.aim_jitter_timer_sec -= dt;
-    if (ai.aim_jitter_timer_sec <= 0.0f) {
-        std::uniform_real_distribution<float> jitter_dist(-kAimingAngleDeg, kAimingAngleDeg);
-        ai.aim_jitter_deg = jitter_dist(Rng());
-        ai.aim_jitter_timer_sec = kAimJitterReRollSec;
-    }
-    const Vec2 to_aim = aim_point - transform.position;
-    const float aim_dist = to_aim.Length();
-    if (aim_dist > 1.0f) {
-        const float jittered_heading = std::atan2(to_aim.y, to_aim.x) * kRadToDeg + ai.aim_jitter_deg;
-        const float rad = jittered_heading * kDegToRad;
-        aim_point = transform.position + Vec2{std::cos(rad), std::sin(rad)} * aim_dist;
+    // Skipped entirely for a perfect_aim personality, matching the original.
+    if (!tuning.perfect_aim) {
+        ai.aim_jitter_timer_sec -= dt;
+        if (ai.aim_jitter_timer_sec <= 0.0f) {
+            std::uniform_real_distribution<float> jitter_dist(-tuning.aiming_angle_deg, tuning.aiming_angle_deg);
+            ai.aim_jitter_deg = jitter_dist(Rng());
+            ai.aim_jitter_timer_sec = kAimJitterReRollSec;
+        }
+        const Vec2 to_aim = aim_point - transform.position;
+        const float aim_dist = to_aim.Length();
+        if (aim_dist > 1.0f) {
+            const float jittered_heading = std::atan2(to_aim.y, to_aim.x) * kRadToDeg + ai.aim_jitter_deg;
+            const float rad = jittered_heading * kDegToRad;
+            aim_point = transform.position + Vec2{std::cos(rad), std::sin(rad)} * aim_dist;
+        }
     }
     aim_intent.target = aim_point;
 
@@ -326,12 +383,12 @@ void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt:
         const auto& mine = registry.get<MineState>(mine_entity);
         const auto& mine_transform = registry.get<Transform>(mine_entity);
         if ((mine_transform.position - transform.position).Length() < mine.explode_radius * 1.3f &&
-            IsUnsafeNear(predicted, mine_transform.position, kSafeThresholdPx)) {
+            IsUnsafeNear(predicted, mine_transform.position, tuning.safe_threshold)) {
             can_shoot = false;
             break;
         }
     }
-    if (can_shoot && IsUnsafeNear(predicted, transform.position, kSafeThresholdPx)) {
+    if (can_shoot && IsUnsafeNear(predicted, transform.position, tuning.safe_threshold)) {
         can_shoot = false;  // Don't shoot ourselves via a ricochet.
     }
     if (can_shoot) {
@@ -345,7 +402,7 @@ void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt:
             // Not team-based, matching the original: avoid hitting literally anyone else, not
             // just allies - the AI won't shoot through a bystander (of any team) to reach its
             // actual target.
-            if (IsUnsafeNear(predicted, registry.get<Transform>(other).position, kSafeThresholdPx)) {
+            if (IsUnsafeNear(predicted, registry.get<Transform>(other).position, tuning.safe_threshold)) {
                 can_shoot = false;
                 break;
             }
@@ -354,12 +411,40 @@ void UpdateTargetingAndFiring(entt::registry& registry, WorldQuery& world, entt:
 
     if (can_shoot) {
         for (const auto& [seg_a, seg_b] : predicted.segments) {
-            if (IsPointNearSegment(seg_a, seg_b, target_transform.position, kShootThresholdPx)) {
+            if (IsPointNearSegment(seg_a, seg_b, target_transform.position, tuning.shoot_threshold)) {
                 fire_intent.weapon_slot = 0;
                 fire_intent.want_fire = true;
                 break;
             }
         }
+    }
+}
+
+// AI-driven mine laying (M3, previously unimplemented - only the player could lay mines):
+// approximates the original's misc_updates() mine block. mine_chance_per_sec already folds in
+// the original's "1-in-mine_chance per 60Hz AI tick" into an expected-rate-per-second so it's
+// independent of this port's own tick rate; a random_mines personality lays regardless of
+// target proximity, otherwise only when the target is within mine_min_distance.
+void UpdateMineLaying(entt::registry& registry, entt::entity entity, const ResolvedTuning& tuning, entt::entity target,
+                       const Transform& transform, MineIntent& mine_intent, float dt) {
+    mine_intent.want_deploy = false;
+    if (tuning.mine_chance_per_sec <= 0.0f) {
+        return;
+    }
+    const auto* deployer = registry.try_get<MineDeployer>(entity);
+    if (deployer == nullptr || deployer->limit <= 0) {
+        return;
+    }
+    std::uniform_real_distribution<float> roll(0.0f, 1.0f);
+    if (roll(Rng()) >= tuning.mine_chance_per_sec * dt) {
+        return;
+    }
+    if (tuning.random_mines) {
+        mine_intent.want_deploy = true;
+        return;
+    }
+    if (target != entt::null && (registry.get<Transform>(target).position - transform.position).Length() <= tuning.mine_min_distance) {
+        mine_intent.want_deploy = true;
     }
 }
 
@@ -378,15 +463,23 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
         movement_intent = MovementIntent{};
         fire_intent.want_fire = false;
 
+        const ResolvedTuning tuning = ResolveTuning(registry.try_get<AIPersonalityTuning>(entity));
+
         // --- Targeting: intercept-lead aim, an inaccuracy cone, and the ray-bounce shoot-safety
         // gate (M2b). Runs unconditionally (even an immobile turret-only unit still aims/fires). ---
         const entt::entity target = FindNearestEnemy(registry, entity, faction.team, transform.position);
         ai.targeted_unit = target;
-        UpdateTargetingAndFiring(registry, world, entity, ai, transform, target, aim_intent, fire_intent, dt);
+        UpdateTargetingAndFiring(registry, world, entity, ai, tuning, transform, target, aim_intent, fire_intent, dt);
+
+        // Mine laying (M3): independent of movement/dodge below, so even a stationary
+        // (max_speed<=0) turret-only unit can still lay mines, matching the original.
+        if (auto* mine_intent = registry.try_get<MineIntent>(entity)) {
+            UpdateMineLaying(registry, entity, tuning, target, transform, *mine_intent, dt);
+        }
 
         const auto* movement = registry.try_get<TrackedMovement>(entity);
         if (movement == nullptr || movement->max_speed <= 0.0f) {
-            continue;  // Immobile (turret-only) unit: aims/fires above, never patrols/moves.
+            continue;  // Immobile (turret-only) unit: aims/fires/lays mines above, never patrols/moves.
         }
 
         auto* nav_agent = registry.try_get<NavAgent>(entity);
@@ -395,14 +488,14 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
         if (ai.dodge_cooldown_sec > 0.0f) {
             ai.dodge_cooldown_sec -= dt;
         }
-        if (ai.state != BehaviorState::Dodge && ai.dodge_cooldown_sec <= 0.0f) {
-            if (const auto threat = FindNearestProjectileThreat(registry, transform.position, kDistStartDodge)) {
+        if (tuning.can_dodge_proj && ai.state != BehaviorState::Dodge && ai.dodge_cooldown_sec <= 0.0f) {
+            if (const auto threat = FindNearestProjectileThreat(registry, transform.position, tuning.dist_start_dodge)) {
                 ai.state = BehaviorState::Dodge;
                 ClearPath(nav_agent);
                 if (nav_agent != nullptr) {
                     PickDodgeTarget(world, transform, *threat, *nav_agent);
                 }
-                ai.dodge_cooldown_sec = kDodgeCooldownSec;
+                ai.dodge_cooldown_sec = tuning.dodge_cooldown_sec;
             }
         }
 
@@ -424,10 +517,10 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
 
             case BehaviorState::Patrolling:
                 if (PathExhausted(nav_agent) && nav_agent != nullptr) {
-                    PickPatrolTarget(world, transform, ai, *nav_agent);
+                    PickPatrolTarget(world, transform, ai, *nav_agent, tuning.patrol_radius);
                 }
                 if (target != entt::null &&
-                    (registry.get<Transform>(target).position - transform.position).Length() < kDistLeavePatrol) {
+                    (registry.get<Transform>(target).position - transform.position).Length() < tuning.dist_leave_patrol) {
                     ai.state = BehaviorState::Defending;
                     ai.state_timer_sec = 0.0f;
                     ClearPath(nav_agent);
@@ -436,7 +529,7 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
 
             case BehaviorState::Defending: {
                 if (ai.state_timer_sec <= 0.0f) {
-                    ai.state_timer_sec = kDefendTimeSec;
+                    ai.state_timer_sec = tuning.defend_time_sec;
                 }
                 ai.state_timer_sec -= dt;
                 if (ai.state_timer_sec <= 0.0f) {
@@ -448,7 +541,7 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
                     break;
                 }
                 const Vec2 target_pos = registry.get<Transform>(target).position;
-                if ((target_pos - transform.position).Length() > kDistLeaveDefend) {
+                if ((target_pos - transform.position).Length() > tuning.dist_leave_defend) {
                     ai.state = BehaviorState::Attacking;
                     ClearPath(nav_agent);
                     break;
@@ -464,7 +557,7 @@ void BehaviorSystem::Update(entt::registry& registry, WorldQuery& world, float d
                     break;
                 }
                 const Vec2 target_pos = registry.get<Transform>(target).position;
-                if ((target_pos - transform.position).Length() < kDistLeaveAttack) {
+                if ((target_pos - transform.position).Length() < tuning.dist_leave_attack) {
                     ai.state = BehaviorState::Defending;
                     ai.state_timer_sec = 0.0f;
                     ClearPath(nav_agent);

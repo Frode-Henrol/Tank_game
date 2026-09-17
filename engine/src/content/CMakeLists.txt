@@ -1,10 +1,11 @@
 # Map-file and UnitDef/AIPersonality JSON parsing + the entity factory ("spawn from UnitDef").
 # No SDL dependency - this module only ever produces data (positions, stats, texture-id
-# strings); actually loading a texture/sound from a texture-id is the render/audio modules'
-# job. Full map parser + UnitDef schema land in M1/M3; this is a placeholder target for now.
+# strings); actually loading a texture/sound from a texture-id is the render/audio modules' job.
 
 add_library(tank_content STATIC
     src/map_loader.cpp
+    src/unit_def.cpp
+    src/unit_factory.cpp
 )
 add_library(tank::content ALIAS tank_content)
 

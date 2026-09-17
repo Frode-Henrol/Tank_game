@@ -13,6 +13,8 @@
 #include <entt/entt.hpp>
 
 #include "tank/content/map_loader.hpp"
+#include "tank/content/unit_def.hpp"
+#include "tank/content/unit_factory.hpp"
 #include "tank/ecs/gameplay_components.hpp"
 #include "tank/physics/obstacle_world.hpp"
 #include "tank/physics/oriented_box.hpp"
@@ -498,6 +500,84 @@ void TestSegmentIntersectionPrecisionAtMapScale() {
     }
 }
 
+void TestLoadRealUnitAndAIData() {
+    std::printf("-- LoadRealUnitAndAIData --\n");
+    const std::string units_path = std::string(ASSET_ROOT) + "/units/units.json";
+    const std::string ai_path = std::string(ASSET_ROOT) + "/units/ai.json";
+    const auto units = tank::content::LoadUnitDefs(units_path);
+    const auto personalities = tank::content::LoadAIPersonalities(ai_path);
+
+    Check(units.size() >= 24, "units.json loads all 5 player loadouts + ~24 enemy types (" + std::to_string(units.size()) +
+                                   " entries)");
+    Check(personalities.size() >= 19, "ai.json loads all 19 enemy personalities (" + std::to_string(personalities.size()) +
+                                           " entries)");
+
+    const auto brown_it = units.find("brown_tank");
+    Check(brown_it != units.end(), "brown_tank is present in units.json");
+    if (brown_it != units.end()) {
+        Check(brown_it->second.tank_speed_modifier == 0.0f, "brown_tank's speed modifier is 0 (stationary turret)");
+        Check(brown_it->second.ai_personality == "brown", "brown_tank references the 'brown' ai.json personality");
+        Check(brown_it->second.bounch_limit == 1, "brown_tank's bounch_limit matches units.json (1)");
+    }
+
+    const auto player_it = units.find("player_classic");
+    Check(player_it != units.end(), "player_classic is present in units.json");
+    if (player_it != units.end()) {
+        Check(player_it->second.ai_personality == "player", "player_classic's ai_personality is the special 'player' marker");
+    }
+
+    const auto marine_it = personalities.find("marine");
+    Check(marine_it != personalities.end(), "'marine' personality is present in ai.json");
+    if (marine_it != personalities.end()) {
+        Check(marine_it->second.perfect_aim, "marine has perfect_aim=true, matching ai.json");
+        Check(marine_it->second.defend_time == 999999.0f, "marine's defend_time matches ai.json's 999999 (effectively never leaves defend)");
+    }
+
+    const auto brown_personality_it = personalities.find("brown");
+    Check(brown_personality_it != personalities.end(), "'brown' personality is present in ai.json");
+    if (brown_personality_it != personalities.end()) {
+        Check(brown_personality_it->second.aiming_angle == 180.0f, "brown's aiming_angle matches ai.json's explicit 180");
+        Check(brown_personality_it->second.patrol_radius == 200.0f,
+              "brown's patrol_radius falls back to the default (not present in ai.json for this personality)");
+    }
+}
+
+void TestUnitTypeCodeToName() {
+    std::printf("-- UnitTypeCodeToName --\n");
+    Check(tank::content::UnitTypeCodeToName(0) == "player1_tank", "type code 0 maps to player1_tank");
+    Check(tank::content::UnitTypeCodeToName(7) == "violet_tank", "type code 7 maps to violet_tank");
+    Check(tank::content::UnitTypeCodeToName(19) == "zblack_tank", "type code 19 maps to zblack_tank");
+    Check(tank::content::UnitTypeCodeToName(20) == "player2_tank", "type code 20 (multiplayer-only) still maps correctly");
+}
+
+void TestSpawnUnitFromRealData() {
+    std::printf("-- SpawnUnitFromRealData --\n");
+    const auto units = tank::content::LoadUnitDefs(std::string(ASSET_ROOT) + "/units/units.json");
+    const auto personalities = tank::content::LoadAIPersonalities(std::string(ASSET_ROOT) + "/units/ai.json");
+    entt::registry registry;
+
+    const tank::content::SpawnParams enemy_params{Vec2{500.0f, 500.0f}, 90.0f, /*team=*/2, /*type_code=*/1};  // brown_tank
+    const auto enemy = tank::content::SpawnUnit(registry, units, personalities, enemy_params, ASSET_ROOT);
+
+    Check(registry.get<ecs::TrackedMovement>(enemy).max_speed == 0.0f, "spawned brown_tank has max_speed 0 (stationary)");
+    Check(registry.get<ecs::WeaponMounts>(enemy).weapons[0].def.bounce_limit == 2,
+          "spawned brown_tank's weapon bounce_limit is bounch_limit+1 (1+1=2), matching the original's Tank() call");
+    Check(registry.all_of<ecs::AIControlled>(enemy), "a non-player spawn gets AIControlled");
+    Check(!registry.all_of<ecs::PlayerControlled>(enemy), "a non-player spawn does not get PlayerControlled");
+    Check(registry.all_of<ecs::AIPersonalityTuning>(enemy), "a non-player spawn gets AIPersonalityTuning");
+    if (registry.all_of<ecs::AIPersonalityTuning>(enemy)) {
+        Check(registry.get<ecs::AIPersonalityTuning>(enemy).aiming_angle_deg == 180.0f,
+              "spawned brown_tank's resolved tuning carries ai.json's aiming_angle (180)");
+    }
+
+    const tank::content::SpawnParams player_params{Vec2{600.0f, 900.0f}, 0.0f, /*team=*/1, /*type_code=*/0};
+    const auto player = tank::content::SpawnUnit(registry, units, personalities, player_params, ASSET_ROOT);
+    Check(registry.all_of<ecs::PlayerControlled>(player), "a type_code=0 spawn gets PlayerControlled");
+    Check(!registry.all_of<ecs::AIControlled>(player), "a player spawn does not get AIControlled");
+    Check(registry.get<ecs::Sprite>(player).texture_id.find("player1_tank.png") != std::string::npos,
+          "player spawn's sprite texture is player1_tank.png");
+}
+
 void TestMine() {
     std::printf("-- Mine --\n");
     entt::registry registry;
@@ -570,6 +650,9 @@ int main() {
     TestHitRadiusCoversCorners();
     TestProjectileWallBounce();
     TestSegmentIntersectionPrecisionAtMapScale();
+    TestLoadRealUnitAndAIData();
+    TestUnitTypeCodeToName();
+    TestSpawnUnitFromRealData();
     TestNoTunnelingAcrossRealMap();
     TestMine();
 

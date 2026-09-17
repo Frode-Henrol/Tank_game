@@ -121,15 +121,26 @@ void TestTargetingAndFiring() {
 
     const auto unit = SpawnAIUnit(registry, Vec2{500.0f, 500.0f}, 1);
     const auto enemy = SpawnAIUnit(registry, Vec2{700.0f, 500.0f}, 2);
+    // Immobile so this test isolates the *shooter's* aim jitter: the enemy is itself a full AI
+    // actor with its own Patrol/Defend/Attack logic, and if it were free to move, intercept-lead
+    // could push the aim point (and so the jitter cone's absolute lateral spread, which scales
+    // with aim distance) farther out than the bound below assumes - a real source of flakiness
+    // in an earlier version of this test, not a bug in the targeting math itself.
+    registry.get<ecs::TrackedMovement>(enemy).max_speed = 0.0f;
     const float enemy_dist = (registry.get<ecs::Transform>(enemy).position - Vec2{500.0f, 500.0f}).Length();
 
     // M2b adds an aiming-inaccuracy cone (re-rolled every ~1.5s, not every tick) and a
     // shoot-safety gate, so a single tick's fire decision is no longer guaranteed like it was
-    // in M2a - run across several re-roll periods and require firing at least once, and check
-    // the aim point stays *close to* (not exactly on) the enemy, consistent with the cone.
+    // in M2a - run across many re-roll periods and require firing at least once. Only jitter
+    // rolls landing within shoot_threshold (~15px at 200px range, i.e. within about +/-4.3deg of
+    // dead-on) actually fire, so each of the ~15deg-wide re-rolls has only roughly a 29% chance
+    // of hitting; running just a handful of re-roll periods (as an earlier version of this test
+    // did) has a real, non-negligible chance of every single one missing - not a bug, just too
+    // few independent trials. 3500 ticks =~35s =~23 re-roll periods drives the chance of a false
+    // failure down to roughly 0.71^23, effectively zero, without changing what's being tested.
     bool ever_fired = false;
     float max_aim_deviation = 0.0f;
-    for (int i = 0; i < 500; ++i) {
+    for (int i = 0; i < 3500; ++i) {
         behavior_system.Update(registry, world, dt);
         if (registry.get<ecs::FireIntent>(unit).want_fire) {
             ever_fired = true;

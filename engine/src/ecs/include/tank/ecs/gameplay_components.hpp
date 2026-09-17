@@ -208,6 +208,33 @@ struct AIControlled {
     float aim_jitter_timer_sec = 0.0f;
 };
 
+// Per-unit AI tuning (M3), resolved from an AIPersonality JSON entry (ai.json's schema) by the
+// content module's entity factory at spawn time, and read every tick by the ai module's
+// BehaviorSystem - kept as its own component, separate from AIControlled's mutable behavior-
+// state scratch, since this is read-only configuration data. An entity with no
+// AIPersonalityTuning falls back to BehaviorSystem's built-in defaults (used by the M2
+// milestones' own test fixtures, which predate this component and still spawn units without it).
+struct AIPersonalityTuning {
+    float patrol_radius = 200.0f;
+    float dist_leave_patrol = 500.0f;
+    float dist_leave_defend = 800.0f;
+    float dist_leave_attack = 200.0f;
+    bool can_dodge_proj = true;
+    float dist_start_dodge = 45.0f;
+    float dodge_cooldown_sec = 0.5f;  // converted from ai.json's proj_dodge_cooldown_val (AI-ticks @ 60Hz) / 60
+    float aiming_angle_deg = 25.0f;
+    bool perfect_aim = false;
+    bool predictive_targeting = true;
+    int predictive_targeting_chance = 50;  // percent
+    float shoot_threshold = 10.0f;
+    float safe_threshold = 50.0f;
+    float defend_time_sec = 10.0f;     // converted from ai.json's defend_time (AI-ticks @ 60Hz) / 60
+    float mine_chance_per_sec = 0.0f;  // converted from ai.json's mine_chance (an expected-rate approximation)
+    float mine_min_distance = 250.0f;
+    bool random_mines = false;
+    float avoid_mine_dist = 300.0f;
+};
+
 // Tag: exactly one of PlayerControlled / AIControlled is present on any unit that can act.
 struct PlayerControlled {
     int player_index = 0;

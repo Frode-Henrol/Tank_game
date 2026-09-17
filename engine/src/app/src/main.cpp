@@ -1,8 +1,10 @@
 // Loads a real map (tankgame/map_files/map_test1.txt, parsed by the original's unmodified text
-// format), builds the physics::ObstacleWorld and ai::NavGrid from it, spawns every unit the map
-// defines as an ECS entity (team 1 = the player, driven by WASD/mouse/E; everything else is
-// AI-controlled, per M2a's behavior FSM), and runs the full system pipeline every fixed tick:
-// AI, movement, wall collision + push-back, tank-tank repulsion, weapon firing, projectile
+// format) plus the original's units.json/ai.json (also unmodified), builds the
+// physics::ObstacleWorld and ai::NavGrid, and spawns every unit the map defines via
+// content::SpawnUnit - the real per-type stats/AI-personality/sprite from those files, not
+// M0-M2's hardcoded placeholder stats. Team 1 is the player (WASD/mouse/E); everything else is
+// AI-controlled per M2's behavior FSM. Runs the full system pipeline every fixed tick: AI,
+// movement, wall collision + push-back, tank-tank repulsion, weapon firing, projectile
 // movement/bounce/damage, and mine deploy/arm/explode. 'N' spawns a wave of synthetic stress
 // entities to sanity-check scaling; the printed average tick time is the scalability signal.
 //
@@ -25,6 +27,8 @@
 #include "tank/ai/nav_grid.hpp"
 #include "tank/ai/world_query.hpp"
 #include "tank/content/map_loader.hpp"
+#include "tank/content/unit_def.hpp"
+#include "tank/content/unit_factory.hpp"
 #include "tank/core/app.hpp"
 #include "tank/core/state.hpp"
 #include "tank/ecs/gameplay_components.hpp"
@@ -76,46 +80,6 @@ private:
     const tank::ai::NavGrid& nav_grid_;
 };
 
-entt::entity SpawnTank(entt::registry& registry, const tank::content::UnitSpawn& spawn,
-                       tank::render::TextureCache& textures, const std::string& asset_root) {
-    (void)textures;  // Texture is lazily loaded by TextureCache::Get() the first time it's drawn.
-    const auto entity = registry.create();
-
-    registry.emplace<ecs::Transform>(entity, spawn.position, spawn.angle_deg);
-    registry.emplace<ecs::PreviousPosition>(entity, spawn.position);
-    registry.emplace<ecs::TrackedMovement>(entity, 115.2f, 180.0f);
-    // Half-extents match the 40x48 Sprite below (20x24), not a 40x40 square - a mismatched,
-    // visually-too-small collision box was part of the "hits feel janky" playtesting feedback.
-    registry.emplace<ecs::CollisionShape>(entity, ecs::ColliderShape::Box, 20.0f, 24.0f);
-    registry.emplace<ecs::Health>(entity, 1.0f, 1.0f, 1.0f);
-    registry.emplace<ecs::Faction>(entity, spawn.team);
-    registry.emplace<ecs::MovementIntent>(entity);
-    registry.emplace<ecs::AimIntent>(entity, Vec2{spawn.position.x + 1.0f, spawn.position.y});
-    registry.emplace<ecs::FireIntent>(entity);
-    registry.emplace<ecs::MineIntent>(entity);
-    registry.emplace<ecs::MineDeployer>(entity, 0.0f, 4, 0);
-
-    ecs::WeaponDef def{};
-    def.fire_interval_sec = 2.0f * 5.0f / 60.0f;  // matches player_classic's firerate=2 normalization
-    def.projectile_speed = 3.36f * 60.0f;         // matches player_classic's projectile_speed_modifier
-    def.bounce_limit = 2;
-    def.projectile_limit = 5;
-    def.damage = 1.0f;
-    registry.emplace<ecs::WeaponMounts>(entity, ecs::WeaponMounts{{ecs::WeaponState{def, 0.0f, 0, 0.0f, false}}});
-
-    const bool is_player = spawn.team == 1;
-    const std::string texture = asset_root + (is_player ? "/units/images/player1_tank.png" : "/units/images/violet_tank.png");
-    registry.emplace<ecs::Sprite>(entity, ecs::Sprite{texture, 0.5f, 0.5f, 40.0f, 48.0f, 90.0f});
-
-    if (is_player) {
-        registry.emplace<ecs::PlayerControlled>(entity, 0);
-    } else {
-        registry.emplace<ecs::AIControlled>(entity);
-        registry.emplace<ecs::NavAgent>(entity);
-    }
-    return entity;
-}
-
 void SpawnStressEntities(entt::registry& registry, const tank::content::MapData& map, int count) {
     static std::mt19937 rng{std::random_device{}()};
     if (map.border.size() < 4) {
@@ -153,8 +117,10 @@ int main(int /*argc*/, char** /*argv*/) {
         std::fprintf(stderr, "Failed to load map - aborting.\n");
         return 1;
     }
+    const auto unit_defs = tank::content::LoadUnitDefs(asset_root + "/units/units.json");
+    const auto ai_personalities = tank::content::LoadAIPersonalities(asset_root + "/units/ai.json");
 
-    tank::render::Window window("Tank Game (engine skeleton - M2)", 1400, 950);
+    tank::render::Window window("Tank Game (engine skeleton - M3)", 1400, 950);
     tank::render::TextureCache textures(window.Renderer());
 
     tank::physics::ObstacleWorld obstacle_world;
@@ -168,7 +134,8 @@ int main(int /*argc*/, char** /*argv*/) {
     entt::registry registry;
     entt::entity player_entity = entt::null;
     for (const auto& spawn : map->spawns) {
-        const auto entity = SpawnTank(registry, spawn, textures, asset_root);
+        const tank::content::SpawnParams params{spawn.position, spawn.angle_deg, spawn.team, spawn.type_code};
+        const auto entity = tank::content::SpawnUnit(registry, unit_defs, ai_personalities, params, asset_root);
         if (spawn.team == 1) {
             player_entity = entity;
         }
